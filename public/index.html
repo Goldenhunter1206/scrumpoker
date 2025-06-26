@@ -601,6 +601,21 @@
                         </div>
                     </div>
                     <div id="vote-breakdown"></div>
+                    
+                    <!-- Finalize Estimation Section -->
+                    <div id="finalize-estimation" class="finalize-section hidden">
+                        <h4>🎯 Finalize Story Points</h4>
+                        <p>Set the final story points for this Jira issue:</p>
+                        <div style="display: flex; align-items: center; gap: 15px; margin: 15px 0;">
+                            <label for="final-estimate" style="font-weight: 600;">Story Points:</label>
+                            <input type="number" id="final-estimate" min="0" max="100" step="0.5" 
+                                   style="width: 100px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 16px;">
+                            <button class="btn" onclick="finalizeEstimation()" id="finalize-btn">Update Jira Issue</button>
+                        </div>
+                        <p style="font-size: 14px; color: #6b7280; margin-top: 10px;">
+                            💡 The value will be automatically rounded to the nearest Fibonacci number (0, 0.5, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89)
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -739,14 +754,39 @@
 
             socket.on('jira-updated', (data) => {
                 showNotification(`Updated ${data.issueKey} with ${data.storyPoints} story points`, 'success');
+                
                 // Update current issue if it's the one that was updated
                 if (gameState.currentJiraIssue && gameState.currentJiraIssue.key === data.issueKey) {
                     gameState.currentJiraIssue.currentStoryPoints = data.storyPoints;
                 }
+                
+                // Update the issue in the issues list
+                const issueIndex = gameState.jiraIssues.findIndex(issue => issue.key === data.issueKey);
+                if (issueIndex !== -1) {
+                    gameState.jiraIssues[issueIndex].currentStoryPoints = data.storyPoints;
+                }
+                
+                // Clear current ticket and reset voting after successful update
+                gameState.currentTicket = '';
+                gameState.currentJiraIssue = null;
+                gameState.votingRevealed = false;
+                gameState.myVote = null;
+                
+                // Update UI
+                updateSessionUI(data.sessionData);
+                updateTicketDisplay();
+                resetVotingUI();
+                
+                // Refresh the Jira issues display to show updated story points
+                displayJiraIssues();
+                
+                // Re-enable finalize button
+                document.getElementById('finalize-btn').disabled = false;
             });
 
             socket.on('jira-update-failed', (data) => {
                 showNotification(data.message, 'error');
+                document.getElementById('finalize-btn').disabled = false;
             });
 
             socket.on('ticket-set', (data) => {
@@ -985,6 +1025,7 @@
                 email: email,
                 token: token
             });
+            console.log('configured jira');
         }
 
         function updateJiraUI() {
@@ -1043,33 +1084,78 @@
                 return;
             }
 
-            gameState.jiraIssues.forEach(issue => {
-                const div = document.createElement('div');
-                div.className = 'jira-issue';
-                div.onclick = () => selectJiraIssue(issue);
-                
-                const currentPoints = issue.currentStoryPoints ? 
-                    `<span class="jira-current-points">${issue.currentStoryPoints} SP</span>` : '';
-                
-                div.innerHTML = `
-                    <div class="jira-issue-key">${issue.key} ${currentPoints}</div>
-                    <div class="jira-issue-summary">${issue.summary}</div>
-                    <div class="jira-issue-meta">
-                        <span>📋 ${issue.issueType}</span>
-                        <span>🔺 ${issue.priority}</span>
-                        <span>📊 ${issue.status}</span>
-                        <span>👤 ${issue.assignee}</span>
-                    </div>
-                `;
-                
-                container.appendChild(div);
-            });
+            // Separate issues with and without story points
+            const unestimatedIssues = gameState.jiraIssues.filter(issue => !issue.currentStoryPoints);
+            const estimatedIssues = gameState.jiraIssues.filter(issue => issue.currentStoryPoints);
+
+            // Show unestimated issues first
+            if (unestimatedIssues.length > 0) {
+                const unestimatedHeader = document.createElement('div');
+                unestimatedHeader.innerHTML = '<h4 style="margin: 15px 0 10px 0; color: #374151;">📋 Ready for Estimation</h4>';
+                container.appendChild(unestimatedHeader);
+
+                unestimatedIssues.forEach(issue => {
+                    const div = document.createElement('div');
+                    div.className = 'jira-issue';
+                    div.onclick = () => selectJiraIssue(issue);
+                    
+                    div.innerHTML = `
+                        <div class="jira-issue-key">${issue.key}</div>
+                        <div class="jira-issue-summary">${issue.summary}</div>
+                        <div class="jira-issue-meta">
+                            <span>📋 ${issue.issueType}</span>
+                            <span>🔺 ${issue.priority}</span>
+                            <span>📊 ${issue.status}</span>
+                            <span>👤 ${issue.assignee}</span>
+                        </div>
+                    `;
+                    
+                    container.appendChild(div);
+                });
+            }
+
+            // Show estimated issues (read-only)
+            if (estimatedIssues.length > 0) {
+                const estimatedHeader = document.createElement('div');
+                estimatedHeader.innerHTML = '<h4 style="margin: 25px 0 10px 0; color: #374151;">✅ Already Estimated</h4>';
+                container.appendChild(estimatedHeader);
+
+                estimatedIssues.forEach(issue => {
+                    const div = document.createElement('div');
+                    div.className = 'jira-issue';
+                    div.style.opacity = '0.7';
+                    div.style.cursor = 'default';
+                    div.style.background = '#f9fafb';
+                    
+                    const currentPoints = issue.currentStoryPoints ? 
+                        `<span class="jira-current-points">${issue.currentStoryPoints} SP</span>` : '';
+                    
+                    div.innerHTML = `
+                        <div class="jira-issue-key">${issue.key} ${currentPoints}</div>
+                        <div class="jira-issue-summary">${issue.summary}</div>
+                        <div class="jira-issue-meta">
+                            <span>📋 ${issue.issueType}</span>
+                            <span>🔺 ${issue.priority}</span>
+                            <span>📊 ${issue.status}</span>
+                            <span>👤 ${issue.assignee}</span>
+                        </div>
+                    `;
+                    
+                    container.appendChild(div);
+                });
+            }
             
             section.classList.remove('hidden');
             document.getElementById('load-issues-btn').disabled = false;
         }
 
         function selectJiraIssue(issue) {
+            // Don't allow selection of already estimated issues
+            if (issue.currentStoryPoints) {
+                showNotification('This issue is already estimated. Choose an unestimated issue.', 'error');
+                return;
+            }
+
             // Remove previous selection
             document.querySelectorAll('.jira-issue').forEach(el => {
                 el.classList.remove('selected');
@@ -1200,6 +1286,7 @@
             updateCardSelection(null);
             updateVotingCards();
             document.getElementById('results').classList.add('hidden');
+            document.getElementById('finalize-estimation').classList.add('hidden');
         }
 
         function revealVotes() {
@@ -1235,8 +1322,40 @@
                 `;
             });
             
+            // Show finalize estimation section for Jira issues (facilitator only)
+            const finalizeSection = document.getElementById('finalize-estimation');
+            if (gameState.isFacilitator && gameState.currentJiraIssue && gameState.jiraConfig) {
+                finalizeSection.classList.remove('hidden');
+                // Pre-populate with consensus or average
+                const suggestedValue = results.consensus && !isNaN(results.consensus) ? 
+                    parseFloat(results.consensus) : results.average;
+                document.getElementById('final-estimate').value = suggestedValue.toFixed(1);
+            } else {
+                finalizeSection.classList.add('hidden');
+            }
+            
             document.getElementById('results').classList.remove('hidden');
             updateCardSelection(null); // Disable cards after reveal
+        }
+
+        function finalizeEstimation() {
+            const finalEstimate = parseFloat(document.getElementById('final-estimate').value);
+            
+            if (isNaN(finalEstimate) || finalEstimate < 0) {
+                showNotification('Please enter a valid story point value', 'error');
+                return;
+            }
+
+            if (!gameState.currentJiraIssue) {
+                showNotification('No Jira issue selected', 'error');
+                return;
+            }
+
+            document.getElementById('finalize-btn').disabled = true;
+            socket.emit('finalize-estimation', {
+                roomCode: gameState.roomCode,
+                finalEstimate: finalEstimate
+            });
         }
 
         function endSession() {

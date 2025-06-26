@@ -4,7 +4,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
 const cors = require('cors');
-const axios = require('axios');
+const fetch = global.fetch || ((...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args)));
 
 // Load environment variables (optional in production)
 try {
@@ -56,35 +56,63 @@ const sessions = new Map();
 
 // Jira API helper functions
 async function makeJiraRequest(config, endpoint, method = 'GET', data = null) {
+    // Support both core (api/3) and agile (agile/1.0) endpoints
+    // If the caller prefixes the endpoint with "agile/", we will hit the agile API; otherwise, default to the core API.
+    console.log('config', config);
     const auth = Buffer.from(`${config.email}:${config.token}`).toString('base64');
-    
+
+    // Determine full URL
+    const baseUrl = endpoint.startsWith('agile/')
+        ? `https://${config.domain}/rest/${endpoint}`               // agile/1.0/...
+        : `https://${config.domain}/rest/api/3/${endpoint}`;        // api/3/...
+
     try {
-        const response = await axios({
+        console.log('Making Jira request to:', baseUrl);
+
+        const fetchOptions = {
             method,
-            url: `https://${config.domain}/rest/api/3/${endpoint}`,
             headers: {
                 'Authorization': `Basic ${auth}`,
                 'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            data
-        });
-        return { success: true, data: response.data };
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Node.js Jira Client)'
+            }
+        };
+
+        if (data) {
+            fetchOptions.body = JSON.stringify(data);
+        }
+
+        const response = await fetch(baseUrl, fetchOptions);
+
+        const responseData = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            console.error('Jira API Error:', responseData);
+            return {
+                success: false,
+                error: responseData?.errorMessages?.[0] || response.statusText
+            };
+        }
+
+        return { success: true, data: responseData };
     } catch (error) {
-        console.error('Jira API Error:', error.response?.data || error.message);
-        return { 
-            success: false, 
-            error: error.response?.data?.errorMessages?.[0] || error.message 
+        console.error('Jira API Error:', error.message);
+        return {
+            success: false,
+            error: error.message
         };
     }
 }
 
 async function getJiraBoards(config) {
-    return await makeJiraRequest(config, 'board?type=scrum');
+    // Use the Agile API to list Scrum boards
+    return await makeJiraRequest(config, 'agile/1.0/board');
 }
 
 async function getJiraBoardIssues(config, boardId) {
-    const endpoint = `board/${boardId}/backlog?fields=key,summary,description,issuetype,priority,status,assignee,customfield_10016`;
+    // Fetch backlog issues for a specific board via the Agile API
+    const endpoint = `agile/1.0/board/${boardId}/backlog?fields=key,summary,description,issuetype,priority,status,assignee,customfield_10016`;
     return await makeJiraRequest(config, endpoint);
 }
 
@@ -246,6 +274,7 @@ io.on('connection', (socket) => {
 
     // Configure Jira integration
     socket.on('configure-jira', async ({ roomCode, domain, email, token }) => {
+        console.log('configure-jira', roomCode, domain, email, token);
         try {
             const session = sessions.get(roomCode);
             if (!session) return;
@@ -257,6 +286,7 @@ io.on('connection', (socket) => {
                 socket.emit('error', { message: 'Only facilitator can configure Jira' });
                 return;
             }
+            console.log('facilitator', facilitator);
 
             // Test the connection
             const config = { domain, email, token };
@@ -389,8 +419,17 @@ io.on('connection', (socket) => {
             session.currentJiraIssue.currentStoryPoints = roundedEstimate;
             session.lastActivity = new Date();
 
+            // Store issue key before clearing
+            const updatedIssueKey = session.currentJiraIssue.key;
+
+            // Clear current ticket and voting after successful Jira update
+            session.currentTicket = '';
+            session.currentJiraIssue = null;
+            session.votes.clear();
+            session.votingRevealed = false;
+
             io.to(roomCode).emit('jira-updated', {
-                issueKey: session.currentJiraIssue.key,
+                issueKey: updatedIssueKey,
                 storyPoints: roundedEstimate,
                 originalEstimate: finalEstimate,
                 sessionData: getSessionData(session)
