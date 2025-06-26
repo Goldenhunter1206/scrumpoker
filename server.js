@@ -164,6 +164,8 @@ function createSession(sessionName, facilitatorName, facilitatorSocketId) {
         participants: new Map(),
         votes: new Map(),
         votingRevealed: false,
+        countdownActive: false,
+        countdownTimer: null,
         createdAt: new Date(),
         lastActivity: new Date()
     };
@@ -376,6 +378,13 @@ io.on('connection', (socket) => {
             session.votingRevealed = false;
             session.lastActivity = new Date();
 
+            // Clear countdown if active
+            if (session.countdownTimer) {
+                clearInterval(session.countdownTimer);
+                session.countdownTimer = null;
+                session.countdownActive = false;
+            }
+
             io.to(roomCode).emit('jira-issue-set', {
                 issue,
                 sessionData: getSessionData(session)
@@ -459,6 +468,13 @@ io.on('connection', (socket) => {
             session.votes.clear();
             session.votingRevealed = false;
             session.lastActivity = new Date();
+
+            // Clear countdown if active
+            if (session.countdownTimer) {
+                clearInterval(session.countdownTimer);
+                session.countdownTimer = null;
+                session.countdownActive = false;
+            }
 
             io.to(roomCode).emit('ticket-set', {
                 ticket,
@@ -650,6 +666,13 @@ io.on('connection', (socket) => {
             session.votingRevealed = false;
             session.lastActivity = new Date();
 
+            // Clear countdown if active
+            if (session.countdownTimer) {
+                clearInterval(session.countdownTimer);
+                session.countdownTimer = null;
+                session.countdownActive = false;
+            }
+
             io.to(roomCode).emit('voting-reset', {
                 sessionData: getSessionData(session)
             });
@@ -657,6 +680,103 @@ io.on('connection', (socket) => {
             console.log(`Voting reset in session ${roomCode}`);
         } catch (error) {
             socket.emit('error', { message: 'Failed to reset voting' });
+        }
+    });
+
+    // Start countdown
+    socket.on('start-countdown', ({ roomCode, duration }) => {
+        try {
+            const session = sessions.get(roomCode);
+            if (!session) return;
+
+            const participant = Array.from(session.participants.values())
+                .find(p => p.socketId === socket.id);
+            
+            if (!participant?.isFacilitator) {
+                socket.emit('error', { message: 'Only facilitator can start countdown' });
+                return;
+            }
+
+            if (session.votingRevealed) {
+                socket.emit('error', { message: 'Voting is already complete' });
+                return;
+            }
+
+            if (session.countdownActive) {
+                socket.emit('error', { message: 'Countdown is already active' });
+                return;
+            }
+
+            // Clear any existing timer
+            if (session.countdownTimer) {
+                clearInterval(session.countdownTimer);
+            }
+
+            session.countdownActive = true;
+            session.lastActivity = new Date();
+            let secondsLeft = duration;
+
+            // Notify all participants that countdown started
+            io.to(roomCode).emit('countdown-started', {
+                duration: duration
+            });
+
+            // Start the countdown timer
+            session.countdownTimer = setInterval(() => {
+                secondsLeft--;
+                
+                if (secondsLeft > 0) {
+                    // Send tick update
+                    io.to(roomCode).emit('countdown-tick', {
+                        secondsLeft: secondsLeft,
+                        totalDuration: duration
+                    });
+                } else {
+                    // Countdown finished - auto reveal votes
+                    clearInterval(session.countdownTimer);
+                    session.countdownTimer = null;
+                    session.countdownActive = false;
+                    session.votingRevealed = true;
+                    session.lastActivity = new Date();
+
+                    // Calculate results
+                    const numericVotes = Array.from(session.votes.values())
+                        .filter(vote => typeof vote === 'number');
+                    
+                    const results = {
+                        average: numericVotes.length > 0 ? 
+                            numericVotes.reduce((sum, vote) => sum + vote, 0) / numericVotes.length : 0,
+                        voteCounts: {},
+                        totalVotes: session.votes.size
+                    };
+
+                    // Count vote distribution
+                    session.votes.forEach(vote => {
+                        results.voteCounts[vote] = (results.voteCounts[vote] || 0) + 1;
+                    });
+
+                    // Find consensus
+                    results.consensus = Object.keys(results.voteCounts).reduce((a, b) => 
+                        results.voteCounts[a] > results.voteCounts[b] ? a : b, null
+                    );
+
+                    // Notify countdown finished and reveal votes
+                    io.to(roomCode).emit('countdown-finished', {
+                        sessionData: getSessionData(session)
+                    });
+
+                    io.to(roomCode).emit('votes-revealed', {
+                        sessionData: getSessionData(session),
+                        results
+                    });
+
+                    console.log(`Countdown finished and votes auto-revealed in session ${roomCode}`);
+                }
+            }, 1000);
+
+            console.log(`Countdown started in session ${roomCode} for ${duration} seconds`);
+        } catch (error) {
+            socket.emit('error', { message: 'Failed to start countdown' });
         }
     });
 
@@ -672,6 +792,11 @@ io.on('connection', (socket) => {
             if (!participant?.isFacilitator) {
                 socket.emit('error', { message: 'Only facilitator can end session' });
                 return;
+            }
+
+            // Clear countdown timer if active
+            if (session.countdownTimer) {
+                clearInterval(session.countdownTimer);
             }
 
             io.to(roomCode).emit('session-ended', {
@@ -711,6 +836,11 @@ io.on('connection', (socket) => {
                 
                 // If facilitator disconnects, end the session
                 if (participant.isFacilitator) {
+                    // Clear countdown timer if active
+                    if (session.countdownTimer) {
+                        clearInterval(session.countdownTimer);
+                    }
+                    
                     io.to(roomCode).emit('session-ended', {
                         message: 'Session ended - facilitator disconnected'
                     });
@@ -772,6 +902,10 @@ setInterval(() => {
     
     sessions.forEach((session, roomCode) => {
         if (now - session.lastActivity > SESSION_TIMEOUT) {
+            // Clear countdown timer if active
+            if (session.countdownTimer) {
+                clearInterval(session.countdownTimer);
+            }
             sessions.delete(roomCode);
             cleaned++;
         }

@@ -387,6 +387,74 @@
             display: none;
         }
 
+        .countdown-timer {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            padding: 30px;
+            border-radius: 20px;
+            margin: 30px 0;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(245, 158, 11, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        .countdown-content h3 {
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .countdown-circle {
+            width: 120px;
+            height: 120px;
+            border: 6px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px auto;
+            position: relative;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .countdown-number {
+            font-size: 3em;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .countdown-progress {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+
+        .countdown-progress-bar {
+            height: 100%;
+            background: white;
+            border-radius: 4px;
+            transition: width 1s linear;
+            width: 100%;
+        }
+
+        .countdown-urgent {
+            background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+            animation: urgentPulse 0.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes urgentPulse {
+            0% { transform: scale(1); box-shadow: 0 10px 30px rgba(220, 38, 38, 0.3); }
+            100% { transform: scale(1.03); box-shadow: 0 15px 40px rgba(220, 38, 38, 0.5); }
+        }
+
         .room-code {
             background: #059669;
             color: white;
@@ -417,7 +485,13 @@
                 gap: 10px;
             }
         }
+
+        /* Fix for checkbox width in input groups */
+        .input-group input[type="checkbox"] {
+            width: auto;
+        }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body>
     <div class="connection-status" id="connection-status">Connecting...</div>
@@ -476,7 +550,7 @@
             <div id="session-section" class="hidden">
                 <div class="session-info">
                     <h3>Session: <span id="current-session-name"></span></h3>
-                    <p><strong>Room Code:</strong> <span class="room-code" id="room-code"></span></p>
+                    <p style="margin-bottom: 15px;"><strong>Room Code:</strong> <span class="room-code" id="room-code"></span></p>
                     <p><strong>Share this link:</strong> <span id="session-link"></span></p>
                     <p><em>Team members can join using the room code above</em></p>
                 </div>
@@ -500,6 +574,10 @@
                             <div class="input-group">
                                 <label for="jira-token">API Token <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" style="color: #059669;">(Generate here)</a></label>
                                 <input type="password" id="jira-token" placeholder="Your Jira API token">
+                            </div>
+                            <div class="input-group" style="display: flex; align-items: center;">
+                                <input type="checkbox" id="remember-jira" style="margin-right: 8px;">
+                                <label for="remember-jira" style="margin:0;">Remember credentials on this device</label>
                             </div>
                             <button class="btn" onclick="configureJira()" id="connect-jira-btn">Connect to Jira</button>
                             <button class="btn btn-secondary" onclick="toggleJiraSetup()">Cancel</button>
@@ -538,6 +616,7 @@
                     
                     <button class="btn" onclick="setCurrentTicket()" id="set-ticket-btn">Set Manual Ticket</button>
                     <button class="btn" onclick="revealVotes()" id="reveal-btn" disabled>Reveal Votes</button>
+                    <button class="btn btn-warning" onclick="startCountdown()" id="countdown-btn" disabled>Start 30s Countdown</button>
                     <button class="btn btn-secondary" onclick="resetVoting()" id="reset-btn" disabled>New Round</button>
                     <button class="btn btn-danger" onclick="endSession()">End Session</button>
                 </div>
@@ -546,6 +625,20 @@
                 <div id="current-ticket" class="ticket-info hidden">
                     <h3>📋 Current Ticket</h3>
                     <p id="ticket-description"></p>
+                </div>
+
+                <!-- Countdown Timer -->
+                <div id="countdown-display" class="countdown-timer hidden">
+                    <div class="countdown-content">
+                        <h3>⏰ Time to Vote!</h3>
+                        <div class="countdown-circle">
+                            <div class="countdown-number" id="countdown-number">30</div>
+                        </div>
+                        <p>Votes will be revealed automatically when timer reaches zero</p>
+                        <div class="countdown-progress">
+                            <div class="countdown-progress-bar" id="countdown-progress-bar"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Voting Cards -->
@@ -623,8 +716,11 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+        // CryptoJS is loaded globally above for AES encryption
+
         // Application state
         let socket;
+        let countdownInterval = null;
         let gameState = {
             roomCode: '',
             sessionName: '',
@@ -639,7 +735,9 @@
             myName: '',
             votingRevealed: false,
             myVote: null,
-            moderationTarget: null
+            moderationTarget: null,
+            countdownActive: false,
+            countdownSeconds: 0
         };
 
         // Initialize socket connection
@@ -831,6 +929,27 @@
                 }, 3000);
             });
 
+            // Countdown events
+            socket.on('countdown-started', (data) => {
+                gameState.countdownActive = true;
+                gameState.countdownSeconds = data.duration;
+                displayCountdown(data.duration, data.duration);
+                updateCountdownUI();
+                showNotification(`${data.duration} second countdown started!`, 'success');
+            });
+
+            socket.on('countdown-tick', (data) => {
+                gameState.countdownSeconds = data.secondsLeft;
+                displayCountdown(data.secondsLeft, data.totalDuration);
+            });
+
+            socket.on('countdown-finished', (data) => {
+                gameState.countdownActive = false;
+                hideCountdown();
+                updateCountdownUI();
+                showNotification('Time\'s up! Votes revealed automatically.', 'success');
+            });
+
             socket.on('error', (data) => {
                 showNotification(data.message, 'error');
                 enableButtons();
@@ -1005,10 +1124,38 @@
             }
         }
 
+        // Helper functions to persist Jira credentials (encrypted) in localStorage
+        function saveJiraCredentials(domain, email, token) {
+            try {
+                const encryptedToken = CryptoJS.AES.encrypt(token, email).toString();
+                localStorage.setItem('jiraCredentials', JSON.stringify({ domain, email, token: encryptedToken }));
+            } catch (e) {
+                console.error('Failed to save Jira credentials', e);
+            }
+        }
+
+        function loadJiraCredentials() {
+            try {
+                const raw = localStorage.getItem('jiraCredentials');
+                if (!raw) return null;
+                const { domain, email, token } = JSON.parse(raw);
+                const decryptedToken = CryptoJS.AES.decrypt(token, email).toString(CryptoJS.enc.Utf8);
+                return { domain, email, token: decryptedToken };
+            } catch (e) {
+                console.error('Failed to load Jira credentials', e);
+                return null;
+            }
+        }
+
+        function clearJiraCredentials() {
+            localStorage.removeItem('jiraCredentials');
+        }
+
         function configureJira() {
             const domain = document.getElementById('jira-domain').value.trim();
             const email = document.getElementById('jira-email').value.trim();
             const token = document.getElementById('jira-token').value.trim();
+            const remember = document.getElementById('remember-jira').checked;
 
             if (!domain || !email || !token) {
                 showNotification('Please fill in all Jira configuration fields', 'error');
@@ -1017,6 +1164,13 @@
 
             // Remove https:// if user included it
             const cleanDomain = domain.replace(/^https?:\/\//, '');
+
+            // Persist or clear credentials based on checkbox
+            if (remember) {
+                saveJiraCredentials(cleanDomain, email, token);
+            } else {
+                clearJiraCredentials();
+            }
 
             document.getElementById('connect-jira-btn').disabled = true;
             socket.emit('configure-jira', {
@@ -1179,9 +1333,11 @@
             const hasVotes = gameState.participants.some(p => p.hasVoted && !p.isViewer);
             const revealBtn = document.getElementById('reveal-btn');
             const resetBtn = document.getElementById('reset-btn');
+            const countdownBtn = document.getElementById('countdown-btn');
 
-            revealBtn.disabled = !hasVotes || gameState.votingRevealed;
+            revealBtn.disabled = (!hasVotes || gameState.votingRevealed) || gameState.countdownActive;
             resetBtn.disabled = !gameState.currentTicket;
+            countdownBtn.disabled = !gameState.currentTicket || gameState.votingRevealed || gameState.countdownActive;
         }
 
         // Ticket Management
@@ -1202,12 +1358,15 @@
                 if (gameState.currentJiraIssue) {
                     // Enhanced display for Jira issues
                     const issue = gameState.currentJiraIssue;
+                    const jiraBaseUrl = gameState.jiraConfig ? `https://${gameState.jiraConfig.domain}` : '#';
                     const currentPoints = issue.currentStoryPoints ? 
                         `<span style="background: #fbbf24; color: #92400e; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-left: 10px;">Current: ${issue.currentStoryPoints} SP</span>` : '';
                     
                     ticketElement.innerHTML = `
-                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                            <strong style="color: #059669; font-size: 16px;">${issue.key}</strong>
+                        <div style="display: flex; align-items: center; margin-bottom: 10px; gap: 10px;">
+                            <a href="${jiraBaseUrl}/browse/${issue.key}" target="_blank" style="color: #059669; font-size: 16px; font-weight: bold; text-decoration: underline;">
+                                ${issue.key}
+                            </a>
                             ${currentPoints}
                         </div>
                         <div style="font-weight: 600; margin-bottom: 8px;">${issue.summary}</div>
@@ -1283,10 +1442,13 @@
 
         function resetVotingUI() {
             gameState.myVote = null;
+            gameState.countdownActive = false;
             updateCardSelection(null);
             updateVotingCards();
             document.getElementById('results').classList.add('hidden');
             document.getElementById('finalize-estimation').classList.add('hidden');
+            hideCountdown();
+            updateCountdownUI();
         }
 
         function revealVotes() {
@@ -1364,6 +1526,59 @@
             }
         }
 
+        // Countdown functionality
+        function startCountdown() {
+            if (!gameState.currentTicket) {
+                showNotification('Please set a ticket first', 'error');
+                return;
+            }
+
+            socket.emit('start-countdown', { 
+                roomCode: gameState.roomCode,
+                duration: 30 // 30 seconds
+            });
+        }
+
+        function displayCountdown(seconds, totalDuration) {
+            const display = document.getElementById('countdown-display');
+            const numberEl = document.getElementById('countdown-number');
+            const progressBar = document.getElementById('countdown-progress-bar');
+            
+            display.classList.remove('hidden');
+            numberEl.textContent = seconds;
+            
+            // Update progress bar
+            const progress = (seconds / totalDuration) * 100;
+            progressBar.style.width = progress + '%';
+            
+            // Add urgent styling for last 10 seconds
+            if (seconds <= 10) {
+                display.classList.add('countdown-urgent');
+            } else {
+                display.classList.remove('countdown-urgent');
+            }
+        }
+
+        function hideCountdown() {
+            document.getElementById('countdown-display').classList.add('hidden');
+            document.getElementById('countdown-display').classList.remove('countdown-urgent');
+        }
+
+        function updateCountdownUI() {
+            const countdownBtn = document.getElementById('countdown-btn');
+            const revealBtn = document.getElementById('reveal-btn');
+            
+            if (gameState.countdownActive) {
+                countdownBtn.disabled = true;
+                countdownBtn.textContent = 'Countdown Active...';
+                revealBtn.disabled = true;
+            } else {
+                countdownBtn.disabled = !gameState.currentTicket || gameState.votingRevealed;
+                countdownBtn.textContent = 'Start 30s Countdown';
+                updateFacilitatorControls(); // Reset reveal button state
+            }
+        }
+
         // Moderation functions - Global scope for onclick handlers
         window.openModerationModal = function(participantName) {
             if (!gameState.isFacilitator) {
@@ -1405,6 +1620,16 @@
         // Handle URL parameters for direct room joining
         window.onload = function() {
             initSocket();
+            
+            // Prefill Jira credentials if stored
+            const storedCreds = loadJiraCredentials();
+            if (storedCreds) {
+                document.getElementById('jira-domain').value = storedCreds.domain;
+                document.getElementById('jira-email').value = storedCreds.email;
+                document.getElementById('jira-token').value = storedCreds.token;
+                const rememberJiraCheckbox = document.getElementById('remember-jira');
+                if (rememberJiraCheckbox) rememberJiraCheckbox.checked = true;
+            }
             
             const urlParams = new URLSearchParams(window.location.search);
             const roomCode = urlParams.get('room');
