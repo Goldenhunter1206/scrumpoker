@@ -1,8 +1,4 @@
-// Set current ticket (manual entry)
-    socket.on('set-ticket', ({ roomCode, ticket }) => {// Utility functions
-function generateRoomCode() {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-}// server.js - Node.js WebSocket backend for Scrum Poker
+// server.js - Node.js WebSocket backend for Scrum Poker
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -118,6 +114,11 @@ function roundToNearestFibonacci(value) {
     }
     
     return closest;
+}
+
+// Utility functions
+function generateRoomCode() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
 function createSession(sessionName, facilitatorName, facilitatorSocketId) {
@@ -400,6 +401,9 @@ io.on('connection', (socket) => {
             socket.emit('error', { message: 'Failed to update Jira issue' });
         }
     });
+
+    // Set current ticket (manual entry)
+    socket.on('set-ticket', ({ roomCode, ticket }) => {
         try {
             const session = sessions.get(roomCode);
             if (!session) return;
