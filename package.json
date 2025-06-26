@@ -6,12 +6,24 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "build": "npm run build:clean && npm run build:copy",
+    "build:clean": "rm -rf dist && mkdir -p dist/public",
+    "build:copy": "cp server.js package.json dist/ && cp public/index.html dist/public/",
+    "build:win": "npm run build:clean:win && npm run build:copy:win",
+    "build:clean:win": "if exist dist rmdir /s /q dist && mkdir dist\\public",
+    "build:copy:win": "copy server.js dist\\ && copy package.json dist\\ && copy public\\index.html dist\\public\\",
+    "postbuild": "cd dist && npm install --production",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+   "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
   },
   "dependencies": {
     "express": "^5.1.0",
     "socket.io": "^4.8.1",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "axios": "^1.10.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
