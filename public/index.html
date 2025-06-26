@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scrum Poker - Team Estimation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+```
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        min-height: 100vh;
+        padding: 20px;
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .header {
+        background: linear-gradient(135deg, #059669, #047857);
+        color: white;
+        padding: 30px;
+        text-align: center;
+    }
+
+    .header h1 {
+        font-size: 2.5em;
+        margin-bottom: 10px;
+    }
+
+    .header p {
+        opacity: 0.9;
+        font-size: 1.1em;
+    }
+
+    .main-content {
+        padding: 30px;
+    }
+
+    .setup-section {
+        margin-bottom: 40px;
+    }
+
+    .input-group {
+        margin-bottom: 20px;
+    }
+
+    .input-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #374151;
+    }
+
+    .input-group input, .input-group textarea {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+    }
+
+    .input-group input:focus, .input-group textarea:focus, .input-group select:focus {
+        outline: none;
+        border-color: #059669;
+    }
+
+    .btn {
+        background: linear-gradient(135deg, #059669, #047857);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        margin: 5px;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(5, 150, 105, 0.3);
+    }
+
+    .btn:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .btn-secondary {
+        background: #6b7280;
+    }
+
+    .btn-danger {
+        background: #dc2626;
+    }
+
+    .btn-warning {
+        background: #f59e0b;
+    }
+
+    .btn-outline {
+        background: transparent;
+        border: 2px solid #059669;
+        color: #059669;
+    }
+
+    .btn-outline:hover {
+        background: #059669;
+        color: white;
+    }
+
+    .session-info {
+        background: #f3f4f6;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+    }
+
+    .session-info h3 {
+        color: #374151;
+        margin-bottom: 15px;
+    }
+
+    .ticket-info {
+        background: #ecfdf5;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        border-left: 5px solid #059669;
+    }
+
+    .voting-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+        gap: 15px;
+        margin: 30px 0;
+    }
+
+    .card {
+        aspect-ratio: 3/4;
+        background: white;
+        border: 3px solid #e5e7eb;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+
+    .card.selected {
+        background: linear-gradient(135deg, #059669, #047857);
+        color: white;
+        border-color: #059669;
+        transform: translateY(-8px);
+    }
+
+    .card.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .participants {
+        margin: 30px 0;
+    }
+
+    .participant {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 15px;
+        background: #f9fafb;
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+
+    .participant-name {
+        font-weight: 600;
+        color: #374151;
+    }
+
+    .vote-status {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .voted {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .not-voted {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .vote-value {
+        background: #dcfce7;
+        color: #166534;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+    }
+
+    .viewer-badge {
+        background: #fbbf24;
+        color: #92400e;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .results {
+        background: #ecfdf5;
+        padding: 25px;
+        border-radius: 12px;
+        margin: 30px 0;
+        border: 2px solid #059669;
+    }
+
+    .results h3 {
+        color: #047857;
+        margin-bottom: 20px;
+    }
+
+    .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .stat {
+        text-align: center;
+        padding: 15px;
+        background: white;
+        border-radius: 8px;
+    }
+
+    .stat-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #059669;
+    }
+
+    .stat-label {
+        font-size: 14px;
+        color: #6b7280;
+        margin-top: 5px;
+    }
+
+    .connection-status {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 1000;
+    }
+
+    .connected {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .disconnected {
+        background: #fef2f2;
+        color: #991b1b;
+    }
+
+    .notification {
+        position: fixed;
+        top: 70px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-weight: 500;
+        z-index: 1000;
+        max-width: 300px;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .notification.success {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .notification.error {
+        background: #fef2f2;
+        color: #991b1b;
+    }
+
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    .room-code {
+        background: #059669;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-family: monospace;
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    .join-section {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    .join-section > div {
+        flex: 1;
+    }
+
+    @media (max-width: 768px) {
+        .voting-cards {
+            grid-template-columns: repeat(4, 1fr);
+        }
+        
+        .join-section {
+            flex-direction: column;
+            gap: 10px;
+        }
+    }
+</style>
+```
+
+</head>
+<body>
+    <div class="connection-status" id="connection-status">Connecting...</div>
+
+```
+<div class="container">
+    <div class="header">
+        <h1>🃏 Scrum Poker</h1>
+        <p>Collaborative Story Point Estimation for Your Team</p>
+    </div>
+
+    <div class="main-content">
+        <!-- Setup Section -->
+        <div id="setup-section" class="setup-section">
+            <div class="join-section">
+                <div>
+                    <h3>Create New Session</h3>
+                    <div class="input-group">
+                        <label for="facilitator-name">Your Name (Facilitator)</label>
+                        <input type="text" id="facilitator-name" placeholder="Enter your name">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="session-name">Session Name</label>
+                        <input type="text" id="session-name" placeholder="Sprint 12 Planning" value="Sprint Planning Session">
+                    </div>
+                    
+                    <button class="btn" onclick="startSession()" id="start-btn">Start Session</button>
+                </div>
+                
+                <div>
+                    <h3>Join Existing Session</h3>
+                    <div class="input-group">
+                        <label for="join-name">Your Name</label>
+                        <input type="text" id="join-name" placeholder="Enter your name">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="room-code-input">Room Code</label>
+                        <input type="text" id="room-code-input" placeholder="Enter 6-digit room code" style="text-transform: uppercase;">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="join-role">Join as</label>
+                        <select id="join-role" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px;">
+                            <option value="participant">Participant (can vote)</option>
+                            <option value="viewer">Viewer (watch only)</option>
+                        </select>
+                    </div>
+                    
+                    <button class="btn btn-secondary" onclick="joinSession()" id="join-btn">Join Session</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Session Section -->
+        <div id="session-section" class="hidden">
+            <div class="session-info">
+                <h3>Session: <span id="current-session-name"></span></h3>
+                <p><strong>Room Code:</strong> <span class="room-code" id="room-code"></span></p>
+                <p><strong>Share this link:</strong> <span id="session-link"></span></p>
+                <p><em>Team members can join using the room code above</em></p>
+            </div>
+
+            <!-- Facilitator Controls -->
+            <div id="facilitator-controls" class="hidden">
+                <div class="input-group">
+                    <label for="jira-ticket">Jira Ticket (e.g., PROJ-123: Implement user authentication)</label>
+                    <textarea id="jira-ticket" rows="3" placeholder="PROJ-123: Implement user authentication system with OAuth2 integration"></textarea>
+                </div>
+                
+                <button class="btn" onclick="setCurrentTicket()" id="set-ticket-btn">Set Current Ticket</button>
+                <button class="btn" onclick="revealVotes()" id="reveal-btn" disabled>Reveal Votes</button>
+                <button class="btn btn-secondary" onclick="resetVoting()" id="reset-btn" disabled>New Round</button>
+                <button class="btn btn-danger" onclick="endSession()">End Session</button>
+            </div>
+
+            <!-- Current Ticket -->
+            <div id="current-ticket" class="ticket-info hidden">
+                <h3>📋 Current Ticket</h3>
+                <p id="ticket-description"></p>
+            </div>
+
+            <!-- Voting Cards -->
+            <div class="voting-cards" id="voting-cards">
+                <div class="card" onclick="vote(0)">0</div>
+                <div class="card" onclick="vote(0.5)">½</div>
+                <div class="card" onclick="vote(1)">1</div>
+                <div class="card" onclick="vote(2)">2</div>
+                <div class="card" onclick="vote(3)">3</div>
+                <div class="card" onclick="vote(5)">5</div>
+                <div class="card" onclick="vote(8)">8</div>
+                <div class="card" onclick="vote(13)">13</div>
+                <div class="card" onclick="vote(21)">21</div>
+                <div class="card" onclick="vote('?')">?</div>
+                <div class="card" onclick="vote('☕')">☕</div>
+            </div>
+
+            <!-- Participants -->
+            <div class="participants">
+                <h3>Team Members (<span id="participant-count">0</span>)</h3>
+                <div id="participants-list"></div>
+            </div>
+
+            <!-- Moderation Modal -->
+            <div id="moderation-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: none; align-items: center; justify-content: center;" onclick="window.closeModerationModal()">
+                <div style="background: white; padding: 30px; border-radius: 12px; max-width: 400px; width: 90%;" onclick="event.stopPropagation()">
+                    <h3 style="margin-bottom: 20px;">Moderate: <span id="moderation-target"></span></h3>
+                    <p style="margin-bottom: 20px; color: #6b7280;">Choose an action for this participant:</p>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-warning" onclick="window.moderateParticipant('make-viewer')">Make Viewer</button>
+                        <button class="btn btn-outline" onclick="window.moderateParticipant('make-participant')">Make Participant</button>
+                        <button class="btn btn-danger" onclick="window.moderateParticipant('remove')">Remove</button>
+                        <button class="btn btn-secondary" onclick="window.closeModerationModal()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div id="results" class="results hidden">
+                <h3>📊 Voting Results</h3>
+                <div class="stats">
+                    <div class="stat">
+                        <div class="stat-value" id="average-vote">-</div>
+                        <div class="stat-label">Average</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="consensus-vote">-</div>
+                        <div class="stat-label">Most Common</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="total-voters">-</div>
+                        <div class="stat-label">Voters</div>
+                    </div>
+                </div>
+                <div id="vote-breakdown"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    // Application state
+    let socket;
+    let gameState = {
+        roomCode: '',
+        sessionName: '',
+        currentTicket: '',
+        participants: [],
+        isFacilitator: false,
+        isViewer: false,
+        myName: '',
+        votingRevealed: false,
+        myVote: null,
+        moderationTarget: null
+    };
+
+    // Initialize socket connection
+    function initSocket() {
+        socket = io();
+        
+        socket.on('connect', () => {
+            updateConnectionStatus(true);
+        });
+
+        socket.on('disconnect', () => {
+            updateConnectionStatus(false);
+        });
+
+        // Session creation
+        socket.on('session-created', (data) => {
+            if (data.success) {
+                gameState.roomCode = data.roomCode;
+                gameState.isFacilitator = true;
+                updateSessionUI(data.sessionData);
+                showNotification('Session created successfully!', 'success');
+            } else {
+                showNotification('Failed to create session', 'error');
+            }
+        });
+
+        // Session joining
+        socket.on('join-success', (data) => {
+            gameState.roomCode = data.roomCode;
+            gameState.isFacilitator = false;
+            
+            // Check if user joined as viewer
+            const myParticipant = data.sessionData.participants.find(p => p.name === gameState.myName);
+            gameState.isViewer = myParticipant ? myParticipant.isViewer : false;
+            
+            updateSessionUI(data.sessionData);
+            showNotification('Joined session successfully!', 'success');
+        });
+
+        socket.on('join-failed', (data) => {
+            showNotification(data.message, 'error');
+            enableButtons();
+        });
+
+        // Real-time updates
+        socket.on('participant-joined', (data) => {
+            updateSessionUI(data.sessionData);
+            showNotification(`${data.participantName} joined the session`, 'success');
+        });
+
+        socket.on('participant-left', (data) => {
+            updateSessionUI(data.sessionData);
+            showNotification(`${data.participantName} left the session`, 'error');
+        });
+
+        socket.on('participant-removed', (data) => {
+            updateSessionUI(data.sessionData);
+            showNotification(`${data.participantName} was removed from the session`, 'error');
+        });
+
+        socket.on('participant-role-changed', (data) => {
+            updateSessionUI(data.sessionData);
+            showNotification(`${data.participantName} is now a ${data.newRole}`, 'success');
+            
+            // If current user's role changed, update local state
+            if (data.participantName === gameState.myName) {
+                gameState.isViewer = data.newRole === 'viewer';
+                updateVotingCards();
+            }
+        });
+
+        socket.on('removed-from-session', (data) => {
+            showNotification(data.message, 'error');
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
+        });
+
+        socket.on('ticket-set', (data) => {
+            gameState.currentTicket = data.ticket;
+            gameState.votingRevealed = false;
+            gameState.myVote = null;
+            updateSessionUI(data.sessionData);
+            updateTicketDisplay();
+            resetVotingUI();
+            showNotification('New ticket set for estimation', 'success');
+        });
+
+        socket.on('vote-submitted', (data) => {
+            updateSessionUI(data.sessionData);
+            updateFacilitatorControls();
+            
+            // Keep the facilitator's vote selection visible
+            if (data.participantName === gameState.myName && gameState.myVote !== null) {
+                updateCardSelection(gameState.myVote);
+            }
+        });
+
+        socket.on('votes-revealed', (data) => {
+            updateSessionUI(data.sessionData);
+            showResults(data.results);
+            updateVotingCards(); // Disable cards after reveal
+            showNotification('Votes revealed!', 'success');
+        });
+
+        socket.on('voting-reset', (data) => {
+            gameState.votingRevealed = false;
+            gameState.myVote = null;
+            updateSessionUI(data.sessionData);
+            resetVotingUI();
+            showNotification('New voting round started', 'success');
+        });
+
+        socket.on('session-ended', (data) => {
+            showNotification(data.message, 'error');
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
+        });
+
+        socket.on('error', (data) => {
+            showNotification(data.message, 'error');
+            enableButtons();
+        });
+    }
+
+    // UI Helper Functions
+    function updateConnectionStatus(connected) {
+        const status = document.getElementById('connection-status');
+        if (connected) {
+            status.textContent = '🟢 Connected';
+            status.className = 'connection-status connected';
+        } else {
+            status.textContent = '🔴 Disconnected';
+            status.className = 'connection-status disconnected';
+        }
+    }
+
+    function showNotification(message, type = 'success') {
+        // Remove existing notifications
+        const existing = document.querySelector('.notification');
+        if (existing) existing.remove();
+
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.remove();
+        }, 4000);
+    }
+
+    function disableButtons() {
+        document.getElementById('start-btn').disabled = true;
+        document.getElementById('join-btn').disabled = true;
+    }
+
+    function enableButtons() {
+        document.getElementById('start-btn').disabled = false;
+        document.getElementById('join-btn').disabled = false;
+    }
+
+    // Session Management
+    function startSession() {
+        const facilitatorName = document.getElementById('facilitator-name').value.trim();
+        const sessionName = document.getElementById('session-name').value.trim();
+        
+        if (!facilitatorName || !sessionName) {
+            showNotification('Please enter both your name and session name', 'error');
+            return;
+        }
+
+        disableButtons();
+        gameState.myName = facilitatorName;
+        socket.emit('create-session', { sessionName, facilitatorName });
+    }
+
+    function joinSession() {
+        const participantName = document.getElementById('join-name').value.trim();
+        const roomCode = document.getElementById('room-code-input').value.trim().toUpperCase();
+        const joinRole = document.getElementById('join-role').value;
+        
+        if (!participantName || !roomCode) {
+            showNotification('Please enter both your name and room code', 'error');
+            return;
+        }
+
+        if (roomCode.length !== 6) {
+            showNotification('Room code must be 6 characters', 'error');
+            return;
+        }
+
+        disableButtons();
+        gameState.myName = participantName;
+        gameState.isViewer = joinRole === 'viewer';
+        socket.emit('join-session', { 
+            roomCode, 
+            participantName, 
+            asViewer: joinRole === 'viewer' 
+        });
+    }
+
+    function updateSessionUI(sessionData) {
+        gameState.participants = sessionData.participants;
+        gameState.sessionName = sessionData.sessionName;
+        gameState.votingRevealed = sessionData.votingRevealed;
+
+        // Update user's viewer status
+        const myParticipant = sessionData.participants.find(p => p.name === gameState.myName);
+        if (myParticipant) {
+            gameState.isViewer = myParticipant.isViewer;
+        }
+
+        // Show session section
+        document.getElementById('setup-section').classList.add('hidden');
+        document.getElementById('session-section').classList.remove('hidden');
+
+        // Update session info
+        document.getElementById('current-session-name').textContent = sessionData.sessionName;
+        document.getElementById('room-code').textContent = gameState.roomCode;
+        document.getElementById('session-link').textContent = `${window.location.origin}?room=${gameState.roomCode}`;
+
+        // Show facilitator controls if user is facilitator
+        if (gameState.isFacilitator) {
+            document.getElementById('facilitator-controls').classList.remove('hidden');
+        }
+
+        // Update participants list and voting cards
+        updateParticipantsList();
+        updateFacilitatorControls();
+        updateVotingCards();
+    }
+
+    function updateFacilitatorControls() {
+        if (!gameState.isFacilitator) return;
+
+        const hasVotes = gameState.participants.some(p => p.hasVoted && !p.isViewer);
+        const revealBtn = document.getElementById('reveal-btn');
+        const resetBtn = document.getElementById('reset-btn');
+
+        revealBtn.disabled = !hasVotes || gameState.votingRevealed;
+        resetBtn.disabled = !gameState.currentTicket;
+    }
+
+    // Ticket Management
+    function setCurrentTicket() {
+        const ticket = document.getElementById('jira-ticket').value.trim();
+        if (!ticket) {
+            showNotification('Please enter a Jira ticket description', 'error');
+            return;
+        }
+
+        socket.emit('set-ticket', { roomCode: gameState.roomCode, ticket });
+    }
+
+    function updateTicketDisplay() {
+        if (gameState.currentTicket) {
+            document.getElementById('ticket-description').textContent = gameState.currentTicket;
+            document.getElementById('current-ticket').classList.remove('hidden');
+        } else {
+            document.getElementById('current-ticket').classList.add('hidden');
+        }
+    }
+
+    // Voting
+    function vote(value) {
+        if (!gameState.currentTicket) {
+            showNotification('Please wait for a ticket to be set', 'error');
+            return;
+        }
+
+        if (gameState.isViewer) {
+            showNotification('Viewers cannot vote', 'error');
+            return;
+        }
+
+        if (gameState.votingRevealed) {
+            showNotification('Voting is complete for this round. Wait for a new round.', 'error');
+            return;
+        }
+
+        gameState.myVote = value;
+        socket.emit('submit-vote', { roomCode: gameState.roomCode, vote: value });
+        
+        // Update card selection immediately for responsiveness
+        updateCardSelection(value);
+    }
+
+    function updateCardSelection(selectedValue) {
+        document.querySelectorAll('.card').forEach(card => {
+            card.classList.remove('selected');
+        });
+
+        if (selectedValue !== null) {
+            const selectedCard = Array.from(document.querySelectorAll('.card'))
+                .find(card => card.textContent === selectedValue.toString());
+            if (selectedCard) {
+                selectedCard.classList.add('selected');
+            }
+        }
+    }
+
+    function updateVotingCards() {
+        const cards = document.querySelectorAll('.card');
+        cards.forEach(card => {
+            if (gameState.isViewer || gameState.votingRevealed) {
+                card.classList.add('disabled');
+                card.style.cursor = 'not-allowed';
+            } else {
+                card.classList.remove('disabled');
+                card.style.cursor = 'pointer';
+            }
+        });
+    }
+
+    function resetVotingUI() {
+        gameState.myVote = null;
+        updateCardSelection(null);
+        updateVotingCards();
+        document.getElementById('results').classList.add('hidden');
+    }
+
+    function revealVotes() {
+        socket.emit('reveal-votes', { roomCode: gameState.roomCode });
+    }
+
+    function resetVoting() {
+        socket.emit('reset-voting', { roomCode: gameState.roomCode });
+    }
+
+    // Results
+    function showResults(results) {
+        if (!results || results.totalVotes === 0) {
+            document.getElementById('results').classList.add('hidden');
+            return;
+        }
+
+        // Update statistics
+        document.getElementById('average-vote').textContent = results.average.toFixed(1);
+        document.getElementById('consensus-vote').textContent = results.consensus || '-';
+        document.getElementById('total-voters').textContent = results.totalVotes;
+        
+        // Show vote breakdown
+        const breakdown = document.getElementById('vote-breakdown');
+        breakdown.innerHTML = '<h4>Vote Distribution:</h4>';
+        
+        Object.entries(results.voteCounts).forEach(([vote, count]) => {
+            const percentage = ((count / results.totalVotes) * 100).toFixed(0);
+            breakdown.innerHTML += `
+                <div style="margin: 5px 0; padding: 8px; background: white; border-radius: 4px;">
+                    <strong>${vote}</strong>: ${count} vote${count > 1 ? 's' : ''} (${percentage}%)
+                </div>
+            `;
+        });
+        
+        document.getElementById('results').classList.remove('hidden');
+        updateCardSelection(null); // Disable cards after reveal
+    }
+
+    function endSession() {
+        if (confirm('Are you sure you want to end this session? All participants will be disconnected.')) {
+            socket.emit('end-session', { roomCode: gameState.roomCode });
+        }
+    }
+
+    // Moderation functions - Global scope for onclick handlers
+    window.openModerationModal = function(participantName) {
+        if (!gameState.isFacilitator) {
+            showNotification('Only facilitators can moderate participants', 'error');
+            return;
+        }
+        
+        gameState.moderationTarget = participantName;
+        document.getElementById('moderation-target').textContent = participantName;
+        const modal = document.getElementById('moderation-modal');
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+    };
+
+    window.closeModerationModal = function() {
+        gameState.moderationTarget = null;
+        const modal = document.getElementById('moderation-modal');
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    };
+
+    window.moderateParticipant = function(action) {
+        if (!gameState.moderationTarget || !gameState.isFacilitator) return;
+        
+        socket.emit('moderate-participant', {
+            roomCode: gameState.roomCode,
+            targetName: gameState.moderationTarget,
+            action: action
+        });
+        
+        window.closeModerationModal();
+    };
+
+    // Auto-uppercase room code input
+    document.getElementById('room-code-input').addEventListener('input', function(e) {
+        e.target.value = e.target.value.toUpperCase();
+    });
+
+    // Handle URL parameters for direct room joining
+    window.onload = function() {
+        initSocket();
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomCode = urlParams.get('room');
+        
+        if (roomCode) {
+            document.getElementById('room-code-input').value = roomCode.toUpperCase();
+            showNotification(`Ready to join room ${roomCode}. Enter your name and click Join Session.`, 'success');
+        }
+    };
+
+    // Handle Enter key presses
+    document.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const activeElement = document.activeElement;
+            
+            if (activeElement.id === 'facilitator-name' || activeElement.id === 'session-name') {
+                startSession();
+            } else if (activeElement.id === 'join-name' || activeElement.id === 'room-code-input') {
+                joinSession();
+            } else if (activeElement.id === 'jira-ticket') {
+                setCurrentTicket();
+            }
+        }
+    });
+</script>
+```
+
+</body>
+</html>
