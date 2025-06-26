@@ -5,6 +5,7 @@ const socketIo = require('socket.io');
 const path = require('path');
 const cors = require('cors');
 const fetch = global.fetch || ((...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args)));
+const { createClient } = require('redis');
 
 // Load environment variables (optional in production)
 try {
@@ -51,8 +52,113 @@ if (NODE_ENV === 'production') {
     });
 }
 
-// In-memory storage for sessions (in production, use Redis or a database)
-const sessions = new Map();
+// -------------------------------
+// Session storage (in-memory + optional Redis persistence)
+// -------------------------------
+
+class SessionStore {
+    constructor(memoryStore = new Map(), redisClient = null, ttlSeconds = 24 * 60 * 60) {
+        this.memory = memoryStore;
+        this.redis = redisClient;
+        this.ttl = ttlSeconds; // expire in Redis after ttlSeconds
+    }
+
+    async saveToRedis(key, session) {
+        if (!this.redis) return;
+        try {
+            const serialisable = {
+                ...session,
+                participants: Array.from(session.participants.entries()),
+                votes: Array.from(session.votes.entries())
+            };
+            await this.redis.set(`session:${key}`, JSON.stringify(serialisable), {
+                EX: this.ttl
+            });
+        } catch (err) {
+            console.error('Failed to persist session to Redis:', err);
+        }
+    }
+
+    async loadFromRedis() {
+        if (!this.redis) return;
+        try {
+            const keys = await this.redis.keys('session:*');
+            for (const fullKey of keys) {
+                const raw = await this.redis.get(fullKey);
+                if (!raw) continue;
+                const obj = JSON.parse(raw);
+                // Re-hydrate Maps
+                obj.participants = new Map(obj.participants);
+                obj.votes = new Map(obj.votes);
+                this.memory.set(obj.id || fullKey.split(':')[1], obj);
+            }
+            if (keys.length) {
+                console.log(`🔐 Restored ${keys.length} session(s) from Redis`);
+            }
+        } catch (err) {
+            console.error('Failed to load sessions from Redis:', err);
+        }
+    }
+
+    // Map-like helpers
+    set(key, value) {
+        const res = this.memory.set(key, value);
+        // fire-and-forget
+        this.saveToRedis(key, value);
+        return res;
+    }
+
+    get(key) {
+        return this.memory.get(key);
+    }
+
+    has(key) {
+        return this.memory.has(key);
+    }
+
+    delete(key) {
+        const res = this.memory.delete(key);
+        if (this.redis) {
+            this.redis.del(`session:${key}`).catch(err => console.error('Redis delete error', err));
+        }
+        return res;
+    }
+
+    forEach(cb) {
+        return this.memory.forEach(cb);
+    }
+
+    values() {
+        return this.memory.values();
+    }
+
+    get size() {
+        return this.memory.size;
+    }
+}
+
+// Instantiate store. In development we only use in-memory, in production we also attach Redis.
+const memoryStore = new Map();
+const sessions = new SessionStore(memoryStore);
+
+if (NODE_ENV === 'production' && process.env.REDIS_URL) {
+    const redisClient = createClient({ url: process.env.REDIS_URL });
+    redisClient.on('error', (err) => console.error('Redis client error', err));
+
+    redisClient.connect()
+        .then(async () => {
+            console.log('🔌 Connected to Redis');
+            // Attach to session store and load existing sessions
+            sessions.redis = redisClient;
+            await sessions.loadFromRedis();
+        })
+        .catch(err => {
+            console.error('Failed to connect to Redis, continuing with in-memory sessions:', err);
+        });
+}
+// -------------------------------
+// End of session storage section
+// -------------------------------
 
 // Jira API helper functions
 async function makeJiraRequest(config, endpoint, method = 'GET', data = null) {
