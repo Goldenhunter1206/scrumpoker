@@ -1,0 +1,25 @@
+# render.yaml - Render.com deployment configuration
+services:
+  - type: web
+    name: scrum-poker
+    env: node
+    plan: free  # Can be upgraded to starter/standard for better performance
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000  # Render uses port 10000 by default
+    # Auto-deploy from GitHub
+    autoDeploy: true
+    # Custom domains (optional)
+    # domains:
+    #   - scrumpoker.yourcompany.com
+    
+    # Environment variables for production
+    # Add these in Render dashboard:
+    # - MAX_SESSIONS: 100
+    # - SESSION_TIMEOUT: 86400000  # 24 hours in ms
+    # - CORS_ORIGIN: https://your-domain.com
