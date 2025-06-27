@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scrum Poker - Team Estimation</title>
+    <title>{{APP_TITLE}} - Team Estimation</title>
     <style>
         * {
             margin: 0;
@@ -546,8 +546,8 @@
     
     <div class="container">
         <div class="header">
-            <h1>🃏 Scrum Poker</h1>
-            <p>Collaborative Story Point Estimation for Your Team</p>
+            <h1>🃏 {{APP_TITLE}}</h1>
+            <p>{{APP_SUBTITLE}}</p>
         </div>
 
         <div class="main-content">
@@ -901,6 +901,8 @@
             socket.on('jira-config-failed', (data) => {
                 showNotification(data.message, 'error');
                 enableButtons();
+                const connectBtn = document.getElementById('connect-jira-btn');
+                if (connectBtn) connectBtn.disabled = false; // allow another attempt
             });
 
             socket.on('jira-issues-loaded', (data) => {
@@ -1028,6 +1030,8 @@
             socket.on('error', (data) => {
                 showNotification(data.message, 'error');
                 enableButtons();
+                const connectBtn = document.getElementById('connect-jira-btn');
+                if (connectBtn) connectBtn.disabled = false; // in case the generic error was during Jira connect
             });
 
             // Auto-rejoin when socket (re)connects
@@ -1083,6 +1087,23 @@
             document.getElementById('join-btn').disabled = false;
         }
 
+        // NEW: Remember user name in localStorage
+        function saveUserName(name) {
+            try {
+                localStorage.setItem('userName', name);
+            } catch (e) {
+                console.error('Failed to save user name', e);
+            }
+        }
+
+        function loadUserName() {
+            try {
+                return localStorage.getItem('userName') || '';
+            } catch (e) {
+                return '';
+            }
+        }
+
         // Session Management
         function startSession() {
             const facilitatorName = document.getElementById('facilitator-name').value.trim();
@@ -1092,6 +1113,9 @@
                 showNotification('Please enter both your name and session name', 'error');
                 return;
             }
+
+            // NEW: persist name
+            saveUserName(facilitatorName);
 
             disableButtons();
             gameState.myName = facilitatorName;
@@ -1112,6 +1136,9 @@
                 showNotification('Room code must be 6 characters', 'error');
                 return;
             }
+
+            // NEW: persist name
+            saveUserName(participantName);
 
             disableButtons();
             gameState.myName = participantName;
@@ -1310,7 +1337,10 @@
             const select = document.getElementById('jira-board-select');
             select.innerHTML = '<option value="">Choose a board...</option>';
             
-            boards.forEach(board => {
+            // Sort boards alphabetically by name (case-insensitive)
+            const sortedBoards = [...boards].sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+            
+            sortedBoards.forEach(board => {
                 const option = document.createElement('option');
                 option.value = board.id;
                 option.textContent = board.name;
@@ -1793,6 +1823,15 @@
                         showNotification('Failed to copy link', 'error');
                     });
                 });
+            }
+
+            // NEW: Prefill facilitator/join name inputs if previously saved
+            const savedName = loadUserName();
+            if (savedName) {
+                const facInput = document.getElementById('facilitator-name');
+                const joinInput = document.getElementById('join-name');
+                if (facInput) facInput.value = savedName;
+                if (joinInput) joinInput.value = savedName;
             }
         };
 

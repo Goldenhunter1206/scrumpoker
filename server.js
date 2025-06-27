@@ -14,6 +14,10 @@ try {
     // dotenv not installed, use environment variables directly
 }
 
+// App configuration from environment variables
+const APP_TITLE = process.env.APP_TITLE || 'Scrum Poker';
+const APP_SUBTITLE = process.env.APP_SUBTITLE || 'Collaborative Story Point Estimation for Your Team';
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -37,7 +41,30 @@ app.use(cors({
     credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static('public'));
+
+// Serve the main HTML file with environment variable substitution
+app.get('/', (req, res) => {
+    const fs = require('fs');
+    const htmlPath = path.join(__dirname, 'public', 'index.html');
+    
+    fs.readFile(htmlPath, 'utf8', (err, data) => {
+        if (err) {
+            console.error('Error reading HTML file:', err);
+            return res.status(500).send('Error loading page');
+        }
+        
+        // Replace placeholders with environment variables
+        const processedHtml = data
+            .replace(/{{APP_TITLE}}/g, APP_TITLE)
+            .replace(/{{APP_SUBTITLE}}/g, APP_SUBTITLE);
+        
+        res.setHeader('Content-Type', 'text/html');
+        res.send(processedHtml);
+    });
+});
+
+// Serve other static files normally (CSS, JS, images, etc.)
+app.use(express.static('public', { index: false }));
 
 // Trust proxy for production deployments
 if (process.env.TRUST_PROXY === 'true') {
