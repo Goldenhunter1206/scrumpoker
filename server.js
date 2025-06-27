@@ -196,7 +196,6 @@ if (process.env.REDIS_URL) {
 async function makeJiraRequest(config, endpoint, method = 'GET', data = null) {
     // Support both core (api/3) and agile (agile/1.0) endpoints
     // If the caller prefixes the endpoint with "agile/", we will hit the agile API; otherwise, default to the core API.
-    console.log('config', config);
     const auth = Buffer.from(`${config.email}:${config.token}`).toString('base64');
 
     // Determine full URL
@@ -205,7 +204,6 @@ async function makeJiraRequest(config, endpoint, method = 'GET', data = null) {
         : `https://${config.domain}/rest/api/3/${endpoint}`;        // api/3/...
 
     try {
-        console.log('Making Jira request to:', baseUrl);
 
         const fetchOptions = {
             method,
@@ -471,7 +469,6 @@ io.on('connection', (socket) => {
 
     // Configure Jira integration
     socket.on('configure-jira', async ({ roomCode, domain, email, token, projectKey = null }) => {
-        console.log('configure-jira', roomCode, domain, email, token);
         try {
             const session = sessions.get(roomCode);
             if (!session) return;
