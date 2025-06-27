@@ -490,6 +490,11 @@
         .input-group input[type="checkbox"] {
             width: auto;
         }
+
+        /* Elements that copy their text to clipboard on click */
+        .copyable {
+            cursor: pointer;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
@@ -550,8 +555,8 @@
             <div id="session-section" class="hidden">
                 <div class="session-info">
                     <h3>Session: <span id="current-session-name"></span></h3>
-                    <p style="margin-bottom: 15px;"><strong>Room Code:</strong> <span class="room-code" id="room-code"></span></p>
-                    <p><strong>Share this link:</strong> <span id="session-link"></span></p>
+                    <p style="margin-bottom: 15px;"><strong>Room Code:</strong> <span class="room-code copyable" id="room-code" title="Click to copy"></span></p>
+                    <p><strong>Share this link:</strong> <span id="session-link" class="copyable" title="Click to copy"></span></p>
                     <p><em>Team members can join using the room code above</em></p>
                 </div>
 
@@ -1661,6 +1666,34 @@
             if (roomCode) {
                 document.getElementById('room-code-input').value = roomCode.toUpperCase();
                 showNotification(`Ready to join room ${roomCode}. Enter your name and click Join Session.`, 'success');
+            }
+
+            // Enable click-to-copy for room code and share link
+            const roomCodeEl = document.getElementById('room-code');
+            const shareLinkEl = document.getElementById('session-link');
+
+            if (roomCodeEl) {
+                roomCodeEl.addEventListener('click', () => {
+                    const text = roomCodeEl.textContent.trim();
+                    if (!text) return;
+                    navigator.clipboard.writeText(text).then(() => {
+                        showNotification('Room code copied to clipboard!', 'success');
+                    }).catch(() => {
+                        showNotification('Failed to copy room code', 'error');
+                    });
+                });
+            }
+
+            if (shareLinkEl) {
+                shareLinkEl.addEventListener('click', () => {
+                    const text = shareLinkEl.textContent.trim();
+                    if (!text) return;
+                    navigator.clipboard.writeText(text).then(() => {
+                        showNotification('Session link copied to clipboard!', 'success');
+                    }).catch(() => {
+                        showNotification('Failed to copy link', 'error');
+                    });
+                });
             }
         };
 
