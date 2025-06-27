@@ -33,6 +33,7 @@
             color: white;
             padding: 30px;
             text-align: center;
+            position: relative; /* allow absolute positioned children */
         }
 
         .header h1 {
@@ -538,6 +539,16 @@
         #toggle-controls-btn.hidden {
             display: none !important;
         }
+
+        /* 🔊 Sound toggle */
+        .sound-toggle {
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            font-size: 26px;
+            cursor: pointer;
+            user-select: none;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
@@ -546,6 +557,7 @@
     
     <div class="container">
         <div class="header">
+            <span id="sound-toggle" class="sound-toggle" title="Toggle sounds">🔊</span>
             <h1>🃏 {{APP_TITLE}}</h1>
             <p>{{APP_SUBTITLE}}</p>
         </div>
@@ -608,6 +620,13 @@
                     <h3>📝 Estimation History</h3>
                     <div id="history-list" style="margin-bottom: 20px;"></div>
                     <button class="btn btn-outline" onclick="exportHistory()">Export History (CSV)</button>
+                </div>
+
+                <!-- NEW: Session Statistics -->
+                <div id="stats-section" class="session-info hidden">
+                    <h3>📈 Session Statistics</h3>
+                    <div id="team-stats" style="margin-bottom:20px;"></div>
+                    <div id="user-stats"></div>
                 </div>
 
                 <!-- Facilitator Controls -->
@@ -801,7 +820,8 @@
             moderationTarget: null,
             countdownActive: false,
             countdownSeconds: 0,
-            history: []
+            history: [],
+            aggregate: null
         };
 
         // Initialize socket connection
@@ -932,6 +952,7 @@
                 updateTicketDisplay();
                 resetVotingUI();
                 showNotification(`Set Jira issue: ${data.issue.key}`, 'success');
+                playSound('ticket');
             });
 
             socket.on('jira-updated', (data) => {
@@ -979,6 +1000,7 @@
                 updateTicketDisplay();
                 resetVotingUI();
                 showNotification('New ticket set for estimation', 'success');
+                playSound('ticket');
             });
 
             socket.on('vote-submitted', (data) => {
@@ -996,6 +1018,9 @@
                 showResults(data.results);
                 updateVotingCards(); // Disable cards after reveal
                 showNotification('Votes revealed!', 'success');
+
+                // Play reveal sound
+                playSound('reveal');
             });
 
             socket.on('voting-reset', (data) => {
@@ -1021,6 +1046,9 @@
                 displayCountdown(data.duration, data.duration);
                 updateCountdownUI();
                 showNotification(`${data.duration} second countdown started!`, 'success');
+
+                // Play countdown start sound
+                playSound('countdown');
             });
 
             socket.on('countdown-tick', (data) => {
@@ -1205,6 +1233,7 @@
             gameState.jiraConfig = sessionData.jiraConfig;
             gameState.currentTicket = sessionData.currentTicket || '';
             gameState.history = sessionData.history || [];
+            gameState.aggregate = sessionData.aggregate || null;
 
             // Update user's viewer status
             const myParticipant = sessionData.participants.find(p => p.name === gameState.myName);
@@ -1243,6 +1272,7 @@
 
             // Update estimation history
             updateHistoryUI();
+            updateStatsUI();
         }
 
         // Jira Integration Functions
@@ -1558,6 +1588,9 @@
             gameState.myVote = value;
             socket.emit('submit-vote', { roomCode: gameState.roomCode, vote: value });
             
+            // Play voting sound
+            playSound('vote');
+            
             // Update card selection immediately for responsiveness
             updateCardSelection(value);
         }
@@ -1647,6 +1680,11 @@
             
             document.getElementById('results').classList.remove('hidden');
             updateCardSelection(null); // Disable cards after reveal
+
+            // Play consensus sound if unanimous
+            if (results && results.totalVotes > 0 && results.min !== null && results.min === results.max) {
+                playSound('consensus');
+            }
         }
 
         function finalizeEstimation() {
@@ -1845,6 +1883,17 @@
                 if (facInput) facInput.value = savedName;
                 if (joinInput) joinInput.value = savedName;
             }
+
+            // Attach sound toggle handler
+            updateSoundIcon();
+            const soundEl = document.getElementById('sound-toggle');
+            if (soundEl) {
+                soundEl.addEventListener('click', () => {
+                    soundEnabled = !soundEnabled;
+                    saveSoundSetting(soundEnabled);
+                    updateSoundIcon();
+                });
+            }
         };
 
         // Handle Enter key presses
@@ -1958,6 +2007,7 @@
                 div.innerHTML = `<strong>${ticketText}</strong><br><span style="color:#6b7280;">Consensus: ${consensus} | Avg: ${average} | Range: ${range} | ${timeStr}</span>`;
                 historyList.appendChild(div);
             });
+            updateStatsUI();
         }
 
         // NEW: Export history to CSV
@@ -1968,16 +2018,42 @@
             }
 
             const header = ['Ticket', 'Consensus', 'Average', 'Min', 'Max', 'Timestamp'];
-            const rows = gameState.history.map(entry => {
+
+            // Build map to keep only last estimation per ticket
+            const latest = new Map();
+            gameState.history.forEach(entry => {
+                const key = entry.issueKey || entry.ticket;
+                latest.set(key, entry); // later entries overwrite earlier ones
+            });
+
+            let totalPoints = 0;
+            const rows = [];
+            latest.forEach(entry => {
                 const ticketText = entry.issueKey ? `${entry.issueKey}: ${entry.summary || ''}` : entry.ticket;
                 const consensus = entry.stats ? entry.stats.consensus : (entry.estimate || entry.storyPoints || '-');
                 const avg = entry.stats ? entry.stats.average : '';
                 const min = entry.stats ? entry.stats.min : '';
                 const max = entry.stats ? entry.stats.max : '';
                 const timeStr = entry.timestamp ? new Date(entry.timestamp).toISOString() : '';
-                return [ticketText, consensus, avg, min, max, timeStr];
+
+                if (typeof consensus === 'number') {
+                    totalPoints += consensus;
+                }
+
+                rows.push([ticketText, consensus, avg, min, max, timeStr]);
             });
-            const csvArray = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+
+            // Team stats rows
+            rows.push([]); // blank line
+            rows.push(['Total Story Points', totalPoints]);
+            if (gameState.aggregate) {
+                const a = gameState.aggregate;
+                const pct = ((a.consensusRounds / a.totalRounds) * 100).toFixed(0);
+                rows.push(['Total Rounds', a.totalRounds]);
+                rows.push(['Consensus Rounds', a.consensusRounds, pct + '%']);
+            }
+
+            const csvArray = [header, ...rows].map(r => r.map(v => `"${String(v??'').replace(/"/g, '""')}"`).join(',')).join('\n');
             const blob = new Blob([csvArray], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -1988,6 +2064,144 @@
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
         }
+
+        function updateStatsUI() {
+            const section = document.getElementById('stats-section');
+            const teamDiv = document.getElementById('team-stats');
+            const userDiv = document.getElementById('user-stats');
+            if (!section || !gameState.aggregate) {
+                section.classList.add('hidden');
+                return;
+            }
+            const agg = gameState.aggregate;
+            if (agg.totalRounds === 0) {
+                section.classList.add('hidden');
+                return;
+            }
+            section.classList.remove('hidden');
+
+            const consensusPct = ((agg.consensusRounds / agg.totalRounds) * 100).toFixed(0);
+
+            // Compute total story points (unique tickets, last estimation)
+            let totalSP = 0;
+            if (gameState.history && gameState.history.length) {
+                const latest = new Map();
+                gameState.history.forEach(h => {
+                    const key = h.issueKey || h.ticket;
+                    latest.set(key, h); // overwrite to keep last estimation
+                });
+                latest.forEach(h => {
+                    const consensus = h.stats ? h.stats.consensus : h.estimate || h.storyPoints;
+                    if (typeof consensus === 'number') {
+                        totalSP += consensus;
+                    }
+                });
+            }
+
+            teamDiv.innerHTML = `<strong>Total Rounds:</strong> ${agg.totalRounds} &nbsp; | &nbsp; <strong>Consensus Achieved:</strong> ${agg.consensusRounds} (${consensusPct}%) &nbsp; | &nbsp; <strong>Total Story Points:</strong> ${totalSP}`;
+
+            // Build per-user table
+            userDiv.innerHTML = '';
+            const table = document.createElement('table');
+            table.style.width = '100%';
+            table.style.borderCollapse = 'collapse';
+            const headerRow = document.createElement('tr');
+            ['Member','Avg','High','Low','Votes'].forEach(h=>{
+                const th=document.createElement('th');
+                th.textContent=h;
+                th.style.border='1px solid #e5e7eb';
+                th.style.padding='4px';
+                th.style.background='#f9fafb';
+                headerRow.appendChild(th);
+            });
+            table.appendChild(headerRow);
+
+            Object.entries(agg.perUser).forEach(([name, data])=>{
+                const tr=document.createElement('tr');
+                const avg = data.count ? (data.sum / data.count).toFixed(1) : '-';
+                const cells=[name, avg, data.highCount, data.lowCount, data.count];
+                cells.forEach(val=>{
+                    const td=document.createElement('td');
+                    td.textContent=val;
+                    td.style.border='1px solid #e5e7eb';
+                    td.style.padding='4px';
+                    td.style.textAlign='center';
+                    tr.appendChild(td);
+                });
+                table.appendChild(tr);
+            });
+            userDiv.appendChild(table);
+        }
+
+        // 🔊 Sound effects ---------------------------------------------
+        const _audioCtx = typeof AudioContext !== 'undefined' ? new (window.AudioContext || window.webkitAudioContext)() : null;
+        function _playTone(freq = 600, durationMs = 150, volume = 0.15, type = 'sine') {
+            if (!_audioCtx) return;
+            try {
+                if (_audioCtx.state === 'suspended') {
+                    _audioCtx.resume();
+                }
+                const osc = _audioCtx.createOscillator();
+                const gain = _audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                gain.gain.value = volume;
+                osc.connect(gain).connect(_audioCtx.destination);
+                osc.start();
+                osc.stop(_audioCtx.currentTime + durationMs / 1000);
+            } catch (e) {
+                /* Ignore playback errors (e.g., user has not interacted yet) */
+            }
+        }
+
+        function playSound(eventName) {
+            if (!soundEnabled) return; // global mute
+            switch (eventName) {
+                case 'vote':
+                    _playTone(600, 120, 0.2);
+                    break;
+                case 'reveal':
+                    _playTone(800, 200, 0.25, 'square');
+                    break;
+                case 'countdown':
+                    _playTone(500, 180, 0.25, 'sawtooth');
+                    break;
+                case 'consensus':
+                    // Two quick beeps for consensus
+                    _playTone(1000, 120, 0.3, 'triangle');
+                    setTimeout(() => _playTone(1200, 120, 0.3, 'triangle'), 130);
+                    break;
+                case 'ticket':
+                    _playTone(650, 150, 0.22, 'square');
+                    break;
+            }
+        }
+        // --------------------------------------------------------------
+
+        /* ---------------- Sound settings (persisted) ---------------- */
+        let soundEnabled = true; // default on
+
+        function loadSoundSetting() {
+            try {
+                const val = localStorage.getItem('soundEnabled');
+                return val === null ? true : val === 'true';
+            } catch(e) { return true; }
+        }
+
+        function saveSoundSetting(val) {
+            try { localStorage.setItem('soundEnabled', val ? 'true' : 'false'); } catch(e){}
+        }
+
+        function updateSoundIcon() {
+            const el = document.getElementById('sound-toggle');
+            if (!el) return;
+            el.textContent = soundEnabled ? '🔊' : '🔇';
+            el.title = soundEnabled ? 'Sound on' : 'Sound off';
+        }
+
+        // Initialize setting from storage immediately
+        soundEnabled = loadSoundSetting();
+        /* ------------------------------------------------------------ */
     </script>
 </body>
 </html>

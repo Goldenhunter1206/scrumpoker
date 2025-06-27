@@ -310,11 +310,43 @@ function roundToNearestFibonacci(value) {
 
 // NEW: store completed estimations in session history
 function recordHistory(session, entry) {
-    if (!session.history) {
-        session.history = [];
+    if (!session.history) session.history = [];
+    if (!session.aggregate) {
+        session.aggregate = {
+            totalRounds: 0,
+            consensusRounds: 0,
+            perUser: {}
+        };
     }
-    session.history.push({ ...entry, timestamp: new Date() });
-    // Persist asynchronously if we have Redis (fire-and-forget)
+
+    const stamped = { ...entry, timestamp: new Date() };
+    session.history.push(stamped);
+
+    // --- Update aggregate metrics ---
+    const agg = session.aggregate;
+    agg.totalRounds += 1;
+
+    if (entry.stats && entry.stats.min === entry.stats.max) {
+        agg.consensusRounds += 1;
+    }
+
+    if (entry.votes) {
+        Object.entries(entry.votes).forEach(([name, value]) => {
+            if (typeof value !== 'number') return; // ignore ? or ☕ etc.
+            if (!agg.perUser[name]) {
+                agg.perUser[name] = { sum: 0, count: 0, highCount: 0, lowCount: 0 };
+            }
+            const user = agg.perUser[name];
+            user.sum += value;
+            user.count += 1;
+            if (entry.stats) {
+                if (value === entry.stats.max) user.highCount += 1;
+                if (value === entry.stats.min) user.lowCount += 1;
+            }
+        });
+    }
+
+    // Persist asynchronously if Redis available
     if (sessions && typeof sessions.saveToRedis === 'function') {
         sessions.saveToRedis(session.id, session).catch(() => {});
     }
@@ -382,7 +414,8 @@ function getSessionData(session) {
         })),
         votingRevealed: session.votingRevealed,
         totalVotes: session.votes.size,
-        history: session.history || [] // NEW: expose estimation history to clients
+        history: session.history || [], // NEW: expose estimation history to clients
+        aggregate: session.aggregate || null
     };
 }
 
@@ -771,6 +804,7 @@ io.on('connection', (socket) => {
                         recordHistory(session, {
                             issueKey: session.currentJiraIssue.key,
                             summary: session.currentJiraIssue.summary,
+                            votes: Object.fromEntries(session.votes),
                             stats: {
                                 consensus: results.consensus,
                                 average: results.average,
@@ -781,6 +815,7 @@ io.on('connection', (socket) => {
                     } else if (session.currentTicket) {
                         recordHistory(session, {
                             ticket: session.currentTicket,
+                            votes: Object.fromEntries(session.votes),
                             stats: {
                                 consensus: results.consensus,
                                 average: results.average,
@@ -959,6 +994,7 @@ io.on('connection', (socket) => {
                 recordHistory(session, {
                     issueKey: session.currentJiraIssue.key,
                     summary: session.currentJiraIssue.summary,
+                    votes: Object.fromEntries(session.votes),
                     stats: {
                         consensus: results.consensus,
                         average: results.average,
@@ -969,6 +1005,7 @@ io.on('connection', (socket) => {
             } else if (session.currentTicket) {
                 recordHistory(session, {
                     ticket: session.currentTicket,
+                    votes: Object.fromEntries(session.votes),
                     stats: {
                         consensus: results.consensus,
                         average: results.average,
@@ -1108,6 +1145,7 @@ io.on('connection', (socket) => {
                         recordHistory(session, {
                             issueKey: session.currentJiraIssue.key,
                             summary: session.currentJiraIssue.summary,
+                            votes: Object.fromEntries(session.votes),
                             stats: {
                                 consensus: results.consensus,
                                 average: results.average,
@@ -1118,6 +1156,7 @@ io.on('connection', (socket) => {
                     } else if (session.currentTicket) {
                         recordHistory(session, {
                             ticket: session.currentTicket,
+                            votes: Object.fromEntries(session.votes),
                             stats: {
                                 consensus: results.consensus,
                                 average: results.average,
