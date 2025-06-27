@@ -1139,10 +1139,15 @@
         }
 
         // Helper functions to persist Jira credentials (encrypted) in localStorage
-        function saveJiraCredentials(domain, email, token) {
+        function saveJiraCredentials(domain, email, token, projectKey = '') {
             try {
                 const encryptedToken = CryptoJS.AES.encrypt(token, email).toString();
-                localStorage.setItem('jiraCredentials', JSON.stringify({ domain, email, token: encryptedToken }));
+                localStorage.setItem('jiraCredentials', JSON.stringify({ 
+                    domain, 
+                    email, 
+                    token: encryptedToken, 
+                    projectKey: projectKey || '' 
+                }));
             } catch (e) {
                 console.error('Failed to save Jira credentials', e);
             }
@@ -1152,9 +1157,9 @@
             try {
                 const raw = localStorage.getItem('jiraCredentials');
                 if (!raw) return null;
-                const { domain, email, token } = JSON.parse(raw);
+                const { domain, email, token, projectKey } = JSON.parse(raw);
                 const decryptedToken = CryptoJS.AES.decrypt(token, email).toString(CryptoJS.enc.Utf8);
-                return { domain, email, token: decryptedToken };
+                return { domain, email, token: decryptedToken, projectKey: projectKey || '' };
             } catch (e) {
                 console.error('Failed to load Jira credentials', e);
                 return null;
@@ -1182,7 +1187,7 @@
 
             // Persist or clear credentials based on checkbox
             if (remember) {
-                saveJiraCredentials(cleanDomain, email, token);
+                saveJiraCredentials(cleanDomain, email, token, projectKey);
             } else {
                 clearJiraCredentials();
             }
@@ -1662,6 +1667,7 @@
                 document.getElementById('jira-domain').value = storedCreds.domain;
                 document.getElementById('jira-email').value = storedCreds.email;
                 document.getElementById('jira-token').value = storedCreds.token;
+                document.getElementById('jira-project-key').value = storedCreds.projectKey || '';
                 const rememberJiraCheckbox = document.getElementById('remember-jira');
                 if (rememberJiraCheckbox) rememberJiraCheckbox.checked = true;
             }
