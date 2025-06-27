@@ -633,6 +633,8 @@ io.on('connection', (socket) => {
             }
 
             session.currentTicket = ticket;
+            // Clear any previously selected Jira issue when a manual ticket is set
+            session.currentJiraIssue = null;
             session.votes.clear();
             session.votingRevealed = false;
             session.lastActivity = new Date();
