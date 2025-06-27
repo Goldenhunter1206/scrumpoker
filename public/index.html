@@ -495,6 +495,49 @@
         .copyable {
             cursor: pointer;
         }
+
+        /* Responsive improvements for small screens */
+        @media (max-width: 768px) {
+            /* Collapse facilitator controls by default */
+            #facilitator-controls.collapsed {
+                display: none;
+            }
+
+            /* Make voting cards fit 3 per row on very small screens */
+            .voting-cards {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        /* Floating action button that toggles facilitator controls on mobile */
+        #toggle-controls-btn {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: white;
+            border: none;
+            cursor: pointer;
+            background: linear-gradient(135deg, #059669, #047857);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            z-index: 1200;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        #toggle-controls-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(0,0,0,0.25);
+        }
+
+        /* Hide the toggle button by default – shown only for facilitators on small screens via JS */
+        #toggle-controls-btn.hidden {
+            display: none !important;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
@@ -724,6 +767,9 @@
         </div>
     </div>
 
+    <!-- Floating toggle button for facilitator controls (shown on mobile) -->
+    <button id="toggle-controls-btn" class="hidden" title="Show / hide controls">⚙️</button>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         // CryptoJS is loaded globally above for AES encryption
@@ -769,6 +815,9 @@
                     gameState.isFacilitator = true;
                     updateSessionUI(data.sessionData);
                     showNotification('Session created successfully!', 'success');
+
+                    // Persist for auto-rejoin
+                    saveActiveSession();
                 } else {
                     showNotification('Failed to create session', 'error');
                 }
@@ -777,19 +826,32 @@
             // Session joining
             socket.on('join-success', (data) => {
                 gameState.roomCode = data.roomCode;
-                gameState.isFacilitator = false;
-                
-                // Check if user joined as viewer
+                // Determine role from participant record
                 const myParticipant = data.sessionData.participants.find(p => p.name === gameState.myName);
+                gameState.isFacilitator = !!(myParticipant && myParticipant.isFacilitator);
                 gameState.isViewer = myParticipant ? myParticipant.isViewer : false;
+                
+                // Restore previously set vote (if any)
+                if (typeof data.yourVote !== 'undefined' && data.yourVote !== null) {
+                    gameState.myVote = data.yourVote;
+                }
                 
                 updateSessionUI(data.sessionData);
                 showNotification('Joined session successfully!', 'success');
+
+                // Persist for auto-rejoin
+                saveActiveSession();
+
+                // Highlight card if we already voted
+                if (gameState.myVote !== null) {
+                    updateCardSelection(gameState.myVote);
+                }
             });
 
             socket.on('join-failed', (data) => {
                 showNotification(data.message, 'error');
                 enableButtons();
+                clearActiveSession();
             });
 
             // Real-time updates
@@ -822,6 +884,7 @@
 
             socket.on('removed-from-session', (data) => {
                 showNotification(data.message, 'error');
+                clearActiveSession();
                 setTimeout(() => {
                     location.reload();
                 }, 3000);
@@ -935,6 +998,7 @@
 
             socket.on('session-ended', (data) => {
                 showNotification(data.message, 'error');
+                clearActiveSession();
                 setTimeout(() => {
                     location.reload();
                 }, 3000);
@@ -964,6 +1028,21 @@
             socket.on('error', (data) => {
                 showNotification(data.message, 'error');
                 enableButtons();
+            });
+
+            // Auto-rejoin when socket (re)connects
+            socket.on('connect', () => {
+                updateConnectionStatus(true);
+                const saved = loadActiveSessionInfo();
+                if (saved && !gameState.roomCode) {
+                    gameState.myName = saved.name;
+                    gameState.isViewer = saved.isViewer;
+                    socket.emit('join-session', {
+                        roomCode: saved.roomCode,
+                        participantName: saved.name,
+                        asViewer: saved.isViewer
+                    });
+                }
             });
         }
 
@@ -1089,6 +1168,7 @@
             gameState.votingRevealed = sessionData.votingRevealed;
             gameState.currentJiraIssue = sessionData.currentJiraIssue;
             gameState.jiraConfig = sessionData.jiraConfig;
+            gameState.currentTicket = sessionData.currentTicket || '';
 
             // Update user's viewer status
             const myParticipant = sessionData.participants.find(p => p.name === gameState.myName);
@@ -1109,6 +1189,9 @@
             if (gameState.isFacilitator) {
                 document.getElementById('facilitator-controls').classList.remove('hidden');
                 updateJiraUI();
+
+                // Adapt controls for viewport size (mobile vs desktop)
+                adaptFacilitatorControlsForViewport();
             }
 
             // Update participants list and voting cards
@@ -1118,6 +1201,9 @@
             if (gameState.isFacilitator) {
                 updateToggleViewerButton();
             }
+
+            // Update ticket display (if any)
+            updateTicketDisplay();
         }
 
         // Jira Integration Functions
@@ -1543,6 +1629,7 @@
 
         function endSession() {
             if (confirm('Are you sure you want to end this session? All participants will be disconnected.')) {
+                clearActiveSession(); // clear before notifying server
                 socket.emit('end-session', { roomCode: gameState.roomCode });
             }
         }
@@ -1723,6 +1810,69 @@
                 }
             }
         });
+
+        /* -------------------- Responsive facilitator controls -------------------- */
+        // Handles collapsing / expanding facilitator controls on small screens
+        function toggleFacilitatorControlsVisibility() {
+            const controls = document.getElementById('facilitator-controls');
+            controls.classList.toggle('collapsed');
+        }
+
+        // Attach click handler to floating action button
+        const toggleBtn = document.getElementById('toggle-controls-btn');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', toggleFacilitatorControlsVisibility);
+        }
+
+        // Helper invoked from updateSessionUI & on resize to decide whether to collapse controls
+        function adaptFacilitatorControlsForViewport() {
+            const controls = document.getElementById('facilitator-controls');
+            const toggle = document.getElementById('toggle-controls-btn');
+            if (!controls || !toggle) return;
+
+            if (window.innerWidth <= 768) {
+                // Show floating button, collapse controls initially
+                toggle.classList.remove('hidden');
+                if (!controls.classList.contains('collapsed')) {
+                    controls.classList.add('collapsed');
+                }
+            } else {
+                // Hide floating button, always show controls
+                toggle.classList.add('hidden');
+                controls.classList.remove('collapsed');
+            }
+        }
+
+        // Listen for window resize events
+        window.addEventListener('resize', adaptFacilitatorControlsForViewport);
+
+        // Helper: persist active session details for auto-rejoin
+        function saveActiveSession() {
+            try {
+                const data = {
+                    roomCode: gameState.roomCode,
+                    name: gameState.myName,
+                    isViewer: gameState.isViewer
+                };
+                localStorage.setItem('activeSession', JSON.stringify(data));
+            } catch (e) {
+                console.error('Failed to save active session', e);
+            }
+        }
+
+        function loadActiveSessionInfo() {
+            try {
+                const raw = localStorage.getItem('activeSession');
+                if (!raw) return null;
+                return JSON.parse(raw);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function clearActiveSession() {
+            localStorage.removeItem('activeSession');
+        }
     </script>
 </body>
 </html>

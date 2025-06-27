@@ -372,19 +372,47 @@ io.on('connection', (socket) => {
     // Join existing session
     socket.on('join-session', ({ roomCode, participantName, asViewer = false }) => {
         try {
-            const session = sessions.get(roomCode.toUpperCase());
+            const upperCode = roomCode.toUpperCase();
+            const session = sessions.get(upperCode);
             
             if (!session) {
                 socket.emit('join-failed', { message: 'Session not found' });
                 return;
             }
 
-            if (session.participants.has(participantName)) {
-                socket.emit('join-failed', { message: 'Name already taken in this session' });
+            const existing = session.participants.get(participantName);
+            if (existing) {
+                const stillConnected = existing.socketId && io.sockets.sockets.get(existing.socketId);
+                if (stillConnected) {
+                    // Someone with this name is still connected – reject
+                    socket.emit('join-failed', { message: 'Name already taken in this session' });
+                    return;
+                }
+                // Treat as reconnection
+                existing.socketId = socket.id;
+                existing.isViewer = asViewer; // keep previous viewer status unless explicitly toggled
+                delete existing.disconnectedAt;
+
+                socket.join(upperCode);
+                session.lastActivity = new Date();
+
+                // Notify others (reuse participant-joined for simplicity)
+                io.to(upperCode).emit('participant-joined', {
+                    participantName,
+                    sessionData: getSessionData(session)
+                });
+
+                socket.emit('join-success', {
+                    roomCode: upperCode,
+                    sessionData: getSessionData(session),
+                    yourVote: session.votes.get(participantName) || null
+                });
+
+                console.log(`${participantName} reconnected to session ${upperCode}`);
                 return;
             }
 
-            // Add participant to session
+            // New participant path
             session.participants.set(participantName, {
                 name: participantName,
                 socketId: socket.id,
@@ -394,20 +422,21 @@ io.on('connection', (socket) => {
             });
 
             session.lastActivity = new Date();
-            socket.join(roomCode.toUpperCase());
+            socket.join(upperCode);
 
             // Notify all participants about new member
-            io.to(roomCode.toUpperCase()).emit('participant-joined', {
+            io.to(upperCode).emit('participant-joined', {
                 participantName,
                 sessionData: getSessionData(session)
             });
 
             socket.emit('join-success', {
-                roomCode: roomCode.toUpperCase(),
-                sessionData: getSessionData(session)
+                roomCode: upperCode,
+                sessionData: getSessionData(session),
+                yourVote: session.votes.get(participantName) || null
             });
 
-            console.log(`${participantName} joined session ${roomCode.toUpperCase()}`);
+            console.log(`${participantName} joined session ${upperCode}`);
         } catch (error) {
             socket.emit('error', { message: 'Failed to join session' });
         }
@@ -996,35 +1025,26 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
         
-        // Find and remove participant from any session
+        // Find participant in any session
         sessions.forEach((session, roomCode) => {
             const participant = Array.from(session.participants.values())
                 .find(p => p.socketId === socket.id);
             
             if (participant) {
-                session.participants.delete(participant.name);
-                session.votes.delete(participant.name);
+                // Mark participant as offline but keep in the session to allow reconnection
+                participant.socketId = null;
+                participant.disconnectedAt = new Date();
                 
-                // If facilitator disconnects, end the session
-                if (participant.isFacilitator) {
-                    // Clear countdown timer if active
-                    if (session.countdownTimer) {
-                        clearInterval(session.countdownTimer);
-                    }
-                    
-                    io.to(roomCode).emit('session-ended', {
-                        message: 'Session ended - facilitator disconnected'
-                    });
-                    sessions.delete(roomCode);
-                } else {
-                    // Notify remaining participants
-                    io.to(roomCode).emit('participant-left', {
-                        participantName: participant.name,
-                        sessionData: getSessionData(session)
-                    });
-                }
-                
-                console.log(`${participant.name} left session ${roomCode}`);
+                // Optionally notify others (use existing event)
+                io.to(roomCode).emit('participant-left', {
+                    participantName: participant.name,
+                    sessionData: getSessionData(session)
+                });
+
+                console.log(`${participant.name} temporarily left session ${roomCode}`);
+
+                // Do NOT end the session if facilitator disconnected – give them a chance to reconnect.
+                // We could implement a grace-period cleanup elsewhere.
             }
         });
     });
