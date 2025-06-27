@@ -618,6 +618,7 @@
                     <button class="btn" onclick="revealVotes()" id="reveal-btn" disabled>Reveal Votes</button>
                     <button class="btn btn-warning" onclick="startCountdown()" id="countdown-btn" disabled>Start 30s Countdown</button>
                     <button class="btn btn-secondary" onclick="resetVoting()" id="reset-btn" disabled>New Round</button>
+                    <button class="btn btn-outline" onclick="toggleFacilitatorViewer()" id="toggle-viewer-btn">Switch to Observer</button>
                     <button class="btn btn-danger" onclick="endSession()">End Session</button>
                 </div>
 
@@ -806,6 +807,7 @@
                 if (data.participantName === gameState.myName) {
                     gameState.isViewer = data.newRole === 'viewer';
                     updateVotingCards();
+                    updateToggleViewerButton();
                 }
             });
 
@@ -1104,6 +1106,9 @@
             updateParticipantsList();
             updateFacilitatorControls();
             updateVotingCards();
+            if (gameState.isFacilitator) {
+                updateToggleViewerButton();
+            }
         }
 
         // Jira Integration Functions
@@ -1577,6 +1582,25 @@
                 countdownBtn.textContent = 'Start 30s Countdown';
                 updateFacilitatorControls(); // Reset reveal button state
             }
+        }
+
+        // Facilitator observer toggle
+        function updateToggleViewerButton() {
+            const btn = document.getElementById('toggle-viewer-btn');
+            if (!btn) return;
+            btn.textContent = gameState.isViewer ? 'Switch to Participant' : 'Switch to Observer';
+        }
+
+        function toggleFacilitatorViewer() {
+            if (!gameState.isFacilitator) {
+                showNotification('Only the facilitator can change their observer status', 'error');
+                return;
+            }
+            const newIsViewer = !gameState.isViewer;
+            socket.emit('set-facilitator-viewer', {
+                roomCode: gameState.roomCode,
+                isViewer: newIsViewer
+            });
         }
 
         // Moderation functions - Global scope for onclick handlers

@@ -141,7 +141,7 @@ class SessionStore {
 const memoryStore = new Map();
 const sessions = new SessionStore(memoryStore);
 
-if (NODE_ENV === 'production' && process.env.REDIS_URL) {
+if (process.env.REDIS_URL) {
     const redisClient = createClient({ url: process.env.REDIS_URL });
     redisClient.on('error', (err) => console.error('Redis client error', err));
 
@@ -155,6 +155,8 @@ if (NODE_ENV === 'production' && process.env.REDIS_URL) {
         .catch(err => {
             console.error('Failed to connect to Redis, continuing with in-memory sessions:', err);
         });
+} else {
+    console.log('💾 REDIS_URL not set – using in-memory session store');
 }
 // -------------------------------
 // End of session storage section
@@ -702,6 +704,38 @@ io.on('connection', (socket) => {
             session.lastActivity = new Date();
         } catch (error) {
             socket.emit('error', { message: 'Failed to moderate participant' });
+        }
+    });
+
+    // Facilitator toggles observer/participant status for themselves
+    socket.on('set-facilitator-viewer', ({ roomCode, isViewer }) => {
+        try {
+            const session = sessions.get(roomCode);
+            if (!session) return;
+
+            // Identify facilitator
+            const facilitator = session.participants.get(session.facilitator.name);
+            if (!facilitator || facilitator.socketId !== socket.id) {
+                socket.emit('error', { message: 'Only the facilitator can change their observer status' });
+                return;
+            }
+
+            facilitator.isViewer = !!isViewer;
+            // Remove any existing vote if switching to viewer
+            if (facilitator.isViewer) {
+                session.votes.delete(facilitator.name);
+            }
+            session.lastActivity = new Date();
+
+            io.to(roomCode).emit('participant-role-changed', {
+                participantName: facilitator.name,
+                newRole: facilitator.isViewer ? 'viewer' : 'participant',
+                sessionData: getSessionData(session)
+            });
+
+            console.log(`Facilitator ${facilitator.name} in session ${roomCode} is now a ${facilitator.isViewer ? 'viewer' : 'participant'}`);
+        } catch (error) {
+            socket.emit('error', { message: 'Failed to update facilitator observer status' });
         }
     });
 
