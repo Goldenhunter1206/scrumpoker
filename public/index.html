@@ -603,6 +603,13 @@
                     <p><em>Team members can join using the room code above</em></p>
                 </div>
 
+                <!-- NEW: Estimation History -->
+                <div id="history-section" class="session-info hidden">
+                    <h3>📝 Estimation History</h3>
+                    <div id="history-list" style="margin-bottom: 20px;"></div>
+                    <button class="btn btn-outline" onclick="exportHistory()">Export History (CSV)</button>
+                </div>
+
                 <!-- Facilitator Controls -->
                 <div id="facilitator-controls" class="hidden">
                     <!-- Jira Integration -->
@@ -793,7 +800,8 @@
             myVote: null,
             moderationTarget: null,
             countdownActive: false,
-            countdownSeconds: 0
+            countdownSeconds: 0,
+            history: []
         };
 
         // Initialize socket connection
@@ -1196,6 +1204,7 @@
             gameState.currentJiraIssue = sessionData.currentJiraIssue;
             gameState.jiraConfig = sessionData.jiraConfig;
             gameState.currentTicket = sessionData.currentTicket || '';
+            gameState.history = sessionData.history || [];
 
             // Update user's viewer status
             const myParticipant = sessionData.participants.find(p => p.name === gameState.myName);
@@ -1231,6 +1240,9 @@
 
             // Update ticket display (if any)
             updateTicketDisplay();
+
+            // Update estimation history
+            updateHistoryUI();
         }
 
         // Jira Integration Functions
@@ -1911,6 +1923,70 @@
 
         function clearActiveSession() {
             localStorage.removeItem('activeSession');
+        }
+
+        // NEW: Update estimation history
+        function updateHistoryUI() {
+            const historyList = document.getElementById('history-list');
+            historyList.innerHTML = '';
+            
+            if (!gameState.history || gameState.history.length === 0) {
+                // Hide the section if there's nothing to show
+                const section = document.getElementById('history-section');
+                if (section) section.classList.add('hidden');
+                return;
+            }
+
+            const section = document.getElementById('history-section');
+            if (section) section.classList.remove('hidden');
+
+            gameState.history.forEach(entry => {
+                const div = document.createElement('div');
+                div.style.padding = '8px 12px';
+                div.style.background = '#ffffff';
+                div.style.border = '1px solid #e5e7eb';
+                div.style.borderRadius = '6px';
+                div.style.marginBottom = '6px';
+                div.style.fontSize = '14px';
+
+                const ticketText = entry.issueKey ? `${entry.issueKey}: ${entry.summary || ''}` : entry.ticket;
+                const consensus = entry.stats ? entry.stats.consensus : (entry.estimate || entry.storyPoints || '-');
+                const average = entry.stats ? entry.stats.average.toFixed(1) : '-';
+                const range = entry.stats ? `${entry.stats.min}‒${entry.stats.max}` : '-';
+                const timeStr = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '';
+
+                div.innerHTML = `<strong>${ticketText}</strong><br><span style="color:#6b7280;">Consensus: ${consensus} | Avg: ${average} | Range: ${range} | ${timeStr}</span>`;
+                historyList.appendChild(div);
+            });
+        }
+
+        // NEW: Export history to CSV
+        function exportHistory() {
+            if (!gameState.history || gameState.history.length === 0) {
+                showNotification('No history to export', 'error');
+                return;
+            }
+
+            const header = ['Ticket', 'Consensus', 'Average', 'Min', 'Max', 'Timestamp'];
+            const rows = gameState.history.map(entry => {
+                const ticketText = entry.issueKey ? `${entry.issueKey}: ${entry.summary || ''}` : entry.ticket;
+                const consensus = entry.stats ? entry.stats.consensus : (entry.estimate || entry.storyPoints || '-');
+                const avg = entry.stats ? entry.stats.average : '';
+                const min = entry.stats ? entry.stats.min : '';
+                const max = entry.stats ? entry.stats.max : '';
+                const timeStr = entry.timestamp ? new Date(entry.timestamp).toISOString() : '';
+                return [ticketText, consensus, avg, min, max, timeStr];
+            });
+            const csvArray = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+            const blob = new Blob([csvArray], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${gameState.sessionName || 'estimation_history'}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
         }
     </script>
 </body>

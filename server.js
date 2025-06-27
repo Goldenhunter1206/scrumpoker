@@ -308,6 +308,18 @@ function roundToNearestFibonacci(value) {
     return closest;
 }
 
+// NEW: store completed estimations in session history
+function recordHistory(session, entry) {
+    if (!session.history) {
+        session.history = [];
+    }
+    session.history.push({ ...entry, timestamp: new Date() });
+    // Persist asynchronously if we have Redis (fire-and-forget)
+    if (sessions && typeof sessions.saveToRedis === 'function') {
+        sessions.saveToRedis(session.id, session).catch(() => {});
+    }
+}
+
 // Utility functions
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -331,7 +343,8 @@ function createSession(sessionName, facilitatorName, facilitatorSocketId) {
         countdownActive: false,
         countdownTimer: null,
         createdAt: new Date(),
-        lastActivity: new Date()
+        lastActivity: new Date(),
+        history: [] // NEW: keep track of completed estimations in this session
     };
     
     // Add facilitator as first participant
@@ -368,7 +381,8 @@ function getSessionData(session) {
             vote: session.votingRevealed ? session.votes.get(p.name) : undefined
         })),
         votingRevealed: session.votingRevealed,
-        totalVotes: session.votes.size
+        totalVotes: session.votes.size,
+        history: session.history || [] // NEW: expose estimation history to clients
     };
 }
 
@@ -623,6 +637,14 @@ io.on('connection', (socket) => {
             // Store issue key before clearing
             const updatedIssueKey = session.currentJiraIssue.key;
 
+            // NEW: store completed estimation in session history BEFORE clearing state
+            recordHistory(session, {
+                issueKey: updatedIssueKey,
+                summary: session.currentJiraIssue.summary,
+                storyPoints: roundedEstimate,
+                originalEstimate: finalEstimate
+            });
+
             // Clear current ticket and voting after successful Jira update
             session.currentTicket = '';
             session.currentJiraIssue = null;
@@ -733,7 +755,9 @@ io.on('connection', (socket) => {
                     const results = {
                         average: numericVotes.length > 0 ? numericVotes.reduce((sum, v) => sum + v, 0) / numericVotes.length : 0,
                         voteCounts: {},
-                        totalVotes: session.votes.size
+                        totalVotes: session.votes.size,
+                        min: numericVotes.length > 0 ? Math.min(...numericVotes) : null,
+                        max: numericVotes.length > 0 ? Math.max(...numericVotes) : null
                     };
                     session.votes.forEach(v => {
                         results.voteCounts[v] = (results.voteCounts[v] || 0) + 1;
@@ -742,7 +766,30 @@ io.on('connection', (socket) => {
                         results.voteCounts[a] > results.voteCounts[b] ? a : b, null
                     );
 
-                    // Notify clients
+                    // NEW: save estimation to history BEFORE emitting
+                    if (session.currentJiraIssue) {
+                        recordHistory(session, {
+                            issueKey: session.currentJiraIssue.key,
+                            summary: session.currentJiraIssue.summary,
+                            stats: {
+                                consensus: results.consensus,
+                                average: results.average,
+                                min: results.min,
+                                max: results.max
+                            }
+                        });
+                    } else if (session.currentTicket) {
+                        recordHistory(session, {
+                            ticket: session.currentTicket,
+                            stats: {
+                                consensus: results.consensus,
+                                average: results.average,
+                                min: results.min,
+                                max: results.max
+                            }
+                        });
+                    }
+
                     io.to(roomCode).emit('countdown-finished', {
                         sessionData: getSessionData(session)
                     });
@@ -892,7 +939,9 @@ io.on('connection', (socket) => {
                 average: numericVotes.length > 0 ? 
                     numericVotes.reduce((sum, vote) => sum + vote, 0) / numericVotes.length : 0,
                 voteCounts: {},
-                totalVotes: session.votes.size
+                totalVotes: session.votes.size,
+                min: numericVotes.length > 0 ? Math.min(...numericVotes) : null,
+                max: numericVotes.length > 0 ? Math.max(...numericVotes) : null
             };
 
             // Count vote distribution
@@ -904,6 +953,30 @@ io.on('connection', (socket) => {
             results.consensus = Object.keys(results.voteCounts).reduce((a, b) => 
                 results.voteCounts[a] > results.voteCounts[b] ? a : b, null
             );
+
+            // NEW: save estimation to history BEFORE emitting
+            if (session.currentJiraIssue) {
+                recordHistory(session, {
+                    issueKey: session.currentJiraIssue.key,
+                    summary: session.currentJiraIssue.summary,
+                    stats: {
+                        consensus: results.consensus,
+                        average: results.average,
+                        min: results.min,
+                        max: results.max
+                    }
+                });
+            } else if (session.currentTicket) {
+                recordHistory(session, {
+                    ticket: session.currentTicket,
+                    stats: {
+                        consensus: results.consensus,
+                        average: results.average,
+                        min: results.min,
+                        max: results.max
+                    }
+                });
+            }
 
             io.to(roomCode).emit('votes-revealed', {
                 sessionData: getSessionData(session),
@@ -1015,7 +1088,9 @@ io.on('connection', (socket) => {
                         average: numericVotes.length > 0 ? 
                             numericVotes.reduce((sum, vote) => sum + vote, 0) / numericVotes.length : 0,
                         voteCounts: {},
-                        totalVotes: session.votes.size
+                        totalVotes: session.votes.size,
+                        min: numericVotes.length > 0 ? Math.min(...numericVotes) : null,
+                        max: numericVotes.length > 0 ? Math.max(...numericVotes) : null
                     };
 
                     // Count vote distribution
@@ -1028,11 +1103,33 @@ io.on('connection', (socket) => {
                         results.voteCounts[a] > results.voteCounts[b] ? a : b, null
                     );
 
-                    // Notify countdown finished and reveal votes
+                    // NEW: save estimation to history BEFORE emitting
+                    if (session.currentJiraIssue) {
+                        recordHistory(session, {
+                            issueKey: session.currentJiraIssue.key,
+                            summary: session.currentJiraIssue.summary,
+                            stats: {
+                                consensus: results.consensus,
+                                average: results.average,
+                                min: results.min,
+                                max: results.max
+                            }
+                        });
+                    } else if (session.currentTicket) {
+                        recordHistory(session, {
+                            ticket: session.currentTicket,
+                            stats: {
+                                consensus: results.consensus,
+                                average: results.average,
+                                min: results.min,
+                                max: results.max
+                            }
+                        });
+                    }
+
                     io.to(roomCode).emit('countdown-finished', {
                         sessionData: getSessionData(session)
                     });
-
                     io.to(roomCode).emit('votes-revealed', {
                         sessionData: getSessionData(session),
                         results
