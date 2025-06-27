@@ -686,6 +686,48 @@ io.on('connection', (socket) => {
             });
 
             console.log(`Vote submitted by ${participant.name} in session ${roomCode}`);
+
+            // NEW: If a countdown is active, finish it early when all (non-viewer) participants have voted
+            if (session.countdownActive) {
+                const eligibleVoters = Array.from(session.participants.values())
+                    .filter(p => !p.isViewer && p.socketId); // only connected, voting participants
+
+                if (session.votes.size >= eligibleVoters.length && eligibleVoters.length > 0) {
+                    // All votes are in – end countdown early
+                    if (session.countdownTimer) {
+                        clearInterval(session.countdownTimer);
+                        session.countdownTimer = null;
+                    }
+                    session.countdownActive = false;
+                    session.votingRevealed = true;
+                    session.lastActivity = new Date();
+
+                    // Calculate results (duplicated logic from countdown finish)
+                    const numericVotes = Array.from(session.votes.values()).filter(v => typeof v === 'number');
+                    const results = {
+                        average: numericVotes.length > 0 ? numericVotes.reduce((sum, v) => sum + v, 0) / numericVotes.length : 0,
+                        voteCounts: {},
+                        totalVotes: session.votes.size
+                    };
+                    session.votes.forEach(v => {
+                        results.voteCounts[v] = (results.voteCounts[v] || 0) + 1;
+                    });
+                    results.consensus = Object.keys(results.voteCounts).reduce((a, b) =>
+                        results.voteCounts[a] > results.voteCounts[b] ? a : b, null
+                    );
+
+                    // Notify clients
+                    io.to(roomCode).emit('countdown-finished', {
+                        sessionData: getSessionData(session)
+                    });
+                    io.to(roomCode).emit('votes-revealed', {
+                        sessionData: getSessionData(session),
+                        results
+                    });
+
+                    console.log(`Countdown finished early and votes auto-revealed in session ${roomCode}`);
+                }
+            }
         } catch (error) {
             socket.emit('error', { message: 'Failed to submit vote' });
         }
