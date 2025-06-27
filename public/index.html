@@ -580,6 +580,10 @@
                                 <label for="jira-token">API Token <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" style="color: #059669;">(Generate here)</a></label>
                                 <input type="password" id="jira-token" placeholder="Your Jira API token">
                             </div>
+                            <div class="input-group">
+                                <label for="jira-project-key">Project Key Filter (optional)</label>
+                                <input type="text" id="jira-project-key" placeholder="e.g. PROJ" style="text-transform: uppercase;">
+                            </div>
                             <div class="input-group" style="display: flex; align-items: center;">
                                 <input type="checkbox" id="remember-jira" style="margin-right: 8px;">
                                 <label for="remember-jira" style="margin:0;">Remember credentials on this device</label>
@@ -1165,6 +1169,7 @@
             const domain = document.getElementById('jira-domain').value.trim();
             const email = document.getElementById('jira-email').value.trim();
             const token = document.getElementById('jira-token').value.trim();
+            const projectKey = document.getElementById('jira-project-key').value.trim().toUpperCase();
             const remember = document.getElementById('remember-jira').checked;
 
             if (!domain || !email || !token) {
@@ -1187,7 +1192,8 @@
                 roomCode: gameState.roomCode,
                 domain: cleanDomain,
                 email: email,
-                token: token
+                token: token,
+                projectKey: projectKey || null
             });
             console.log('configured jira');
         }

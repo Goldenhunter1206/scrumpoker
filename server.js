@@ -28,6 +28,9 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const MAX_SESSIONS = parseInt(process.env.MAX_SESSIONS) || 50;
 const SESSION_TIMEOUT = parseInt(process.env.SESSION_TIMEOUT) || 24 * 60 * 60 * 1000; // 24 hours
 
+// Jira custom field for Story Points (default Atlassian Cloud is customfield_10016)
+const JIRA_STORYPOINT_FIELD = process.env.JIRA_STORYPOINT_FIELD || 'customfield_10016';
+
 // Middleware
 app.use(cors({
     origin: process.env.CORS_ORIGIN || "*",
@@ -213,22 +216,50 @@ async function makeJiraRequest(config, endpoint, method = 'GET', data = null) {
     }
 }
 
-async function getJiraBoards(config) {
-    // Use the Agile API to list Scrum boards
-    return await makeJiraRequest(config, 'agile/1.0/board');
+async function getJiraBoards(config, projectKey = null) {
+    // Use the Agile API to list Scrum boards, optionally filtered by project key or id
+    const endpointBase = 'agile/1.0/board';
+    const endpoint = projectKey ? `${endpointBase}?projectKeyOrId=${encodeURIComponent(projectKey)}` : endpointBase;
+    return await makeJiraRequest(config, endpoint);
 }
 
 async function getJiraBoardIssues(config, boardId) {
-    // Fetch backlog issues for a specific board via the Agile API
-    const endpoint = `agile/1.0/board/${boardId}/backlog?fields=key,summary,description,issuetype,priority,status,assignee,customfield_10016`;
-    return await makeJiraRequest(config, endpoint);
+    // Fetch ALL backlog issues for a specific board via the Agile API (handle pagination)
+    const base = `agile/1.0/board/${boardId}/backlog`;
+    const fields = `key,summary,description,issuetype,priority,status,assignee,${JIRA_STORYPOINT_FIELD}`;
+
+    let startAt = 0;
+    const maxResults = 100; // Jira Agile API allows up to 100 per page
+    let allIssues = [];
+    let isLast = false;
+
+    while (!isLast) {
+        const endpoint = `${base}?fields=${fields}&startAt=${startAt}&maxResults=${maxResults}`;
+        const pageResult = await makeJiraRequest(config, endpoint);
+
+        if (!pageResult.success) {
+            return pageResult; // bubble up the error
+        }
+
+        const data = pageResult.data;
+        allIssues = allIssues.concat(data.issues || []);
+
+        // Determine if this was the last page
+        if (data.isLast || (data.startAt + data.maxResults) >= data.total) {
+            isLast = true;
+        } else {
+            startAt += maxResults;
+        }
+    }
+
+    return { success: true, data: { issues: allIssues } };
 }
 
 async function updateJiraIssueStoryPoints(config, issueKey, storyPoints) {
     const endpoint = `issue/${issueKey}`;
     const data = {
         fields: {
-            customfield_10016: storyPoints // Standard story points field ID
+            [JIRA_STORYPOINT_FIELD]: storyPoints
         }
     };
     return await makeJiraRequest(config, endpoint, 'PUT', data);
@@ -383,7 +414,7 @@ io.on('connection', (socket) => {
     });
 
     // Configure Jira integration
-    socket.on('configure-jira', async ({ roomCode, domain, email, token }) => {
+    socket.on('configure-jira', async ({ roomCode, domain, email, token, projectKey = null }) => {
         console.log('configure-jira', roomCode, domain, email, token);
         try {
             const session = sessions.get(roomCode);
@@ -400,7 +431,7 @@ io.on('connection', (socket) => {
 
             // Test the connection
             const config = { domain, email, token };
-            const boardsResult = await getJiraBoards(config);
+            const boardsResult = await getJiraBoards(config, projectKey);
             
             if (!boardsResult.success) {
                 socket.emit('jira-config-failed', { 
@@ -409,7 +440,7 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            session.jiraConfig = config;
+            session.jiraConfig = { ...config, projectKey };
             session.lastActivity = new Date();
 
             socket.emit('jira-config-success', {
@@ -455,7 +486,7 @@ io.on('connection', (socket) => {
                 priority: issue.fields.priority?.name || 'Medium',
                 status: issue.fields.status?.name || 'To Do',
                 assignee: issue.fields.assignee?.displayName || 'Unassigned',
-                currentStoryPoints: issue.fields.customfield_10016 || null
+                currentStoryPoints: issue.fields[JIRA_STORYPOINT_FIELD] || null
             }));
 
             socket.emit('jira-issues-loaded', { issues });
@@ -552,7 +583,7 @@ io.on('connection', (socket) => {
                 sessionData: getSessionData(session)
             });
 
-            console.log(`Updated Jira issue ${session.currentJiraIssue.key} with ${roundedEstimate} story points`);
+            console.log(`Updated Jira issue ${updatedIssueKey} with ${roundedEstimate} story points`);
         } catch (error) {
             socket.emit('error', { message: 'Failed to update Jira issue' });
         }
