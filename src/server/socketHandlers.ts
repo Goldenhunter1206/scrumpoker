@@ -692,12 +692,18 @@ function calculateVotingResults(votes: Map<string, Vote>): VotingResults {
     results.voteCounts[String(vote)] = (results.voteCounts[String(vote)] || 0) + 1;
   });
 
-  // Find consensus (most common vote)
-  const consensusKey = Object.keys(results.voteCounts).reduce((a, b) => 
-    results.voteCounts[a] > results.voteCounts[b] ? a : b, '?'
+  // Find consensus (most common vote, or "-" if tied)
+  const maxCount = Math.max(...Object.values(results.voteCounts));
+  const mostCommonVotes = Object.keys(results.voteCounts).filter(vote => 
+    results.voteCounts[vote] === maxCount
   );
   
-  results.consensus = isNaN(Number(consensusKey)) ? consensusKey as Vote : Number(consensusKey);
+  if (mostCommonVotes.length === 1) {
+    const consensusKey = mostCommonVotes[0];
+    results.consensus = isNaN(Number(consensusKey)) ? consensusKey as Vote : Number(consensusKey);
+  } else {
+    results.consensus = '-' as Vote;
+  }
 
   return results;
 }

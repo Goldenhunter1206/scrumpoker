@@ -795,9 +795,12 @@ io.on('connection', (socket) => {
                     session.votes.forEach(v => {
                         results.voteCounts[v] = (results.voteCounts[v] || 0) + 1;
                     });
-                    results.consensus = Object.keys(results.voteCounts).reduce((a, b) =>
-                        results.voteCounts[a] > results.voteCounts[b] ? a : b, null
+                    // Find consensus (most common vote, or "-" if tied)
+                    const maxCount = Math.max(...Object.values(results.voteCounts));
+                    const mostCommonVotes = Object.keys(results.voteCounts).filter(vote => 
+                        results.voteCounts[vote] === maxCount
                     );
+                    results.consensus = mostCommonVotes.length === 1 ? mostCommonVotes[0] : '-';
 
                     // NEW: save estimation to history BEFORE emitting
                     if (session.currentJiraIssue) {
@@ -984,10 +987,12 @@ io.on('connection', (socket) => {
                 results.voteCounts[vote] = (results.voteCounts[vote] || 0) + 1;
             });
 
-            // Find consensus (most common vote)
-            results.consensus = Object.keys(results.voteCounts).reduce((a, b) => 
-                results.voteCounts[a] > results.voteCounts[b] ? a : b, null
+            // Find consensus (most common vote, or "-" if tied)
+            const maxCount = Math.max(...Object.values(results.voteCounts));
+            const mostCommonVotes = Object.keys(results.voteCounts).filter(vote => 
+                results.voteCounts[vote] === maxCount
             );
+            results.consensus = mostCommonVotes.length === 1 ? mostCommonVotes[0] : '-';
 
             // NEW: save estimation to history BEFORE emitting
             if (session.currentJiraIssue) {
@@ -1135,10 +1140,12 @@ io.on('connection', (socket) => {
                         results.voteCounts[vote] = (results.voteCounts[vote] || 0) + 1;
                     });
 
-                    // Find consensus
-                    results.consensus = Object.keys(results.voteCounts).reduce((a, b) => 
-                        results.voteCounts[a] > results.voteCounts[b] ? a : b, null
+                    // Find consensus (most common vote, or "-" if tied)
+                    const maxCount = Math.max(...Object.values(results.voteCounts));
+                    const mostCommonVotes = Object.keys(results.voteCounts).filter(vote => 
+                        results.voteCounts[vote] === maxCount
                     );
+                    results.consensus = mostCommonVotes.length === 1 ? mostCommonVotes[0] : '-';
 
                     // NEW: save estimation to history BEFORE emitting
                     if (session.currentJiraIssue) {
