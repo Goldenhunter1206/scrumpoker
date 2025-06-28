@@ -65,6 +65,7 @@ class ScrumPokerApp {
     document.getElementById('end-session-btn')?.addEventListener('click', () => this.endSession());
     document.getElementById('finalize-btn')?.addEventListener('click', () => this.finalizeEstimation());
     document.getElementById('export-history-btn')?.addEventListener('click', () => this.exportHistory());
+    document.getElementById('export-stats-btn')?.addEventListener('click', () => this.exportStatistics());
 
     // Sound toggle
     document.getElementById('sound-toggle')?.addEventListener('click', () => {
@@ -983,15 +984,35 @@ class ScrumPokerApp {
 
     state.history.forEach(entry => {
       const div = document.createElement('div');
-      div.style.cssText = 'padding: 8px 12px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 6px; font-size: 14px;';
+      div.className = 'history-item';
 
       const ticketText = entry.issueKey ? `${entry.issueKey}: ${entry.summary || ''}` : entry.ticket;
       const consensus = entry.stats ? entry.stats.consensus : (entry.storyPoints || '-');
       const average = entry.stats ? entry.stats.average.toFixed(1) : '-';
       const range = entry.stats ? `${entry.stats.min}‒${entry.stats.max}` : '-';
-      const timeStr = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '';
+      const timeStr = entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
-      div.innerHTML = `<strong>${ticketText}</strong><br><span style="color:#6b7280;">Consensus: ${consensus} | Avg: ${average} | Range: ${range} | ${timeStr}</span>`;
+      div.innerHTML = `
+        <div class="history-item-title">${ticketText}</div>
+        <div class="history-item-meta">
+          <div class="history-item-stat">
+            <span class="history-item-stat-label">Consensus:</span>
+            <span>${consensus}</span>
+          </div>
+          <div class="history-item-stat">
+            <span class="history-item-stat-label">Avg:</span>
+            <span>${average}</span>
+          </div>
+          <div class="history-item-stat">
+            <span class="history-item-stat-label">Range:</span>
+            <span>${range}</span>
+          </div>
+          ${timeStr ? `<div class="history-item-stat">
+            <span class="history-item-stat-label">Time:</span>
+            <span>${timeStr}</span>
+          </div>` : ''}
+        </div>
+      `;
       historyList.appendChild(div);
     });
     
@@ -1041,17 +1062,33 @@ class ScrumPokerApp {
       });
     }
 
-    teamDiv.innerHTML = `<strong>Total Rounds:</strong> ${agg.totalRounds} &nbsp; | &nbsp; <strong>Consensus Achieved:</strong> ${agg.consensusRounds} (${consensusPct}%) &nbsp; | &nbsp; <strong>Total Story Points:</strong> ${totalSP}`;
+    teamDiv.innerHTML = `
+      <div class="stats-summary">
+        <div class="flex flex-wrap gap-4">
+          <div class="stats-summary-item">
+            <span class="stats-summary-label">Total Rounds:</span>
+            <span class="stats-summary-value">${agg.totalRounds}</span>
+          </div>
+          <div class="stats-summary-item">
+            <span class="stats-summary-label">Consensus Achieved:</span>
+            <span class="stats-summary-value">${agg.consensusRounds} (${consensusPct}%)</span>
+          </div>
+          <div class="stats-summary-item">
+            <span class="stats-summary-label">Total Story Points:</span>
+            <span class="stats-summary-value">${totalSP}</span>
+          </div>
+        </div>
+      </div>
+    `;
 
     userDiv.innerHTML = '';
     const table = document.createElement('table');
-    table.style.cssText = 'width: 100%; border-collapse: collapse;';
+    table.className = 'stats-table';
     
     const headerRow = document.createElement('tr');
     ['Member','Avg','High','Low','Votes'].forEach(h => {
       const th = document.createElement('th');
       th.textContent = h;
-      th.style.cssText = 'border: 1px solid #e5e7eb; padding: 4px; background: #f9fafb;';
       headerRow.appendChild(th);
     });
     table.appendChild(headerRow);
@@ -1059,12 +1096,20 @@ class ScrumPokerApp {
     Object.entries(agg.perUser).forEach(([name, data]) => {
       const tr = document.createElement('tr');
       const avg = data.count ? (data.sum / data.count).toFixed(1) : '-';
-      const cells = [name, avg, data.highCount, data.lowCount, data.count];
+      const cells = [
+        { value: name, isName: true },
+        { value: avg, isName: false },
+        { value: data.highCount, isName: false },
+        { value: data.lowCount, isName: false },
+        { value: data.count, isName: false }
+      ];
       
-      cells.forEach(val => {
+      cells.forEach(cell => {
         const td = document.createElement('td');
-        td.textContent = String(val);
-        td.style.cssText = 'border: 1px solid #e5e7eb; padding: 4px; text-align: center;';
+        td.textContent = String(cell.value);
+        if (cell.isName) {
+          td.className = 'name-cell';
+        }
         tr.appendChild(td);
       });
       table.appendChild(tr);
@@ -1136,6 +1181,85 @@ class ScrumPokerApp {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  }
+
+  private exportStatistics(): void {
+    const state = gameState.getState();
+    
+    if (!state.aggregate || state.aggregate.totalRounds === 0) {
+      showNotification('No statistics to export', 'error');
+      return;
+    }
+
+    const agg = state.aggregate;
+    const consensusPct = ((agg.consensusRounds / agg.totalRounds) * 100).toFixed(1);
+
+    // Calculate total story points
+    let totalSP = 0;
+    if (state.history && state.history.length) {
+      const latest = new Map();
+      state.history.forEach(h => {
+        const key = h.issueKey || h.ticket;
+        latest.set(key, h);
+      });
+      
+      latest.forEach(h => {
+        const consensus = h.stats ? h.stats.consensus : h.storyPoints;
+        if (typeof consensus === 'number') {
+          totalSP += consensus;
+        } else if (consensus === '-' && h.stats && typeof h.stats.average === 'number') {
+          const closestFib = roundToNearestFibonacci(h.stats.average);
+          if (closestFib !== null) {
+            totalSP += closestFib;
+          }
+        }
+      });
+    }
+
+    // Prepare CSV data
+    const header = ['Metric', 'Value'];
+    const summaryRows: (string | number)[][] = [
+      ['Total Rounds', agg.totalRounds],
+      ['Consensus Rounds', agg.consensusRounds],
+      ['Consensus Percentage', consensusPct + '%'],
+      ['Total Story Points', totalSP],
+      ['']
+    ];
+
+    // User statistics header
+    const userHeader = ['Member', 'Average Vote', 'High Votes', 'Low Votes', 'Total Votes'];
+    const userRows: (string | number)[][] = [];
+    
+    Object.entries(agg.perUser).forEach(([name, data]) => {
+      const avg = data.count ? (data.sum / data.count).toFixed(1) : '-';
+      userRows.push([name, avg, data.highCount, data.lowCount, data.count]);
+    });
+
+    // Combine all data
+    const csvArray = [
+      ['SESSION STATISTICS'],
+      [''],
+      header,
+      ...summaryRows,
+      ['INDIVIDUAL STATISTICS'],
+      [''],
+      userHeader,
+      ...userRows
+    ].map(r => 
+      r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+    
+    const blob = new Blob([csvArray], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${state.sessionName || 'session'}_statistics.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    showNotification('Statistics exported successfully!', 'success');
   }
 
   /**

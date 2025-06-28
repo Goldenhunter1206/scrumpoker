@@ -116,6 +116,68 @@
   @apply p-3 border border-border rounded-md mb-2 cursor-pointer transition-all duration-200 bg-card hover:bg-muted/50 hover:border-emerald-500;
 }
 
+/* History List */
+.history-item {
+  @apply p-3 border border-border rounded-md mb-2 bg-card hover:bg-muted/20 transition-all duration-200;
+}
+
+.history-item-title {
+  @apply font-medium text-sm text-foreground mb-1 leading-tight;
+}
+
+.history-item-meta {
+  @apply text-xs text-muted-foreground flex flex-wrap gap-3;
+}
+
+.history-item-stat {
+  @apply flex items-center gap-1;
+}
+
+.history-item-stat-label {
+  @apply font-medium;
+}
+
+/* Statistics */
+.stats-summary {
+  @apply p-3 bg-muted/30 rounded-md border border-border mb-3 text-sm;
+}
+
+.stats-summary-item {
+  @apply inline-flex items-center gap-1;
+}
+
+.stats-summary-label {
+  @apply font-medium text-foreground;
+}
+
+.stats-summary-value {
+  @apply text-primary font-semibold;
+}
+
+.stats-table {
+  @apply w-full border-collapse rounded-md overflow-hidden border border-border;
+}
+
+.stats-table th {
+  @apply bg-muted/50 border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground text-left;
+}
+
+.stats-table td {
+  @apply border-b border-border px-3 py-2 text-sm text-foreground text-center;
+}
+
+.stats-table tr:last-child td {
+  @apply border-b-0;
+}
+
+.stats-table tr:hover {
+  @apply bg-muted/20;
+}
+
+.stats-table .name-cell {
+  @apply text-left font-medium;
+}
+
 .jira-issue.selected {
   @apply bg-emerald-50 border-emerald-600 dark:bg-emerald-900/20;
 }
