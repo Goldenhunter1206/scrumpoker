@@ -154,12 +154,16 @@
   @apply flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 transition-colors;
 }
 
+.dashboard-card[draggable="true"] .dashboard-card-header {
+  @apply cursor-move;
+}
+
 .dashboard-card-header h3 {
-  @apply text-card-foreground font-semibold text-sm flex items-center gap-2 m-0;
+  @apply text-card-foreground font-semibold text-sm flex items-center gap-2 m-0 pointer-events-none;
 }
 
 .dashboard-card-toggle {
-  @apply text-muted-foreground hover:text-foreground transition-colors;
+  @apply text-muted-foreground hover:text-foreground transition-colors pointer-events-auto;
 }
 
 .dashboard-card-content {
@@ -191,4 +195,49 @@
 .button-group {
   @apply grid gap-2;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+/* Drag and Drop Styles */
+.dashboard-card {
+  @apply cursor-move transition-all duration-200;
+}
+
+.dashboard-card[draggable="true"] {
+  @apply select-none;
+}
+
+.dashboard-card.dragging {
+  @apply opacity-50 scale-95 rotate-2 shadow-xl z-50;
+}
+
+.dashboard-card.drag-over {
+  @apply border-primary border-2 bg-primary/5;
+}
+
+.column-drop-zone {
+  @apply min-h-8 transition-all duration-200 rounded-lg border-2 border-dashed border-transparent;
+}
+
+.column-drop-zone.drag-over {
+  @apply border-primary bg-primary/5;
+}
+
+.drag-handle {
+  @apply opacity-0 group-hover:opacity-100 transition-opacity cursor-move text-muted-foreground hover:text-foreground pointer-events-auto;
+}
+
+.dashboard-card:hover .drag-handle {
+  @apply opacity-100;
+}
+
+.sidebar-column, .main-column {
+  @apply relative;
+}
+
+.drop-indicator {
+  @apply h-1 bg-primary rounded-full transition-all duration-200 opacity-0;
+}
+
+.drop-indicator.active {
+  @apply opacity-100;
 }

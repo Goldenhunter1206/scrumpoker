@@ -43,6 +43,8 @@ class ScrumPokerApp {
     this.setupUrlParameters();
     updateSoundIcon();
     this.restoreCardStates();
+    this.setupDragAndDrop();
+    this.restoreCardLayout();
   }
 
   private setupEventListeners(): void {
@@ -1125,6 +1127,216 @@ class ScrumPokerApp {
       const card = document.querySelector(`[data-card="${cardId}"]`);
       if (card) {
         card.classList.add('collapsed');
+      }
+    });
+  }
+
+  // Drag and Drop Methods
+  private setupDragAndDrop(): void {
+    this.setupDragEvents();
+    this.setupDropZones();
+  }
+
+  private setupDragEvents(): void {
+    const cards = document.querySelectorAll('.dashboard-card[draggable="true"]');
+    
+    cards.forEach(card => {
+      card.addEventListener('dragstart', (e) => this.handleDragStart(e as DragEvent));
+      card.addEventListener('dragend', (e) => this.handleDragEnd(e as DragEvent));
+      card.addEventListener('dragover', (e) => this.handleDragOver(e as DragEvent));
+      card.addEventListener('drop', (e) => this.handleDrop(e as DragEvent));
+      
+      // Setup drag handle events
+      const dragHandle = card.querySelector('.drag-handle');
+      if (dragHandle) {
+        dragHandle.addEventListener('mousedown', (e) => {
+          e.stopPropagation(); // Prevent card toggle
+        });
+      }    });
+  }
+
+  private setupDropZones(): void {
+    const columns = document.querySelectorAll('[data-column]');
+    const dropZones = document.querySelectorAll('.column-drop-zone');
+    
+    [...columns, ...dropZones].forEach(zone => {
+      zone.addEventListener('dragover', (e) => this.handleColumnDragOver(e as DragEvent));
+      zone.addEventListener('drop', (e) => this.handleColumnDrop(e as DragEvent));
+      zone.addEventListener('dragleave', (e) => this.handleColumnDragLeave(e as DragEvent));
+    });
+  }
+
+  private draggedElement: HTMLElement | null = null;
+  private draggedFromColumn: string | null = null;
+
+  private handleDragStart(e: DragEvent): void {
+    const target = e.target as HTMLElement;
+    this.draggedElement = target.closest('.dashboard-card') as HTMLElement;
+    
+    if (this.draggedElement) {
+      this.draggedElement.classList.add('dragging');
+      this.draggedFromColumn = this.getCardColumn(this.draggedElement);
+      
+      e.dataTransfer?.setData('text/plain', this.draggedElement.dataset.card || '');
+    }
+  }
+
+  private handleDragEnd(e: DragEvent): void {
+    const target = e.target as HTMLElement;
+    const card = target.closest('.dashboard-card') as HTMLElement;
+    
+    if (card) {
+      card.classList.remove('dragging');
+    }
+    
+    // Clean up drag indicators
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    document.querySelectorAll('.drop-indicator.active').forEach(el => el.classList.remove('active'));
+    
+    this.draggedElement = null;
+    this.draggedFromColumn = null;
+  }
+
+  private handleDragOver(e: DragEvent): void {
+    e.preventDefault();
+    
+    const target = e.target as HTMLElement;
+    const card = target.closest('.dashboard-card') as HTMLElement;
+    
+    if (card && card !== this.draggedElement) {
+      card.classList.add('drag-over');
+    }
+  }
+
+  private handleDrop(e: DragEvent): void {
+    e.preventDefault();
+    
+    const target = e.target as HTMLElement;
+    const targetCard = target.closest('.dashboard-card') as HTMLElement;
+    
+    if (targetCard && this.draggedElement && targetCard !== this.draggedElement) {
+      const targetColumn = this.getCardColumn(targetCard);
+      const targetParent = targetCard.parentElement;
+      
+      if (targetParent) {
+        // Insert before the target card
+        targetParent.insertBefore(this.draggedElement, targetCard);
+        this.saveCardLayout();
+      }
+    }
+    
+    targetCard?.classList.remove('drag-over');
+  }
+
+  private handleColumnDragOver(e: DragEvent): void {
+    e.preventDefault();
+    
+    const target = e.target as HTMLElement;
+    const column = target.closest('[data-column]') as HTMLElement;
+    const dropZone = target.closest('.column-drop-zone') as HTMLElement;
+    
+    if (dropZone) {
+      dropZone.classList.add('drag-over');
+    } else if (column) {
+      column.classList.add('drag-over');
+    }
+  }
+
+  private handleColumnDrop(e: DragEvent): void {
+    e.preventDefault();
+    
+    const target = e.target as HTMLElement;
+    const column = target.closest('[data-column]') as HTMLElement;
+    const dropZone = target.closest('.column-drop-zone') as HTMLElement;
+    
+    if (this.draggedElement && (column || dropZone)) {
+      const targetColumn = column?.dataset.column || dropZone?.dataset.dropZone;
+      
+      if (targetColumn) {
+        const columnElement = column || document.querySelector(`[data-column="${targetColumn}"]`);
+        
+        if (columnElement) {
+          // Append to the column (before the drop zone)
+          const dropZoneInColumn = columnElement.querySelector('.column-drop-zone');
+          if (dropZoneInColumn) {
+            columnElement.insertBefore(this.draggedElement, dropZoneInColumn);
+          } else {
+            columnElement.appendChild(this.draggedElement);
+          }
+          
+          this.saveCardLayout();
+        }
+      }
+    }
+    
+    // Clean up
+    target.classList.remove('drag-over');
+    column?.classList.remove('drag-over');
+    dropZone?.classList.remove('drag-over');
+  }
+
+  private handleColumnDragLeave(e: DragEvent): void {
+    const target = e.target as HTMLElement;
+    target.classList.remove('drag-over');
+  }
+
+  private getCardColumn(card: HTMLElement): string | null {
+    const column = card.closest('[data-column]');
+    return column?.getAttribute('data-column') || null;
+  }
+
+  private saveCardLayout(): void {
+    const layout = {
+      sidebar: this.getColumnCardOrder('sidebar'),
+      main: this.getColumnCardOrder('main')
+    };
+    
+    localStorage.setItem('cardLayout', JSON.stringify(layout));
+  }
+
+  private getColumnCardOrder(columnName: string): string[] {
+    const column = document.querySelector(`[data-column="${columnName}"]`);
+    if (!column) return [];
+    
+    const cards = column.querySelectorAll('.dashboard-card[data-card]');
+    return Array.from(cards).map(card => (card as HTMLElement).dataset.card || '');
+  }
+
+  private restoreCardLayout(): void {
+    const savedLayout = localStorage.getItem('cardLayout');
+    if (!savedLayout) return;
+    
+    try {
+      const layout = JSON.parse(savedLayout);
+      
+      // Restore sidebar column
+      if (layout.sidebar) {
+        this.restoreColumnOrder('sidebar', layout.sidebar);
+      }
+      
+      // Restore main column  
+      if (layout.main) {
+        this.restoreColumnOrder('main', layout.main);
+      }
+    } catch (error) {
+      console.warn('Failed to restore card layout:', error);
+    }
+  }
+
+  private restoreColumnOrder(columnName: string, cardOrder: string[]): void {
+    const column = document.querySelector(`[data-column="${columnName}"]`);
+    if (!column) return;
+    
+    const dropZone = column.querySelector('.column-drop-zone');
+    
+    cardOrder.forEach(cardId => {
+      const card = document.querySelector(`[data-card="${cardId}"]`);
+      if (card) {
+        if (dropZone) {
+          column.insertBefore(card, dropZone);
+        } else {
+          column.appendChild(card);
+        }
       }
     });
   }

@@ -68,15 +68,19 @@
                 <!-- Two Column Layout -->
                 <div class="two-column-layout">
                     <!-- Sidebar: All Controls -->
-                    <div class="sidebar-column">
+                    <div class="sidebar-column" data-column="sidebar">
+                        <div class="column-drop-zone" data-drop-zone="sidebar"></div>
                         <!-- Session Info Card -->
-                        <div class="dashboard-card" data-card="session-info">
+                        <div class="dashboard-card group" data-card="session-info" draggable="true">
                             <div class="dashboard-card-header" onclick="app.toggleCard('session-info')">
                                 <h3>
                                     <span>🎯</span>
                                     Session: <span id="current-session-name"></span>
                                 </h3>
-                                <span class="dashboard-card-toggle">⌄</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
+                                    <span class="dashboard-card-toggle">⌄</span>
+                                </div>
                             </div>
                             <div class="dashboard-card-content">
                                 <div class="flex items-center gap-2 text-sm">
@@ -90,13 +94,16 @@
                         </div>
 
                         <!-- Team Members Card -->
-                        <div class="dashboard-card" data-card="team">
+                        <div class="dashboard-card group" data-card="team" draggable="true">
                             <div class="dashboard-card-header" onclick="app.toggleCard('team')">
                                 <h3>
                                     <span>👥</span>
                                     Team (<span id="participant-count">0</span>)
                                 </h3>
-                                <span class="dashboard-card-toggle">⌄</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
+                                    <span class="dashboard-card-toggle">⌄</span>
+                                </div>
                             </div>
                             <div class="dashboard-card-content">
                                 <div id="participants-list" class="space-y-1 max-h-48 overflow-y-auto"></div>
@@ -106,13 +113,16 @@
                         <!-- Facilitator Controls -->
                         <div id="facilitator-controls" class="hidden">
                             <!-- Session Controls Card -->
-                            <div class="dashboard-card" data-card="session-controls">
+                            <div class="dashboard-card group" data-card="session-controls" draggable="true">
                                 <div class="dashboard-card-header" onclick="app.toggleCard('session-controls')">
                                     <h3>
                                         <span>⚡</span>
                                         Session Controls
                                     </h3>
-                                    <span class="dashboard-card-toggle">⌄</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
+                                        <span class="dashboard-card-toggle">⌄</span>
+                                    </div>
                                 </div>
                                 <div class="dashboard-card-content">
                                     <div class="button-group">
@@ -126,13 +136,16 @@
                             </div>
 
                             <!-- Jira Integration Card -->
-                            <div class="dashboard-card collapsed" data-card="jira-integration">
+                            <div class="dashboard-card group collapsed" data-card="jira-integration" draggable="true">
                                 <div class="dashboard-card-header" onclick="app.toggleCard('jira-integration')">
                                     <h3>
                                         <span>🔗</span>
                                         Jira Integration
                                     </h3>
-                                    <span class="dashboard-card-toggle">⌄</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
+                                        <span class="dashboard-card-toggle">⌄</span>
+                                    </div>
                                 </div>
                                 <div class="dashboard-card-content">
                                     <div id="jira-setup" class="hidden space-y-3">
@@ -187,13 +200,16 @@
                             </div>
 
                             <!-- Manual Ticket Entry Card -->
-                            <div class="dashboard-card collapsed" data-card="manual-ticket">
+                            <div class="dashboard-card group collapsed" data-card="manual-ticket" draggable="true">
                                 <div class="dashboard-card-header" onclick="app.toggleCard('manual-ticket')">
                                     <h3>
                                         <span>📝</span>
                                         Manual Ticket
                                     </h3>
-                                    <span class="dashboard-card-toggle">⌄</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
+                                        <span class="dashboard-card-toggle">⌄</span>
+                                    </div>
                                 </div>
                                 <div class="dashboard-card-content">
                                     <div class="input-group">
@@ -206,13 +222,16 @@
                         </div>
 
                         <!-- Issues / History Tabs -->
-                        <div id="history-section" class="dashboard-card hidden" data-card="history">
+                        <div id="history-section" class="dashboard-card group hidden" data-card="history" draggable="true">
                             <div class="dashboard-card-header" onclick="app.toggleCard('history')">
                                 <h3>
                                     <span>📋</span>
                                     Issues & History
                                 </h3>
-                                <span class="dashboard-card-toggle">⌄</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
+                                    <span class="dashboard-card-toggle">⌄</span>
+                                </div>
                             </div>
                             <div class="dashboard-card-content">
                             <div class="inline-flex h-10 items-center justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground mb-2">
@@ -238,31 +257,37 @@
                         </div>
 
                         <!-- Session Statistics -->
-                        <div id="stats-section" class="dashboard-card collapsed hidden" data-card="stats">
+                        <div id="stats-section" class="dashboard-card group collapsed hidden" data-card="stats" draggable="true">
                             <div class="dashboard-card-header" onclick="app.toggleCard('stats')">
                                 <h3>
                                     <span>📈</span>
                                     Statistics
                                 </h3>
-                                <span class="dashboard-card-toggle">⌄</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
+                                    <span class="dashboard-card-toggle">⌄</span>
+                                </div>
                             </div>
                             <div class="dashboard-card-content">
                                 <div id="team-stats" class="text-xs text-muted-foreground mb-2"></div>
                                 <div id="user-stats" class="max-h-24 overflow-y-auto"></div>
                             </div>
                         </div>
+                        <div class="column-drop-zone" data-drop-zone="sidebar"></div>
                     </div>
                     </div>
 
                     <!-- Main Column: Current Ticket, Voting, Results -->
-                    <div class="main-column">
+                    <div class="main-column" data-column="main">
+                        <div class="column-drop-zone" data-drop-zone="main"></div>
                         <!-- Current Ticket -->
-                        <div id="current-ticket" class="dashboard-card hidden">
+                        <div id="current-ticket" class="dashboard-card group hidden" data-card="current-ticket" draggable="true">
                             <div class="dashboard-card-header">
                                 <h3>
                                     <span>📋</span>
                                     Current Ticket
                                 </h3>
+                                <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
                             </div>
                             <div class="dashboard-card-content">
                                 <div id="ticket-description" class="text-sm"></div>
@@ -332,7 +357,7 @@
                                 </p>
                             </div>
                         </div>
-                    </div>
+                        <div class="column-drop-zone" data-drop-zone="main"></div>                    </div>
 
                 <!-- Moderation Modal -->
                 <div id="moderation-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: none; align-items: center; justify-content: center;">
@@ -347,7 +372,7 @@
                         </div>
                     </div>
                 </div>
-            </div>
+
         </div>
     </div>
 
