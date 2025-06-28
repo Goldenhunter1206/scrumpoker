@@ -466,6 +466,77 @@ export function setupSocketHandlers(
     }
   });
 
+  // NEW: Facilitator moderates a participant (make viewer/participant or remove)
+  socket.on('moderate-participant', ({ roomCode, targetName, action }) => {
+    try {
+      const session = memoryStore.get(roomCode);
+      if (!session) return;
+
+      // Ensure that the requesting socket is the facilitator
+      const facilitatorEntry = Array.from(session.participants.values())
+        .find(p => p.socketId === socket.id && p.isFacilitator);
+
+      if (!facilitatorEntry) {
+        socket.emit('error', { message: 'Only facilitator can moderate participants' });
+        return;
+      }
+
+      const target = session.participants.get(targetName);
+      if (!target) {
+        socket.emit('error', { message: 'Participant not found' });
+        return;
+      }
+
+      switch (action) {
+        case 'make-viewer':
+          target.isViewer = true;
+          // Remove any existing vote so counts stay correct
+          session.votes.delete(targetName);
+          io.to(roomCode).emit('participant-role-changed', {
+            participantName: targetName,
+            newRole: 'viewer',
+            sessionData: getSessionData(session)
+          });
+          break;
+
+        case 'make-participant':
+          target.isViewer = false;
+          io.to(roomCode).emit('participant-role-changed', {
+            participantName: targetName,
+            newRole: 'participant',
+            sessionData: getSessionData(session)
+          });
+          break;
+
+        case 'remove':
+          session.participants.delete(targetName);
+          session.votes.delete(targetName);
+          io.to(roomCode).emit('participant-removed', {
+            participantName: targetName,
+            sessionData: getSessionData(session)
+          });
+
+          // Inform the removed participant if still connected and kick them from the room
+          if (target.socketId) {
+            const targetSocket = io.sockets.sockets.get(target.socketId);
+            if (targetSocket) {
+              targetSocket.emit('removed-from-session', { message: 'You have been removed from the session by the facilitator' });
+              targetSocket.leave(roomCode);
+            }
+          }
+          break;
+
+        default:
+          socket.emit('error', { message: 'Unknown moderation action' });
+          return;
+      }
+
+      session.lastActivity = new Date();
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to moderate participant' });
+    }
+  });
+
   // Start countdown
   socket.on('start-countdown', ({ roomCode, duration }) => {
     try {
