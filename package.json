@@ -21,20 +21,31 @@
     "npm": ">=8.0.0"
   },
   "dependencies": {
+    "@radix-ui/react-label": "^2.1.7",
+    "@radix-ui/react-select": "^2.2.5",
+    "@radix-ui/react-slot": "^1.2.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.6.0",
     "express": "^5.1.0",
     "node-fetch": "^3.3.2",
     "redis": "^4.6.7",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.16",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^20.11.17",
+    "autoprefixer": "^10.4.21",
     "concurrently": "^8.2.2",
     "nodemon": "^3.1.10",
+    "postcss": "^8.5.6",
     "socket.io-client": "^4.8.1",
+    "tailwindcss": "^3.4.4",
+    "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.7.1",
     "typescript": "^5.3.3",
     "vite": "^5.1.4"

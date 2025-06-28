@@ -1,46 +1,27 @@
 /* Connection Status */
 .connection-status {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 500;
-  z-index: 1000;
+  @apply fixed top-5 right-5 px-4 py-2 rounded-full text-sm font-medium z-50;
 }
 
 .connected {
-  background: #dcfce7;
-  color: #166534;
+  @apply bg-green-100 text-green-800;
 }
 
 .disconnected {
-  background: #fef2f2;
-  color: #991b1b;
+  @apply bg-red-100 text-red-800;
 }
 
 /* Notifications */
 .notification {
-  position: fixed;
-  top: 70px;
-  right: 20px;
-  padding: 12px 20px;
-  border-radius: 8px;
-  font-weight: 500;
-  z-index: 1000;
-  max-width: 300px;
-  animation: slideIn 0.3s ease-out;
+  @apply fixed top-16 right-5 px-5 py-3 rounded-lg font-medium z-50 max-w-xs animate-slide-in;
 }
 
 .notification.success {
-  background: #dcfce7;
-  color: #166534;
+  @apply bg-green-100 text-green-800;
 }
 
 .notification.error {
-  background: #fef2f2;
-  color: #991b1b;
+  @apply bg-red-100 text-red-800;
 }
 
 @keyframes slideIn {
@@ -50,107 +31,43 @@
 
 /* Sound Toggle */
 .sound-toggle {
-  position: absolute;
-  top: 15px;
-  left: 20px;
-  font-size: 26px;
-  cursor: pointer;
-  user-select: none;
+  @apply absolute top-4 left-5 text-2xl cursor-pointer select-none;
 }
 
 /* Countdown Timer */
 .countdown-timer {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: white;
-  padding: 30px;
-  border-radius: 20px;
-  margin: 30px 0;
-  text-align: center;
-  box-shadow: 0 10px 30px rgba(245, 158, 11, 0.3);
-  animation: pulse 2s infinite;
+  @apply bg-gradient-to-br from-amber-500 to-amber-600 text-white p-8 rounded-3xl my-8 text-center shadow-2xl animate-pulse;
 }
 
 .countdown-content h3 {
-  margin-bottom: 20px;
-  font-size: 1.5em;
+  @apply mb-5 text-2xl;
 }
 
 .countdown-circle {
-  width: 120px;
-  height: 120px;
-  border: 6px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 20px auto;
-  position: relative;
-  background: rgba(255, 255, 255, 0.1);
+  @apply w-32 h-32 border-4 border-white/30 rounded-full flex items-center justify-center my-5 mx-auto relative bg-white/10;
 }
 
 .countdown-number {
-  font-size: 3em;
-  font-weight: bold;
+  @apply text-5xl font-bold;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .countdown-progress {
-  width: 100%;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
-  margin-top: 20px;
-  overflow: hidden;
+  @apply w-full h-2 bg-white/30 rounded-sm mt-5 overflow-hidden;
 }
 
 .countdown-progress-bar {
-  height: 100%;
-  background: white;
-  border-radius: 4px;
+  @apply h-full bg-white rounded-sm w-full;
   transition: width 1s linear;
-  width: 100%;
 }
 
 .countdown-urgent {
-  background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
-  animation: urgentPulse 0.5s infinite alternate;
-}
-
-@keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.02); }
-  100% { transform: scale(1); }
-}
-
-@keyframes urgentPulse {
-  0% { transform: scale(1); box-shadow: 0 10px 30px rgba(220, 38, 38, 0.3); }
-  100% { transform: scale(1.03); box-shadow: 0 15px 40px rgba(220, 38, 38, 0.5); }
+  @apply bg-gradient-to-br from-red-600 to-red-700 animate-bounce;
 }
 
 /* Floating Controls Toggle */
 #toggle-controls-btn {
-  position: fixed;
-  bottom: 25px;
-  right: 25px;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  color: white;
-  border: none;
-  cursor: pointer;
-  background: linear-gradient(135deg, #059669, #047857);
-  box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-  z-index: 1200;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-#toggle-controls-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 15px 25px rgba(0,0,0,0.25);
+  @apply fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center text-2xl text-white border-0 cursor-pointer bg-gradient-to-br from-emerald-600 to-emerald-700 shadow-2xl z-50 transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl;
 }
 
 #toggle-controls-btn.hidden {
@@ -160,19 +77,14 @@
 /* Responsive Design */
 @media (max-width: 768px) {
   .voting-cards {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
   
   .join-section {
-    flex-direction: column;
-    gap: 10px;
+    @apply flex-col gap-3;
   }
 
   #facilitator-controls.collapsed {
     display: none;
-  }
-
-  .voting-cards {
-    grid-template-columns: repeat(3, 1fr);
   }
 }

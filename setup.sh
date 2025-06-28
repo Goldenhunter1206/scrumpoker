@@ -1,5 +1,4 @@
 #!/bin/bash
-
 echo "🚀 Setting up Scrum Poker TypeScript + Vite project..."
 
 # Install dependencies

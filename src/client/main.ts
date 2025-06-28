@@ -1,3 +1,4 @@
+import './styles/globals.css';
 import { gameState } from './components/GameState.js';
 import { socketManager } from './components/SocketManager.js';
 import { 
