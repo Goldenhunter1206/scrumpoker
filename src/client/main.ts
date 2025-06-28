@@ -792,8 +792,16 @@ class ScrumPokerApp {
       
       Object.entries(results.voteCounts).forEach(([vote, count]) => {
         const percentage = ((count / results.totalVotes) * 100).toFixed(0);
+        const barWidth = (count / results.totalVotes) * 100;
         breakdown.innerHTML += `
-          <div style="margin: 5px 0; padding: 8px; background: white; border-radius: 4px;">
+          <div style="
+            margin: 5px 0; 
+            padding: 8px; 
+            background: linear-gradient(to right, #dcfce7 ${barWidth}%, white ${barWidth}%); 
+            border-radius: 4px;
+            border: 1px solid #e5e7eb;
+            position: relative;
+          ">
             <strong>${vote}</strong>: ${count} vote${count > 1 ? 's' : ''} (${percentage}%)
           </div>
         `;
