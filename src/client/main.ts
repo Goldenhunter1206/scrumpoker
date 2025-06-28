@@ -124,6 +124,12 @@ class ScrumPokerApp {
     // Responsive controls toggle
     document.getElementById('toggle-controls-btn')?.addEventListener('click', toggleFacilitatorControlsVisibility);
     window.addEventListener('resize', adaptFacilitatorControlsForViewport);
+
+    /* History / Issues Tabs */
+    const tabIssues = document.getElementById('history-tab-issues');
+    const tabHistory = document.getElementById('history-tab-history');
+    tabIssues?.addEventListener('click', () => this.switchHistoryTab('issues'));
+    tabHistory?.addEventListener('click', () => this.switchHistoryTab('history'));
   }
 
   private setupSocketEventHandlers(): void {
@@ -464,6 +470,18 @@ class ScrumPokerApp {
     showElement('jira-issues-section');
     const loadBtn = document.getElementById('load-issues-btn') as HTMLButtonElement;
     if (loadBtn) loadBtn.disabled = false;
+
+    // Reveal the Issues tab button if hidden
+    const issuesTabBtn = document.getElementById('history-tab-issues');
+    if (issuesTabBtn) {
+      issuesTabBtn.classList.remove('hidden');
+    }
+
+    // Ensure history-section card is visible
+    showElement('history-section');
+
+    // Automatically switch to Issues tab the first time issues are loaded
+    this.switchHistoryTab('issues');
   }
 
   private createJiraIssueElement(issue: JiraIssue, clickable: boolean): HTMLElement {
@@ -887,7 +905,10 @@ class ScrumPokerApp {
     
     historyList.innerHTML = '';
     
-    if (!state.history || state.history.length === 0) {
+    const hasHistory = state.history && state.history.length > 0;
+    const hasIssues = state.jiraIssues && state.jiraIssues.length > 0;
+
+    if (!hasHistory && !hasIssues) {
       hideElement('history-section');
       return;
     }
@@ -1037,6 +1058,37 @@ class ScrumPokerApp {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Switch between the Issues and History tabs inside the history-section card
+   */
+  private switchHistoryTab(tab: 'issues' | 'history'): void {
+    const tabIssues = document.getElementById('history-tab-issues');
+    const tabHistory = document.getElementById('history-tab-history');
+    const issuesPanel = document.getElementById('jira-issues-section');
+    const historyPanel = document.getElementById('history-panel');
+
+    if (!tabIssues || !tabHistory || !issuesPanel || !historyPanel) return;
+
+    const activate = (btn: HTMLElement) => {
+      btn.classList.add('bg-background', 'text-foreground', 'shadow-sm');
+    };
+    const deactivate = (btn: HTMLElement) => {
+      btn.classList.remove('bg-background', 'text-foreground', 'shadow-sm');
+    };
+
+    if (tab === 'issues') {
+      activate(tabIssues);
+      deactivate(tabHistory);
+      showElement('jira-issues-section');
+      hideElement('history-panel');
+    } else {
+      activate(tabHistory);
+      deactivate(tabIssues);
+      showElement('history-panel');
+      hideElement('jira-issues-section');
+    }
   }
 }
 

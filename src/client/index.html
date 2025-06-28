@@ -65,137 +65,247 @@
 
             <!-- Session Section -->
             <div id="session-section" class="hidden">
-                <div class="session-info">
-                    <h3>Session: <span id="current-session-name"></span></h3>
-                    <p style="margin-bottom: 15px;"><strong>Room Code:</strong> <span class="room-code copyable" id="room-code" title="Click to copy"></span></p>
-                    <p><strong>Share this link:</strong> <span id="session-link" class="copyable" title="Click to copy"></span></p>
-                    <p><em>Team members can join using the room code above</em></p>
-                </div>
-
-                <!-- Estimation History -->
-                <div id="history-section" class="session-info hidden">
-                    <h3>📝 Estimation History</h3>
-                    <div id="history-list" style="margin-bottom: 20px;"></div>
-                    <button class="btn btn-outline" id="export-history-btn">Export History (CSV)</button>
-                </div>
-
-                <!-- Session Statistics -->
-                <div id="stats-section" class="session-info hidden">
-                    <h3>📈 Session Statistics</h3>
-                    <div id="team-stats" style="margin-bottom:20px;"></div>
-                    <div id="user-stats"></div>
-                </div>
-
-                <!-- Facilitator Controls -->
-                <div id="facilitator-controls" class="hidden">
-                    <!-- Jira Integration -->
-                    <div class="session-info" style="margin-bottom: 20px;">
-                        <h3>🔗 Jira Integration</h3>
-                        <div id="jira-setup" class="hidden">
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                                <div class="input-group">
-                                    <label for="jira-domain">Jira Domain</label>
-                                    <input type="text" id="jira-domain" placeholder="yourcompany.atlassian.net">
+                <!-- Three Column Layout for Desktop -->
+                <div class="three-column-layout">
+                    <!-- Left Column: Controls & Setup -->
+                    <div class="left-column">
+                        <!-- Session Info Card -->
+                        <div class="dashboard-card">
+                            <h3>
+                                <span>🎯</span>
+                                Session: <span id="current-session-name"></span>
+                            </h3>
+                            <div class="dashboard-card-content">
+                                <div class="flex items-center gap-2 text-sm">
+                                    <span class="text-muted-foreground">Room:</span>
+                                    <span class="room-code copyable" id="room-code" title="Click to copy"></span>
                                 </div>
-                                <div class="input-group">
-                                    <label for="jira-email">Email</label>
-                                    <input type="email" id="jira-email" placeholder="your-email@company.com">
+                                <div class="text-xs text-muted-foreground">
+                                    <span id="session-link" class="copyable underline cursor-pointer" title="Click to copy">Share session link</span>
                                 </div>
                             </div>
-                            <div class="input-group">
-                                <label for="jira-token">API Token <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" style="color: #059669;">(Generate here)</a></label>
-                                <input type="password" id="jira-token" placeholder="Your Jira API token">
-                            </div>
-                            <div class="input-group">
-                                <label for="jira-project-key">Project Key Filter (optional)</label>
-                                <input type="text" id="jira-project-key" placeholder="e.g. PROJ" style="text-transform: uppercase;">
-                            </div>
-                            <div class="input-group" style="display: flex; align-items: center;">
-                                <input type="checkbox" id="remember-jira" style="margin-right: 8px;">
-                                <label for="remember-jira" style="margin:0;">Remember credentials on this device</label>
-                            </div>
-                            <button class="btn" id="connect-jira-btn">Connect to Jira</button>
-                            <button class="btn btn-secondary" id="cancel-jira-btn">Cancel</button>
                         </div>
-                        
-                        <div id="jira-connected" class="hidden">
-                            <p>✅ Connected to Jira: <strong id="jira-domain-display"></strong></p>
-                            <div style="margin: 15px 0;">
-                                <label for="jira-board-select">Select Board:</label>
-                                <select id="jira-board-select" style="width: 100%; padding: 8px; margin: 8px 0; border: 2px solid #e5e7eb; border-radius: 8px;">
-                                    <option value="">Choose a board...</option>
-                                </select>
-                                <button class="btn" id="load-issues-btn" disabled>Load Issues</button>
+
+                        <!-- Facilitator Controls -->
+                        <div id="facilitator-controls" class="hidden">
+                            <!-- Jira Integration Card -->
+                            <div class="dashboard-card">
+                                <h3>
+                                    <span>🔗</span>
+                                    Jira Integration
+                                </h3>
+                                    <div id="jira-setup" class="hidden space-y-3">
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div class="input-group">
+                                                <label for="jira-domain" class="text-xs">Jira Domain</label>
+                                                <input type="text" id="jira-domain" placeholder="company.atlassian.net" class="text-sm">
+                                            </div>
+                                            <div class="input-group">
+                                                <label for="jira-email" class="text-xs">Email</label>
+                                                <input type="email" id="jira-email" placeholder="email@company.com" class="text-sm">
+                                            </div>
+                                        </div>
+                                        <div class="input-group">
+                                            <label for="jira-token" class="text-xs">API Token <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" class="text-emerald-600 underline">(Generate)</a></label>
+                                            <input type="password" id="jira-token" placeholder="Your API token" class="text-sm">
+                                        </div>
+                                        <div class="input-group">
+                                            <label for="jira-project-key" class="text-xs">Project Key (optional)</label>
+                                            <input type="text" id="jira-project-key" placeholder="PROJ" class="text-sm uppercase">
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input type="checkbox" id="remember-jira" class="w-4 h-4">
+                                            <label for="remember-jira" class="text-xs text-muted-foreground">Remember credentials</label>
+                                        </div>
+                                        <div class="button-group">
+                                            <button class="btn btn-sm" id="connect-jira-btn">Connect</button>
+                                            <button class="btn btn-secondary btn-sm" id="cancel-jira-btn">Cancel</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="jira-connected" class="hidden space-y-2">
+                                        <div class="flex items-center gap-2 text-sm">
+                                            <span class="text-green-600">✅</span>
+                                            <span class="text-muted-foreground">Connected to:</span>
+                                            <strong id="jira-domain-display" class="text-foreground"></strong>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label for="jira-board-select" class="text-xs text-muted-foreground">Select Board:</label>
+                                            <select id="jira-board-select" class="w-full text-sm p-2 border border-input rounded-md bg-background">
+                                                <option value="">Choose a board...</option>
+                                            </select>
+                                            <button class="btn btn-sm w-full" id="load-issues-btn" disabled>Load Issues</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="jira-not-connected" class="space-y-2">
+                                        <p class="text-sm text-muted-foreground">Connect to Jira for automatic ticket import</p>
+                                        <button class="btn btn-outline btn-sm w-full" id="setup-jira-btn">Setup Integration</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Manual Ticket Entry Card -->
+                            <div class="dashboard-card">
+                                <h3>
+                                    <span>📝</span>
+                                    Manual Ticket
+                                </h3>
+                                <div class="dashboard-card-content">
+                                    <div class="input-group">
+                                        <label for="jira-ticket" class="text-xs">Ticket Description</label>
+                                        <textarea id="jira-ticket" rows="2" placeholder="PROJ-123: Brief description..." class="text-sm resize-none"></textarea>
+                                    </div>
+                                    <button class="btn btn-sm w-full" id="set-ticket-btn">Set Ticket</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Session Controls Card -->
+                            <div class="dashboard-card">
+                                <h3>
+                                    <span>⚡</span>
+                                    Session Controls
+                                </h3>
+                                <div class="dashboard-card-content">
+                                    <div class="button-group">
+                                        <button class="btn btn-sm" id="reveal-btn" disabled>Reveal</button>
+                                        <button class="btn btn-warning btn-sm" id="countdown-btn" disabled>Timer</button>
+                                        <button class="btn btn-secondary btn-sm" id="reset-btn" disabled>Reset</button>
+                                        <button class="btn btn-outline btn-sm" id="toggle-viewer-btn">Observer</button>
+                                        <button class="btn btn-destructive btn-sm" id="end-session-btn">End</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        
-                        <div id="jira-not-connected">
-                            <p>Connect to Jira to import tickets automatically</p>
-                            <button class="btn btn-outline" id="setup-jira-btn">Setup Jira Integration</button>
+
+                        <!-- Issues / History Tabs -->
+                        <div id="history-section" class="dashboard-card hidden">
+                            <div class="inline-flex h-10 items-center justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground mb-2">
+                                <!-- Issues tab button will be shown once Jira issues are loaded -->
+                                <button id="history-tab-issues" class="tab-btn hidden px-3 py-1.5 text-sm font-medium rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
+                                    Issues
+                                </button>
+                                <button id="history-tab-history" class="tab-btn px-3 py-1.5 text-sm font-medium rounded-sm data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                    History
+                                </button>
+                            </div>
+
+                            <!-- Issues Panel -->
+                            <div id="jira-issues-section" class="hidden mt-2">
+                                <div id="jira-issues-list" class="max-h-80 overflow-y-auto space-y-1"></div>
+                            </div>
+
+                            <!-- History Panel -->
+                            <div id="history-panel" class="mt-2">
+                                <div id="history-list" class="space-y-1 max-h-32 overflow-y-auto"></div>
+                                <button class="btn btn-outline btn-sm w-full mt-2" id="export-history-btn">Export CSV</button>
+                            </div>
+                        </div>
+
+                        <!-- Session Statistics -->
+                        <div id="stats-section" class="dashboard-card hidden">
+                            <h3>
+                                <span>📈</span>
+                                Statistics
+                            </h3>
+                            <div class="dashboard-card-content">
+                                <div id="team-stats" class="text-xs text-muted-foreground mb-2"></div>
+                                <div id="user-stats" class="max-h-24 overflow-y-auto"></div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Issue Selection -->
-                    <div id="jira-issues-section" class="hidden" style="margin-bottom: 20px;">
-                        <h3>📋 Select Issue to Estimate</h3>
-                        <div id="jira-issues-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px;">
-                            <!-- Issues will be populated here -->
+                    <!-- Center Column: Main Interaction -->
+                    <div class="center-column">
+                        <!-- Current Ticket -->
+                        <div id="current-ticket" class="dashboard-card hidden">
+                            <h3>
+                                <span>📋</span>
+                                Current Ticket
+                            </h3>
+                            <div class="dashboard-card-content">
+                                <div id="ticket-description" class="text-sm"></div>
+                            </div>
+                        </div>
+
+                        <!-- Countdown Timer -->
+                        <div id="countdown-display" class="countdown-timer hidden">
+                            <div class="countdown-content">
+                                <h3>⏰ Time to Vote!</h3>
+                                <div class="countdown-circle">
+                                    <div class="countdown-number" id="countdown-number">30</div>
+                                </div>
+                                <p>Votes will be revealed automatically when timer reaches zero</p>
+                                <div class="countdown-progress">
+                                    <div class="countdown-progress-bar" id="countdown-progress-bar"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Voting Cards -->
+                        <div class="voting-cards" id="voting-cards">
+                            <div class="card" data-value="0">0</div>
+                            <div class="card" data-value="0.5">½</div>
+                            <div class="card" data-value="1">1</div>
+                            <div class="card" data-value="2">2</div>
+                            <div class="card" data-value="3">3</div>
+                            <div class="card" data-value="5">5</div>
+                            <div class="card" data-value="8">8</div>
+                            <div class="card" data-value="13">13</div>
+                            <div class="card" data-value="21">21</div>
+                            <div class="card" data-value="?">?</div>
+                            <div class="card" data-value="☕">☕</div>
+                        </div>
+
+                        <!-- Results -->
+                        <div id="results" class="results hidden">
+                            <h3>📊 Voting Results</h3>
+                            <div class="stats">
+                                <div class="stat">
+                                    <div class="stat-value" id="average-vote">-</div>
+                                    <div class="stat-label">Average</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-value" id="consensus-vote">-</div>
+                                    <div class="stat-label">Most Common</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-value" id="total-voters">-</div>
+                                    <div class="stat-label">Voters</div>
+                                </div>
+                            </div>
+                            <div id="vote-breakdown"></div>
+                            
+                            <!-- Finalize Estimation Section -->
+                            <div id="finalize-estimation" class="finalize-section hidden">
+                                <h4>🎯 Finalize Story Points</h4>
+                                <p>Set the final story points for this Jira issue:</p>
+                                <div style="display: flex; align-items: center; gap: 15px; margin: 15px 0;">
+                                    <label for="final-estimate" style="font-weight: 600;">Story Points:</label>
+                                    <input type="number" id="final-estimate" min="0" max="100" step="0.5" 
+                                           style="width: 100px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 16px;">
+                                    <button class="btn" id="finalize-btn">Update Jira Issue</button>
+                                </div>
+                                <p style="font-size: 14px; color: #6b7280; margin-top: 10px;">
+                                    💡 The value will be automatically rounded to the nearest Fibonacci number (0, 0.5, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89)
+                                </p>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Manual Ticket Entry -->
-                    <div class="input-group">
-                        <label for="jira-ticket">Or Enter Ticket Manually</label>
-                        <textarea id="jira-ticket" rows="3" placeholder="PROJ-123: Implement user authentication system with OAuth2 integration"></textarea>
-                    </div>
-                    
-                    <button class="btn" id="set-ticket-btn">Set Manual Ticket</button>
-                    <button class="btn" id="reveal-btn" disabled>Reveal Votes</button>
-                    <button class="btn btn-warning" id="countdown-btn" disabled>Start 30s Countdown</button>
-                    <button class="btn btn-secondary" id="reset-btn" disabled>New Round</button>
-                    <button class="btn btn-outline" id="toggle-viewer-btn">Switch to Observer</button>
-                    <button class="btn btn-danger" id="end-session-btn">End Session</button>
-                </div>
-
-                <!-- Current Ticket -->
-                <div id="current-ticket" class="ticket-info hidden">
-                    <h3>📋 Current Ticket</h3>
-                    <p id="ticket-description"></p>
-                </div>
-
-                <!-- Countdown Timer -->
-                <div id="countdown-display" class="countdown-timer hidden">
-                    <div class="countdown-content">
-                        <h3>⏰ Time to Vote!</h3>
-                        <div class="countdown-circle">
-                            <div class="countdown-number" id="countdown-number">30</div>
-                        </div>
-                        <p>Votes will be revealed automatically when timer reaches zero</p>
-                        <div class="countdown-progress">
-                            <div class="countdown-progress-bar" id="countdown-progress-bar"></div>
+                    <!-- Right Column: Team & Issue Selection -->
+                    <div class="right-column">
+                        <!-- Participants -->
+                        <div class="dashboard-card">
+                            <h3>
+                                <span>👥</span>
+                                Team (<span id="participant-count">0</span>)
+                            </h3>
+                            <div class="dashboard-card-content">
+                                <div id="participants-list" class="space-y-1 max-h-64 overflow-y-auto"></div>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- Voting Cards -->
-                <div class="voting-cards" id="voting-cards">
-                    <div class="card" data-value="0">0</div>
-                    <div class="card" data-value="0.5">½</div>
-                    <div class="card" data-value="1">1</div>
-                    <div class="card" data-value="2">2</div>
-                    <div class="card" data-value="3">3</div>
-                    <div class="card" data-value="5">5</div>
-                    <div class="card" data-value="8">8</div>
-                    <div class="card" data-value="13">13</div>
-                    <div class="card" data-value="21">21</div>
-                    <div class="card" data-value="?">?</div>
-                    <div class="card" data-value="☕">☕</div>
-                </div>
-
-                <!-- Participants -->
-                <div class="participants">
-                    <h3>Team Members (<span id="participant-count">0</span>)</h3>
-                    <div id="participants-list"></div>
                 </div>
 
                 <!-- Moderation Modal -->
@@ -209,41 +319,6 @@
                             <button class="btn btn-danger" id="remove-participant-btn">Remove</button>
                             <button class="btn btn-secondary" id="cancel-moderation-btn">Cancel</button>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Results -->
-                <div id="results" class="results hidden">
-                    <h3>📊 Voting Results</h3>
-                    <div class="stats">
-                        <div class="stat">
-                            <div class="stat-value" id="average-vote">-</div>
-                            <div class="stat-label">Average</div>
-                        </div>
-                        <div class="stat">
-                            <div class="stat-value" id="consensus-vote">-</div>
-                            <div class="stat-label">Most Common</div>
-                        </div>
-                        <div class="stat">
-                            <div class="stat-value" id="total-voters">-</div>
-                            <div class="stat-label">Voters</div>
-                        </div>
-                    </div>
-                    <div id="vote-breakdown"></div>
-                    
-                    <!-- Finalize Estimation Section -->
-                    <div id="finalize-estimation" class="finalize-section hidden">
-                        <h4>🎯 Finalize Story Points</h4>
-                        <p>Set the final story points for this Jira issue:</p>
-                        <div style="display: flex; align-items: center; gap: 15px; margin: 15px 0;">
-                            <label for="final-estimate" style="font-weight: 600;">Story Points:</label>
-                            <input type="number" id="final-estimate" min="0" max="100" step="0.5" 
-                                   style="width: 100px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 16px;">
-                            <button class="btn" id="finalize-btn">Update Jira Issue</button>
-                        </div>
-                        <p style="font-size: 14px; color: #6b7280; margin-top: 10px;">
-                            💡 The value will be automatically rounded to the nearest Fibonacci number (0, 0.5, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89)
-                        </p>
                     </div>
                 </div>
             </div>

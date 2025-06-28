@@ -74,8 +74,79 @@
   display: none !important;
 }
 
+/* Three Column Layout - Compact Dashboard */
+.three-column-layout {
+  @apply grid gap-4;
+  grid-template-columns: 1fr;
+}
+
+/* Desktop Layout - Three Columns */
+@media (min-width: 1024px) {
+  .three-column-layout {
+    grid-template-columns: 320px 1fr 280px;
+    grid-template-areas: "left center right";
+  }
+  
+  .left-column {
+    grid-area: left;
+  }
+  
+  .center-column {
+    grid-area: center;
+  }
+  
+  .right-column {
+    grid-area: right;
+  }
+}
+
+/* Tablet Layout - Two Columns */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .three-column-layout {
+    grid-template-columns: 1fr 280px;
+    grid-template-areas: 
+      "center right"
+      "left right";
+  }
+  
+  .left-column {
+    grid-area: left;
+  }
+  
+  .center-column {
+    grid-area: center;
+  }
+  
+  .right-column {
+    grid-area: right;
+  }
+}
+
+/* Column Styling - Compact */
+.left-column, .center-column, .right-column {
+  @apply min-h-0;
+}
+
+.left-column {
+  @apply space-y-3;
+}
+
+.center-column {
+  @apply space-y-4;
+}
+
+.right-column {
+  @apply space-y-3;
+}
+
+/* Facilitator Actions */
+.facilitator-actions {
+  @apply grid gap-3 mt-4;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .voting-cards {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -86,5 +157,35 @@
 
   #facilitator-controls.collapsed {
     display: none;
+  }
+  
+  .three-column-layout {
+    @apply space-y-4;
+  }
+  
+  .facilitator-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  /* Mobile specific layout optimizations */
+  .left-column .session-info {
+    @apply mb-3;
+  }
+  
+  .left-column .facilitator-actions .btn {
+    @apply text-xs py-1.5 px-3;
+  }
+  
+  /* Move participants to top on mobile for better UX */
+  .right-column {
+    order: -1;
+  }
+  
+  .center-column {
+    order: 0;
+  }
+  
+  .left-column {
+    order: 1;
   }
 }

@@ -7,19 +7,19 @@ body {
 }
 
 .header {
-  @apply bg-gradient-to-br from-emerald-600 to-emerald-700 text-white p-8 text-center relative;
+  @apply bg-gradient-to-br from-emerald-600 to-emerald-700 text-white p-6 text-center relative;
 }
 
 .header h1 {
-  @apply text-4xl mb-3 font-bold;
+  @apply text-3xl mb-2 font-bold;
 }
 
 .header p {
-  @apply opacity-90 text-lg;
+  @apply opacity-90 text-base;
 }
 
 .main-content {
-  @apply p-8;
+  @apply p-4;
 }
 
 .setup-section {
@@ -27,17 +27,17 @@ body {
 }
 
 .input-group {
-  @apply mb-5;
+  @apply mb-3;
 }
 
 .input-group label {
-  @apply block mb-2 font-semibold text-gray-700;
+  @apply block mb-1 font-medium text-sm text-muted-foreground;
 }
 
 .input-group input, 
 .input-group textarea, 
 .input-group select {
-  @apply w-full p-3 border-2 border-gray-200 rounded-lg text-base transition-colors focus:outline-none focus:border-emerald-600;
+  @apply w-full p-2 border border-input rounded-md text-sm bg-background transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
 }
 
 .input-group input[type="checkbox"] {
@@ -45,23 +45,31 @@ body {
 }
 
 .btn {
-  @apply bg-gradient-to-r from-emerald-600 to-emerald-700 text-white border-0 px-6 py-3 rounded-lg text-base font-semibold cursor-pointer transition-all duration-200 m-1 hover:-translate-y-0.5 hover:shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none;
+  @apply inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2;
+}
+
+.btn-sm {
+  @apply h-8 px-3 text-xs;
+}
+
+.btn-lg {
+  @apply h-12 px-8;
 }
 
 .btn-secondary {
-  @apply bg-gray-500 hover:bg-gray-600;
+  @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
 }
 
-.btn-danger {
-  @apply bg-red-600 hover:bg-red-700;
+.btn-destructive {
+  @apply bg-destructive text-destructive-foreground hover:bg-destructive/90;
 }
 
 .btn-warning {
-  @apply bg-amber-500 hover:bg-amber-600;
+  @apply bg-amber-500 text-white hover:bg-amber-600;
 }
 
 .btn-outline {
-  @apply bg-transparent border-2 border-emerald-600 text-emerald-600 hover:bg-emerald-600 hover:text-white;
+  @apply border border-input bg-background hover:bg-accent hover:text-accent-foreground;
 }
 
 .hidden {

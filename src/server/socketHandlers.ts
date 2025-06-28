@@ -434,6 +434,38 @@ export function setupSocketHandlers(
     }
   });
 
+  // Facilitator toggles their own viewer / participant role
+  socket.on('set-facilitator-viewer', ({ roomCode, isViewer }) => {
+    try {
+      const session = memoryStore.get(roomCode);
+      if (!session) return;
+
+      // Find the facilitator by socket id
+      const facilitatorEntry = Array.from(session.participants.values())
+        .find(p => p.socketId === socket.id && p.isFacilitator);
+
+      if (!facilitatorEntry) {
+        socket.emit('error', { message: 'Only the facilitator can change their viewer status' });
+        return;
+      }
+
+      // Update role
+      facilitatorEntry.isViewer = isViewer;
+      session.lastActivity = new Date();
+
+      // Broadcast role change to everyone in the room
+      io.to(roomCode).emit('participant-role-changed', {
+        participantName: facilitatorEntry.name,
+        newRole: isViewer ? 'viewer' : 'participant',
+        sessionData: getSessionData(session)
+      });
+
+      console.log(`Facilitator ${facilitatorEntry.name} is now a ${isViewer ? 'viewer' : 'participant'} in session ${roomCode}`);
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to change viewer status' });
+    }
+  });
+
   // Start countdown
   socket.on('start-countdown', ({ roomCode, duration }) => {
     try {
