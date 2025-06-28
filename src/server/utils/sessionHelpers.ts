@@ -98,7 +98,8 @@ export function recordHistory(
       const user = agg.perUser[name];
       user.sum += value;
       user.count += 1;
-      if (entry.stats) {
+      if (entry.stats && entry.stats.min !== entry.stats.max) {
+        // Only count high/low if there's actually variance in the votes
         if (value === entry.stats.max) user.highCount += 1;
         if (value === entry.stats.min) user.lowCount += 1;
       }

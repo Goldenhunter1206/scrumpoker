@@ -968,6 +968,12 @@ class ScrumPokerApp {
         const consensus = h.stats ? h.stats.consensus : h.storyPoints;
         if (typeof consensus === 'number') {
           totalSP += consensus;
+        } else if (consensus === '-' && h.stats && typeof h.stats.average === 'number') {
+          // If no consensus but we have an average, use closest Fibonacci
+          const closestFib = roundToNearestFibonacci(h.stats.average);
+          if (closestFib !== null) {
+            totalSP += closestFib;
+          }
         }
       });
     }
@@ -1033,6 +1039,12 @@ class ScrumPokerApp {
 
       if (typeof consensus === 'number') {
         totalPoints += consensus;
+      } else if (consensus === '-' && entry.stats && typeof entry.stats.average === 'number') {
+        // If no consensus but we have an average, use closest Fibonacci
+        const closestFib = roundToNearestFibonacci(entry.stats.average);
+        if (closestFib !== null) {
+          totalPoints += closestFib;
+        }
       }
 
       rows.push([ticketText, consensus, avg, min, max, timeStr]);
@@ -1340,6 +1352,25 @@ class ScrumPokerApp {
       }
     });
   }
+}
+
+// Helper function to round to nearest Fibonacci number
+function roundToNearestFibonacci(value: number): number | null {
+  const fibonacci = [0, 0.5, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
+  if (typeof value !== 'number' || isNaN(value)) return null;
+  
+  let closest = fibonacci[0];
+  let minDiff = Math.abs(value - closest);
+  
+  for (let fib of fibonacci) {
+    const diff = Math.abs(value - fib);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = fib;
+    }
+  }
+  
+  return closest;
 }
 
 // Initialize the application
