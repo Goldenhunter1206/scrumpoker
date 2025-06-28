@@ -216,6 +216,11 @@
 
 .column-drop-zone {
   @apply min-h-8 transition-all duration-200 rounded-lg border-2 border-dashed border-transparent;
+  display: none;
+}
+
+.column-drop-zone.drag-active {
+  display: block;
 }
 
 .column-drop-zone.drag-over {

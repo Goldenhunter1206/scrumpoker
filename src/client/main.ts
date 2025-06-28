@@ -1252,6 +1252,11 @@ class ScrumPokerApp {
       this.draggedElement.classList.add('dragging');
       this.draggedFromColumn = this.getCardColumn(this.draggedElement);
       
+      // Show all drop zones during dragging
+      document.querySelectorAll('.column-drop-zone').forEach(zone => {
+        zone.classList.add('drag-active');
+      });
+      
       e.dataTransfer?.setData('text/plain', this.draggedElement.dataset.card || '');
     }
   }
@@ -1267,6 +1272,11 @@ class ScrumPokerApp {
     // Clean up drag indicators
     document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
     document.querySelectorAll('.drop-indicator.active').forEach(el => el.classList.remove('active'));
+    
+    // Hide all drop zones after dragging
+    document.querySelectorAll('.column-drop-zone').forEach(zone => {
+      zone.classList.remove('drag-active');
+    });
     
     this.draggedElement = null;
     this.draggedFromColumn = null;
