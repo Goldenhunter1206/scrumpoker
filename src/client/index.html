@@ -65,16 +65,19 @@
 
             <!-- Session Section -->
             <div id="session-section" class="hidden">
-                <!-- Three Column Layout for Desktop -->
-                <div class="three-column-layout">
-                    <!-- Left Column: Controls & Setup -->
-                    <div class="left-column">
+                <!-- Two Column Layout -->
+                <div class="two-column-layout">
+                    <!-- Sidebar: All Controls -->
+                    <div class="sidebar-column">
                         <!-- Session Info Card -->
-                        <div class="dashboard-card">
-                            <h3>
-                                <span>🎯</span>
-                                Session: <span id="current-session-name"></span>
-                            </h3>
+                        <div class="dashboard-card" data-card="session-info">
+                            <div class="dashboard-card-header" onclick="app.toggleCard('session-info')">
+                                <h3>
+                                    <span>🎯</span>
+                                    Session: <span id="current-session-name"></span>
+                                </h3>
+                                <span class="dashboard-card-toggle">⌄</span>
+                            </div>
                             <div class="dashboard-card-content">
                                 <div class="flex items-center gap-2 text-sm">
                                     <span class="text-muted-foreground">Room:</span>
@@ -86,14 +89,52 @@
                             </div>
                         </div>
 
+                        <!-- Team Members Card -->
+                        <div class="dashboard-card" data-card="team">
+                            <div class="dashboard-card-header" onclick="app.toggleCard('team')">
+                                <h3>
+                                    <span>👥</span>
+                                    Team (<span id="participant-count">0</span>)
+                                </h3>
+                                <span class="dashboard-card-toggle">⌄</span>
+                            </div>
+                            <div class="dashboard-card-content">
+                                <div id="participants-list" class="space-y-1 max-h-48 overflow-y-auto"></div>
+                            </div>
+                        </div>
+
                         <!-- Facilitator Controls -->
                         <div id="facilitator-controls" class="hidden">
+                            <!-- Session Controls Card -->
+                            <div class="dashboard-card" data-card="session-controls">
+                                <div class="dashboard-card-header" onclick="app.toggleCard('session-controls')">
+                                    <h3>
+                                        <span>⚡</span>
+                                        Session Controls
+                                    </h3>
+                                    <span class="dashboard-card-toggle">⌄</span>
+                                </div>
+                                <div class="dashboard-card-content">
+                                    <div class="button-group">
+                                        <button class="btn btn-sm" id="reveal-btn" disabled>Reveal</button>
+                                        <button class="btn btn-warning btn-sm" id="countdown-btn" disabled>Timer</button>
+                                        <button class="btn btn-secondary btn-sm" id="reset-btn" disabled>Reset</button>
+                                        <button class="btn btn-outline btn-sm" id="toggle-viewer-btn">Observer</button>
+                                        <button class="btn btn-destructive btn-sm" id="end-session-btn">End</button>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Jira Integration Card -->
-                            <div class="dashboard-card">
-                                <h3>
-                                    <span>🔗</span>
-                                    Jira Integration
-                                </h3>
+                            <div class="dashboard-card collapsed" data-card="jira-integration">
+                                <div class="dashboard-card-header" onclick="app.toggleCard('jira-integration')">
+                                    <h3>
+                                        <span>🔗</span>
+                                        Jira Integration
+                                    </h3>
+                                    <span class="dashboard-card-toggle">⌄</span>
+                                </div>
+                                <div class="dashboard-card-content">
                                     <div id="jira-setup" class="hidden space-y-3">
                                         <div class="grid grid-cols-2 gap-3">
                                             <div class="input-group">
@@ -146,11 +187,14 @@
                             </div>
 
                             <!-- Manual Ticket Entry Card -->
-                            <div class="dashboard-card">
-                                <h3>
-                                    <span>📝</span>
-                                    Manual Ticket
-                                </h3>
+                            <div class="dashboard-card collapsed" data-card="manual-ticket">
+                                <div class="dashboard-card-header" onclick="app.toggleCard('manual-ticket')">
+                                    <h3>
+                                        <span>📝</span>
+                                        Manual Ticket
+                                    </h3>
+                                    <span class="dashboard-card-toggle">⌄</span>
+                                </div>
                                 <div class="dashboard-card-content">
                                     <div class="input-group">
                                         <label for="jira-ticket" class="text-xs">Ticket Description</label>
@@ -159,27 +203,18 @@
                                     <button class="btn btn-sm w-full" id="set-ticket-btn">Set Ticket</button>
                                 </div>
                             </div>
-                            
-                            <!-- Session Controls Card -->
-                            <div class="dashboard-card">
-                                <h3>
-                                    <span>⚡</span>
-                                    Session Controls
-                                </h3>
-                                <div class="dashboard-card-content">
-                                    <div class="button-group">
-                                        <button class="btn btn-sm" id="reveal-btn" disabled>Reveal</button>
-                                        <button class="btn btn-warning btn-sm" id="countdown-btn" disabled>Timer</button>
-                                        <button class="btn btn-secondary btn-sm" id="reset-btn" disabled>Reset</button>
-                                        <button class="btn btn-outline btn-sm" id="toggle-viewer-btn">Observer</button>
-                                        <button class="btn btn-destructive btn-sm" id="end-session-btn">End</button>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
 
                         <!-- Issues / History Tabs -->
-                        <div id="history-section" class="dashboard-card hidden">
+                        <div id="history-section" class="dashboard-card hidden" data-card="history">
+                            <div class="dashboard-card-header" onclick="app.toggleCard('history')">
+                                <h3>
+                                    <span>📋</span>
+                                    Issues & History
+                                </h3>
+                                <span class="dashboard-card-toggle">⌄</span>
+                            </div>
+                            <div class="dashboard-card-content">
                             <div class="inline-flex h-10 items-center justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground mb-2">
                                 <!-- Issues tab button will be shown once Jira issues are loaded -->
                                 <button id="history-tab-issues" class="tab-btn hidden px-3 py-1.5 text-sm font-medium rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
@@ -203,26 +238,32 @@
                         </div>
 
                         <!-- Session Statistics -->
-                        <div id="stats-section" class="dashboard-card hidden">
-                            <h3>
-                                <span>📈</span>
-                                Statistics
-                            </h3>
+                        <div id="stats-section" class="dashboard-card collapsed hidden" data-card="stats">
+                            <div class="dashboard-card-header" onclick="app.toggleCard('stats')">
+                                <h3>
+                                    <span>📈</span>
+                                    Statistics
+                                </h3>
+                                <span class="dashboard-card-toggle">⌄</span>
+                            </div>
                             <div class="dashboard-card-content">
                                 <div id="team-stats" class="text-xs text-muted-foreground mb-2"></div>
                                 <div id="user-stats" class="max-h-24 overflow-y-auto"></div>
                             </div>
                         </div>
                     </div>
+                    </div>
 
-                    <!-- Center Column: Main Interaction -->
-                    <div class="center-column">
+                    <!-- Main Column: Current Ticket, Voting, Results -->
+                    <div class="main-column">
                         <!-- Current Ticket -->
                         <div id="current-ticket" class="dashboard-card hidden">
-                            <h3>
-                                <span>📋</span>
-                                Current Ticket
-                            </h3>
+                            <div class="dashboard-card-header">
+                                <h3>
+                                    <span>📋</span>
+                                    Current Ticket
+                                </h3>
+                            </div>
                             <div class="dashboard-card-content">
                                 <div id="ticket-description" class="text-sm"></div>
                             </div>
@@ -292,21 +333,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Right Column: Team & Issue Selection -->
-                    <div class="right-column">
-                        <!-- Participants -->
-                        <div class="dashboard-card">
-                            <h3>
-                                <span>👥</span>
-                                Team (<span id="participant-count">0</span>)
-                            </h3>
-                            <div class="dashboard-card-content">
-                                <div id="participants-list" class="space-y-1 max-h-64 overflow-y-auto"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- Moderation Modal -->
                 <div id="moderation-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: none; align-items: center; justify-content: center;">

@@ -147,15 +147,44 @@
 
 /* Compact Dashboard Cards */
 .dashboard-card {
-  @apply bg-card border rounded-lg p-3 shadow-sm;
+  @apply bg-card border rounded-lg shadow-sm;
 }
 
-.dashboard-card h3 {
-  @apply text-card-foreground font-semibold text-sm mb-2 flex items-center gap-2;
+.dashboard-card-header {
+  @apply flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 transition-colors;
+}
+
+.dashboard-card-header h3 {
+  @apply text-card-foreground font-semibold text-sm flex items-center gap-2 m-0;
+}
+
+.dashboard-card-toggle {
+  @apply text-muted-foreground hover:text-foreground transition-colors;
 }
 
 .dashboard-card-content {
-  @apply space-y-2;
+  @apply p-3 pt-0 space-y-2;
+}
+
+.dashboard-card.collapsed .dashboard-card-content {
+  @apply hidden;
+}
+
+.dashboard-card.collapsed .dashboard-card-toggle {
+  @apply rotate-180;
+}
+
+/* Default collapsed cards for space saving */
+.dashboard-card[data-card="jira-integration"].collapsed .dashboard-card-content,
+.dashboard-card[data-card="manual-ticket"].collapsed .dashboard-card-content,
+.dashboard-card[data-card="stats"].collapsed .dashboard-card-content {
+  display: none;
+}
+
+.dashboard-card[data-card="jira-integration"].collapsed .dashboard-card-toggle,
+.dashboard-card[data-card="manual-ticket"].collapsed .dashboard-card-toggle,
+.dashboard-card[data-card="stats"].collapsed .dashboard-card-toggle {
+  @apply rotate-180;
 }
 
 /* Button Groups */

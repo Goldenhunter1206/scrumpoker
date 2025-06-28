@@ -42,6 +42,7 @@ class ScrumPokerApp {
     this.prefillSavedData();
     this.setupUrlParameters();
     updateSoundIcon();
+    this.restoreCardStates();
   }
 
   private setupEventListeners(): void {
@@ -1089,6 +1090,43 @@ class ScrumPokerApp {
       showElement('history-panel');
       hideElement('jira-issues-section');
     }
+  }
+
+  /**
+   * Toggle collapse/expand state of dashboard cards
+   */
+  toggleCard(cardId: string): void {
+    const card = document.querySelector(`[data-card="${cardId}"]`);
+    if (!card) return;
+    
+    card.classList.toggle('collapsed');
+    
+    // Save state to localStorage
+    const collapsedCards = JSON.parse(localStorage.getItem('collapsedCards') || '[]');
+    if (card.classList.contains('collapsed')) {
+      if (!collapsedCards.includes(cardId)) {
+        collapsedCards.push(cardId);
+      }
+    } else {
+      const index = collapsedCards.indexOf(cardId);
+      if (index > -1) {
+        collapsedCards.splice(index, 1);
+      }
+    }
+    localStorage.setItem('collapsedCards', JSON.stringify(collapsedCards));
+  }
+
+  /**
+   * Restore collapsed card states from localStorage
+   */
+  private restoreCardStates(): void {
+    const collapsedCards = JSON.parse(localStorage.getItem('collapsedCards') || '[]');
+    collapsedCards.forEach((cardId: string) => {
+      const card = document.querySelector(`[data-card="${cardId}"]`);
+      if (card) {
+        card.classList.add('collapsed');
+      }
+    });
   }
 }
 

@@ -74,69 +74,43 @@
   display: none !important;
 }
 
-/* Three Column Layout - Compact Dashboard */
-.three-column-layout {
+/* Two Column Layout - Sidebar + Main */
+.two-column-layout {
   @apply grid gap-4;
   grid-template-columns: 1fr;
 }
 
-/* Desktop Layout - Three Columns */
-@media (min-width: 1024px) {
-  .three-column-layout {
-    grid-template-columns: 320px 1fr 280px;
-    grid-template-areas: "left center right";
+/* Desktop Layout - Two Columns */
+@media (min-width: 768px) {
+  .two-column-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    grid-template-areas: "sidebar main";
+    gap: 1.5rem;
   }
   
-  .left-column {
-    grid-area: left;
+  .sidebar-column {
+    grid-area: sidebar;
+    min-width: 0; /* Prevent overflow */
   }
   
-  .center-column {
-    grid-area: center;
-  }
-  
-  .right-column {
-    grid-area: right;
+  .main-column {
+    grid-area: main;
+    min-width: 0; /* Prevent overflow */
   }
 }
 
-/* Tablet Layout - Two Columns */
-@media (min-width: 768px) and (max-width: 1023px) {
-  .three-column-layout {
-    grid-template-columns: 1fr 280px;
-    grid-template-areas: 
-      "center right"
-      "left right";
-  }
-  
-  .left-column {
-    grid-area: left;
-  }
-  
-  .center-column {
-    grid-area: center;
-  }
-  
-  .right-column {
-    grid-area: right;
-  }
-}
-
-/* Column Styling - Compact */
-.left-column, .center-column, .right-column {
+/* Column Styling - Two Column */
+.sidebar-column, .main-column {
   @apply min-h-0;
 }
 
-.left-column {
+.sidebar-column {
   @apply space-y-3;
 }
 
-.center-column {
+.main-column {
   @apply space-y-4;
-}
-
-.right-column {
-  @apply space-y-3;
 }
 
 /* Facilitator Actions */
@@ -159,33 +133,21 @@
     display: none;
   }
   
-  .three-column-layout {
+  .two-column-layout {
     @apply space-y-4;
+    grid-template-columns: 1fr;
   }
   
   .facilitator-actions {
     grid-template-columns: 1fr 1fr;
   }
   
-  /* Mobile specific layout optimizations */
-  .left-column .session-info {
-    @apply mb-3;
-  }
-  
-  .left-column .facilitator-actions .btn {
-    @apply text-xs py-1.5 px-3;
-  }
-  
-  /* Move participants to top on mobile for better UX */
-  .right-column {
-    order: -1;
-  }
-  
-  .center-column {
-    order: 0;
-  }
-  
-  .left-column {
+  /* Mobile: Reorder for better UX - main content first, then sidebar */
+  .main-column {
     order: 1;
+  }
+  
+  .sidebar-column {
+    order: 2;
   }
 }
