@@ -108,7 +108,7 @@
 
 /* Finalize Estimation */
 .finalize-section {
-  @apply bg-card border rounded-lg p-4 shadow-sm border-l-4 border-sky-500;
+  @apply bg-card border rounded-lg p-4 shadow-sm border-l-4 border-sky-500 mt-4;
 }
 
 /* Jira Integration - Compact List */
