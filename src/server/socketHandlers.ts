@@ -508,6 +508,29 @@ export function setupSocketHandlers(
           });
           break;
 
+        case 'make-facilitator':
+          // Prevent self-promotion
+          if (targetName === facilitatorEntry.name) {
+            socket.emit('error', { message: 'You are already the facilitator' });
+            return;
+          }
+          
+          // Transfer facilitator role
+          facilitatorEntry.isFacilitator = false;
+          target.isFacilitator = true;
+          target.isViewer = false; // New facilitator should be able to vote by default
+          
+          // Update session facilitator info
+          session.facilitator.name = targetName;
+          session.facilitator.socketId = target.socketId || '';
+          
+          io.to(roomCode).emit('facilitator-changed', {
+            oldFacilitatorName: facilitatorEntry.name,
+            newFacilitatorName: targetName,
+            sessionData: getSessionData(session)
+          });
+          break;
+
         case 'remove':
           session.participants.delete(targetName);
           session.votes.delete(targetName);

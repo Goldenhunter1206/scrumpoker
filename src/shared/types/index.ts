@@ -87,6 +87,7 @@ export interface ServerToClientEvents {
   'participant-left': (data: { participantName: string; sessionData: SessionData }) => void;
   'participant-removed': (data: { participantName: string; sessionData: SessionData }) => void;
   'participant-role-changed': (data: { participantName: string; newRole: string; sessionData: SessionData }) => void;
+  'facilitator-changed': (data: { oldFacilitatorName: string; newFacilitatorName: string; sessionData: SessionData }) => void;
   'removed-from-session': (data: { message: string }) => void;
   'jira-config-success': (data: { boards: JiraBoard[]; sessionData: SessionData }) => void;
   'jira-config-failed': (data: { message: string }) => void;

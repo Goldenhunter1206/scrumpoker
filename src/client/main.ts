@@ -91,6 +91,7 @@ class ScrumPokerApp {
 
     document.getElementById('make-viewer-btn')?.addEventListener('click', () => this.moderateParticipant('make-viewer'));
     document.getElementById('make-participant-btn')?.addEventListener('click', () => this.moderateParticipant('make-participant'));
+    document.getElementById('make-facilitator-btn')?.addEventListener('click', () => this.moderateParticipant('make-facilitator'));
     document.getElementById('remove-participant-btn')?.addEventListener('click', () => this.moderateParticipant('remove'));
     document.getElementById('cancel-moderation-btn')?.addEventListener('click', () => this.closeModerationModal());
 
@@ -152,9 +153,32 @@ class ScrumPokerApp {
       this.updateSessionUI(sessionData);
     });
 
-    socketManager.on('roleChanged', () => {
+    socketManager.on('roleChanged', (newRole: string) => {
       this.updateVotingCards();
-      this.updateToggleViewerButton();
+      
+      const facilitatorControls = document.getElementById('facilitator-controls');
+      console.log('DEBUG: roleChanged to:', newRole);
+      
+      // Handle facilitator role changes
+      if (newRole === 'facilitator') {
+        console.log('DEBUG: Role changed to facilitator - showing controls');
+        if (facilitatorControls) {
+          facilitatorControls.style.display = 'block';
+          facilitatorControls.classList.remove('hidden');
+        }
+        this.updateJiraUI();
+        adaptFacilitatorControlsForViewport();
+        this.updateToggleViewerButton();
+      } else if (newRole === 'participant' || newRole === 'viewer') {
+        console.log('DEBUG: Role changed to participant/viewer - hiding controls');
+        if (facilitatorControls) {
+          facilitatorControls.style.display = 'none';
+          facilitatorControls.classList.add('hidden');
+        }
+        if (newRole === 'participant') {
+          this.updateToggleViewerButton();
+        }
+      }
     });
 
     socketManager.on('jiraConfigured', (data: { boards: JiraBoard[], sessionData: SessionData }) => {
@@ -304,10 +328,13 @@ class ScrumPokerApp {
       aggregate: sessionData.aggregate || null
     });
 
-    // Update user's viewer status
+    // Update user's role status
     const myParticipant = sessionData.participants.find(p => p.name === state.myName);
     if (myParticipant) {
-      gameState.updateState({ isViewer: myParticipant.isViewer });
+      gameState.updateState({ 
+        isViewer: myParticipant.isViewer,
+        isFacilitator: myParticipant.isFacilitator
+      });
     }
 
     // Show session section
@@ -319,11 +346,39 @@ class ScrumPokerApp {
     setElementText('room-code', state.roomCode);
     setElementText('session-link', `${window.location.origin}?room=${state.roomCode}`);
 
-    // Show facilitator controls if user is facilitator
-    if (state.isFacilitator) {
-      showElement('facilitator-controls');
+    // Show/hide facilitator controls based on role
+    const isFacilitator = myParticipant ? myParticipant.isFacilitator : false;
+    const facilitatorControls = document.getElementById('facilitator-controls');
+    const facilitatorCards = [
+      document.querySelector('[data-card="session-controls"]'),
+      document.querySelector('[data-card="jira-integration"]'),
+      document.querySelector('[data-card="manual-ticket"]')
+    ];
+    
+    if (isFacilitator) {
+      if (facilitatorControls) {
+        facilitatorControls.style.display = 'block';
+        facilitatorControls.classList.remove('hidden');
+      }
+      facilitatorCards.forEach(card => {
+        if (card) {
+          (card as HTMLElement).style.display = 'block';
+          card.classList.remove('hidden');
+        }
+      });
       this.updateJiraUI();
       adaptFacilitatorControlsForViewport();
+    } else {
+      if (facilitatorControls) {
+        facilitatorControls.style.setProperty('display', 'none', 'important');
+        facilitatorControls.classList.add('hidden');
+      }
+      facilitatorCards.forEach(card => {
+        if (card) {
+          (card as HTMLElement).style.setProperty('display', 'none', 'important');
+          card.classList.add('hidden');
+        }
+      });
     }
 
     // Update UI components
@@ -331,7 +386,7 @@ class ScrumPokerApp {
     this.updateFacilitatorControls();
     this.updateVotingCards();
     
-    if (state.isFacilitator) {
+    if (isFacilitator) {
       this.updateToggleViewerButton();
     }
 

@@ -126,6 +126,20 @@ export class SocketManager {
       }
     });
 
+    this.socket.on('facilitator-changed', (data) => {
+      this.emit('sessionUpdated', data.sessionData);
+      showNotification(`${data.newFacilitatorName} is now the facilitator`, 'success');
+      
+      const state = gameState.getState();
+      if (data.newFacilitatorName === state.myName) {
+        gameState.updateState({ isFacilitator: true, isViewer: false });
+        this.emit('roleChanged', 'facilitator');
+      } else if (data.oldFacilitatorName === state.myName) {
+        gameState.updateState({ isFacilitator: false });
+        this.emit('roleChanged', 'participant');
+      }
+    });
+
     this.socket.on('removed-from-session', (data) => {
       showNotification(data.message, 'error');
       clearActiveSession();

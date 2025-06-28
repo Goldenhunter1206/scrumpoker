@@ -167,7 +167,7 @@
                                             <label for="jira-project-key" class="text-xs">Project Key (optional)</label>
                                             <input type="text" id="jira-project-key" placeholder="PROJ" class="text-sm uppercase">
                                         </div>
-                                        <div class="flex items-center gap-2">
+                                        <div class="flex items-center gap-2" style="margin-bottom: 8px">
                                             <input type="checkbox" id="remember-jira" class="w-4 h-4">
                                             <label for="remember-jira" class="text-xs text-muted-foreground">Remember credentials</label>
                                         </div>
@@ -194,7 +194,7 @@
                                     
                                     <div id="jira-not-connected" class="space-y-2">
                                         <p class="text-sm text-muted-foreground">Connect to Jira for automatic ticket import</p>
-                                        <button class="btn btn-outline btn-sm w-full" id="setup-jira-btn">Setup Integration</button>
+                                        <button class="btn btn-sm w-full" id="setup-jira-btn">Setup Integration</button>
                                     </div>
                                 </div>
                             </div>
@@ -212,7 +212,7 @@
                                     </div>
                                 </div>
                                 <div class="dashboard-card-content">
-                                    <div class="input-group">
+                                    <div class="input-group" style="margin-bottom: 0px">
                                         <label for="jira-ticket" class="text-xs">Ticket Description</label>
                                         <textarea id="jira-ticket" rows="2" placeholder="PROJ-123: Brief description..." class="text-sm resize-none"></textarea>
                                     </div>
@@ -367,6 +367,7 @@
                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                             <button class="btn btn-warning" id="make-viewer-btn">Make Viewer</button>
                             <button class="btn btn-outline" id="make-participant-btn">Make Participant</button>
+                            <button class="btn" id="make-facilitator-btn" style="background: #fbbf24; color: #92400e;">Make Facilitator</button>
                             <button class="btn btn-danger" id="remove-participant-btn">Remove</button>
                             <button class="btn btn-secondary" id="cancel-moderation-btn">Cancel</button>
                         </div>
