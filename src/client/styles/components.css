@@ -1,0 +1,234 @@
+/* Session Info Styles */
+.session-info {
+  background: #f3f4f6;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+}
+
+.session-info h3 {
+  color: #374151;
+  margin-bottom: 15px;
+}
+
+.ticket-info {
+  background: #ecfdf5;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+  border-left: 5px solid #059669;
+}
+
+.room-code {
+  background: #059669;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.join-section {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.join-section > div {
+  flex: 1;
+}
+
+/* Voting Cards */
+.voting-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 15px;
+  margin: 30px 0;
+}
+
+.card {
+  aspect-ratio: 3/4;
+  background: white;
+  border: 3px solid #e5e7eb;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.card.selected {
+  background: linear-gradient(135deg, #059669, #047857);
+  color: white;
+  border-color: #059669;
+  transform: translateY(-8px);
+}
+
+.card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Participants */
+.participants {
+  margin: 30px 0;
+}
+
+.participant {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px;
+  background: #f9fafb;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.participant-name {
+  font-weight: 600;
+  color: #374151;
+}
+
+.vote-status {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.voted {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.not-voted {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.vote-value {
+  background: #dcfce7;
+  color: #166534;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: bold;
+}
+
+.viewer-badge {
+  background: #fbbf24;
+  color: #92400e;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Results */
+.results {
+  background: #ecfdf5;
+  padding: 25px;
+  border-radius: 12px;
+  margin: 30px 0;
+  border: 2px solid #059669;
+}
+
+.results h3 {
+  color: #047857;
+  margin-bottom: 20px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.stat {
+  text-align: center;
+  padding: 15px;
+  background: white;
+  border-radius: 8px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #059669;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #6b7280;
+  margin-top: 5px;
+}
+
+/* Finalize Estimation */
+.finalize-section {
+  background: #f0f9ff;
+  padding: 20px;
+  border-radius: 12px;
+  margin: 20px 0;
+  border: 2px solid #0ea5e9;
+}
+
+/* Jira Integration */
+.jira-issue {
+  padding: 15px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: #f9fafb;
+}
+
+.jira-issue:hover {
+  background: #ecfdf5;
+  border-color: #059669;
+}
+
+.jira-issue.selected {
+  background: #dcfce7;
+  border-color: #059669;
+  border-width: 2px;
+}
+
+.jira-issue-key {
+  font-weight: bold;
+  color: #059669;
+  font-size: 14px;
+}
+
+.jira-issue-summary {
+  font-weight: 600;
+  margin: 5px 0;
+  color: #374151;
+}
+
+.jira-issue-meta {
+  font-size: 12px;
+  color: #6b7280;
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.jira-current-points {
+  background: #fbbf24;
+  color: #92400e;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+}

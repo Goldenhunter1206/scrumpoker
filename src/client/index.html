@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{APP_TITLE}} - Team Estimation</title>
+    <link rel="stylesheet" href="./styles/main.css">
+    <link rel="stylesheet" href="./styles/components.css">
+    <link rel="stylesheet" href="./styles/layout.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</head>
+<body>
+    <div class="connection-status" id="connection-status">Connecting...</div>
+    
+    <div class="container">
+        <div class="header">
+            <span id="sound-toggle" class="sound-toggle" title="Toggle sounds">🔊</span>
+            <h1>🃏 {{APP_TITLE}}</h1>
+            <p>{{APP_SUBTITLE}}</p>
+        </div>
+
+        <div class="main-content">
+            <!-- Setup Section -->
+            <div id="setup-section" class="setup-section">
+                <div class="join-section">
+                    <div>
+                        <h3>Create New Session</h3>
+                        <div class="input-group">
+                            <label for="facilitator-name">Your Name (Facilitator)</label>
+                            <input type="text" id="facilitator-name" placeholder="Enter your name">
+                        </div>
+                        
+                        <div class="input-group">
+                            <label for="session-name">Session Name</label>
+                            <input type="text" id="session-name" placeholder="Sprint 12 Planning" value="Sprint Planning Session">
+                        </div>
+                        
+                        <button class="btn" id="start-btn">Start Session</button>
+                    </div>
+                    
+                    <div>
+                        <h3>Join Existing Session</h3>
+                        <div class="input-group">
+                            <label for="join-name">Your Name</label>
+                            <input type="text" id="join-name" placeholder="Enter your name">
+                        </div>
+                        
+                        <div class="input-group">
+                            <label for="room-code-input">Room Code</label>
+                            <input type="text" id="room-code-input" placeholder="Enter 6-digit room code" style="text-transform: uppercase;">
+                        </div>
+
+                        <div class="input-group">
+                            <label for="join-role">Join as</label>
+                            <select id="join-role" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px;">
+                                <option value="participant">Participant (can vote)</option>
+                                <option value="viewer">Viewer (watch only)</option>
+                            </select>
+                        </div>
+                        
+                        <button class="btn btn-secondary" id="join-btn">Join Session</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Session Section -->
+            <div id="session-section" class="hidden">
+                <div class="session-info">
+                    <h3>Session: <span id="current-session-name"></span></h3>
+                    <p style="margin-bottom: 15px;"><strong>Room Code:</strong> <span class="room-code copyable" id="room-code" title="Click to copy"></span></p>
+                    <p><strong>Share this link:</strong> <span id="session-link" class="copyable" title="Click to copy"></span></p>
+                    <p><em>Team members can join using the room code above</em></p>
+                </div>
+
+                <!-- Estimation History -->
+                <div id="history-section" class="session-info hidden">
+                    <h3>📝 Estimation History</h3>
+                    <div id="history-list" style="margin-bottom: 20px;"></div>
+                    <button class="btn btn-outline" id="export-history-btn">Export History (CSV)</button>
+                </div>
+
+                <!-- Session Statistics -->
+                <div id="stats-section" class="session-info hidden">
+                    <h3>📈 Session Statistics</h3>
+                    <div id="team-stats" style="margin-bottom:20px;"></div>
+                    <div id="user-stats"></div>
+                </div>
+
+                <!-- Facilitator Controls -->
+                <div id="facilitator-controls" class="hidden">
+                    <!-- Jira Integration -->
+                    <div class="session-info" style="margin-bottom: 20px;">
+                        <h3>🔗 Jira Integration</h3>
+                        <div id="jira-setup" class="hidden">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                                <div class="input-group">
+                                    <label for="jira-domain">Jira Domain</label>
+                                    <input type="text" id="jira-domain" placeholder="yourcompany.atlassian.net">
+                                </div>
+                                <div class="input-group">
+                                    <label for="jira-email">Email</label>
+                                    <input type="email" id="jira-email" placeholder="your-email@company.com">
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label for="jira-token">API Token <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" style="color: #059669;">(Generate here)</a></label>
+                                <input type="password" id="jira-token" placeholder="Your Jira API token">
+                            </div>
+                            <div class="input-group">
+                                <label for="jira-project-key">Project Key Filter (optional)</label>
+                                <input type="text" id="jira-project-key" placeholder="e.g. PROJ" style="text-transform: uppercase;">
+                            </div>
+                            <div class="input-group" style="display: flex; align-items: center;">
+                                <input type="checkbox" id="remember-jira" style="margin-right: 8px;">
+                                <label for="remember-jira" style="margin:0;">Remember credentials on this device</label>
+                            </div>
+                            <button class="btn" id="connect-jira-btn">Connect to Jira</button>
+                            <button class="btn btn-secondary" id="cancel-jira-btn">Cancel</button>
+                        </div>
+                        
+                        <div id="jira-connected" class="hidden">
+                            <p>✅ Connected to Jira: <strong id="jira-domain-display"></strong></p>
+                            <div style="margin: 15px 0;">
+                                <label for="jira-board-select">Select Board:</label>
+                                <select id="jira-board-select" style="width: 100%; padding: 8px; margin: 8px 0; border: 2px solid #e5e7eb; border-radius: 8px;">
+                                    <option value="">Choose a board...</option>
+                                </select>
+                                <button class="btn" id="load-issues-btn" disabled>Load Issues</button>
+                            </div>
+                        </div>
+                        
+                        <div id="jira-not-connected">
+                            <p>Connect to Jira to import tickets automatically</p>
+                            <button class="btn btn-outline" id="setup-jira-btn">Setup Jira Integration</button>
+                        </div>
+                    </div>
+
+                    <!-- Issue Selection -->
+                    <div id="jira-issues-section" class="hidden" style="margin-bottom: 20px;">
+                        <h3>📋 Select Issue to Estimate</h3>
+                        <div id="jira-issues-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px;">
+                            <!-- Issues will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Manual Ticket Entry -->
+                    <div class="input-group">
+                        <label for="jira-ticket">Or Enter Ticket Manually</label>
+                        <textarea id="jira-ticket" rows="3" placeholder="PROJ-123: Implement user authentication system with OAuth2 integration"></textarea>
+                    </div>
+                    
+                    <button class="btn" id="set-ticket-btn">Set Manual Ticket</button>
+                    <button class="btn" id="reveal-btn" disabled>Reveal Votes</button>
+                    <button class="btn btn-warning" id="countdown-btn" disabled>Start 30s Countdown</button>
+                    <button class="btn btn-secondary" id="reset-btn" disabled>New Round</button>
+                    <button class="btn btn-outline" id="toggle-viewer-btn">Switch to Observer</button>
+                    <button class="btn btn-danger" id="end-session-btn">End Session</button>
+                </div>
+
+                <!-- Current Ticket -->
+                <div id="current-ticket" class="ticket-info hidden">
+                    <h3>📋 Current Ticket</h3>
+                    <p id="ticket-description"></p>
+                </div>
+
+                <!-- Countdown Timer -->
+                <div id="countdown-display" class="countdown-timer hidden">
+                    <div class="countdown-content">
+                        <h3>⏰ Time to Vote!</h3>
+                        <div class="countdown-circle">
+                            <div class="countdown-number" id="countdown-number">30</div>
+                        </div>
+                        <p>Votes will be revealed automatically when timer reaches zero</p>
+                        <div class="countdown-progress">
+                            <div class="countdown-progress-bar" id="countdown-progress-bar"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Voting Cards -->
+                <div class="voting-cards" id="voting-cards">
+                    <div class="card" data-value="0">0</div>
+                    <div class="card" data-value="0.5">½</div>
+                    <div class="card" data-value="1">1</div>
+                    <div class="card" data-value="2">2</div>
+                    <div class="card" data-value="3">3</div>
+                    <div class="card" data-value="5">5</div>
+                    <div class="card" data-value="8">8</div>
+                    <div class="card" data-value="13">13</div>
+                    <div class="card" data-value="21">21</div>
+                    <div class="card" data-value="?">?</div>
+                    <div class="card" data-value="☕">☕</div>
+                </div>
+
+                <!-- Participants -->
+                <div class="participants">
+                    <h3>Team Members (<span id="participant-count">0</span>)</h3>
+                    <div id="participants-list"></div>
+                </div>
+
+                <!-- Moderation Modal -->
+                <div id="moderation-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: none; align-items: center; justify-content: center;">
+                    <div style="background: white; padding: 30px; border-radius: 12px; max-width: 400px; width: 90%;" onclick="event.stopPropagation()">
+                        <h3 style="margin-bottom: 20px;">Moderate: <span id="moderation-target"></span></h3>
+                        <p style="margin-bottom: 20px; color: #6b7280;">Choose an action for this participant:</p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="btn btn-warning" id="make-viewer-btn">Make Viewer</button>
+                            <button class="btn btn-outline" id="make-participant-btn">Make Participant</button>
+                            <button class="btn btn-danger" id="remove-participant-btn">Remove</button>
+                            <button class="btn btn-secondary" id="cancel-moderation-btn">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div id="results" class="results hidden">
+                    <h3>📊 Voting Results</h3>
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-value" id="average-vote">-</div>
+                            <div class="stat-label">Average</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="consensus-vote">-</div>
+                            <div class="stat-label">Most Common</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="total-voters">-</div>
+                            <div class="stat-label">Voters</div>
+                        </div>
+                    </div>
+                    <div id="vote-breakdown"></div>
+                    
+                    <!-- Finalize Estimation Section -->
+                    <div id="finalize-estimation" class="finalize-section hidden">
+                        <h4>🎯 Finalize Story Points</h4>
+                        <p>Set the final story points for this Jira issue:</p>
+                        <div style="display: flex; align-items: center; gap: 15px; margin: 15px 0;">
+                            <label for="final-estimate" style="font-weight: 600;">Story Points:</label>
+                            <input type="number" id="final-estimate" min="0" max="100" step="0.5" 
+                                   style="width: 100px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 16px;">
+                            <button class="btn" id="finalize-btn">Update Jira Issue</button>
+                        </div>
+                        <p style="font-size: 14px; color: #6b7280; margin-top: 10px;">
+                            💡 The value will be automatically rounded to the nearest Fibonacci number (0, 0.5, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89)
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating toggle button for facilitator controls (shown on mobile) -->
+    <button id="toggle-controls-btn" class="hidden" title="Show / hide controls">⚙️</button>
+
+    <script type="module" src="./main.ts"></script>
+</body>
+</html>

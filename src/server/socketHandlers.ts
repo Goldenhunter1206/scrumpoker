@@ -1,0 +1,600 @@
+import { Socket, Server as SocketIOServer } from 'socket.io';
+import { 
+  ServerToClientEvents, 
+  ClientToServerEvents,
+  Vote,
+  VotingResults,
+  JiraIssue
+} from '@shared/types/index.js';
+import { 
+  getJiraBoards, 
+  getJiraBoardIssues, 
+  updateJiraIssueStoryPoints, 
+  roundToNearestFibonacci 
+} from './utils/jiraApi.js';
+import { getSessionData, recordHistory } from './utils/sessionHelpers.js';
+
+// Internal session interface (matches the one in index.ts)
+interface InternalSessionData {
+  id: string;
+  sessionName: string;
+  facilitator: {
+    name: string;
+    socketId: string;
+  };
+  currentTicket: string;
+  currentJiraIssue: JiraIssue | null;
+  jiraConfig: any;
+  participants: Map<string, any>;
+  votes: Map<string, Vote>;
+  votingRevealed: boolean;
+  totalVotes: number;
+  countdownActive: boolean;
+  countdownTimer: NodeJS.Timeout | null;
+  createdAt: Date;
+  lastActivity: Date;
+  history: any[];
+  aggregate: any;
+}
+
+export function setupSocketHandlers(
+  socket: Socket<ClientToServerEvents, ServerToClientEvents>,
+  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>,
+  memoryStore: Map<string, InternalSessionData>
+) {
+  // Configure Jira integration
+  socket.on('configure-jira', async ({ roomCode, domain, email, token, projectKey }) => {
+    try {
+      const session = memoryStore.get(roomCode);
+      if (!session) return;
+
+      const facilitator = Array.from(session.participants.values())
+        .find(p => p.socketId === socket.id);
+      
+      if (!facilitator?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can configure Jira' });
+        return;
+      }
+
+      const config = { domain, email, token, hasToken: true };
+      const boardsResult = await getJiraBoards(config, projectKey || undefined);
+      
+      if (!boardsResult.success) {
+        socket.emit('jira-config-failed', { 
+          message: `Failed to connect to Jira: ${boardsResult.error}` 
+        });
+        return;
+      }
+
+      session.jiraConfig = { ...config, projectKey };
+      session.lastActivity = new Date();
+
+      socket.emit('jira-config-success', {
+        boards: boardsResult.data?.values || [],
+        sessionData: getSessionData(session)
+      });
+
+      console.log(`Jira configured for session ${roomCode}`);
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to configure Jira integration' });
+    }
+  });
+
+  // Get Jira issues from board
+  socket.on('get-jira-issues', async ({ roomCode, boardId }) => {
+    try {
+      const session = memoryStore.get(roomCode);
+      if (!session || !session.jiraConfig) return;
+
+      const facilitator = Array.from(session.participants.values())
+        .find(p => p.socketId === socket.id);
+      
+      if (!facilitator?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can fetch Jira issues' });
+        return;
+      }
+
+      session.jiraConfig.boardId = boardId;
+      const issuesResult = await getJiraBoardIssues(session.jiraConfig, boardId);
+      
+      if (!issuesResult.success) {
+        socket.emit('jira-issues-failed', { 
+          message: `Failed to fetch issues: ${issuesResult.error}` 
+        });
+        return;
+      }
+
+      socket.emit('jira-issues-loaded', { issues: issuesResult.data?.issues || [] });
+      console.log(`Loaded ${issuesResult.data?.issues?.length || 0} issues from Jira board ${boardId}`);
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to fetch Jira issues' });
+    }
+  });
+
+  // Set Jira issue for voting
+  socket.on('set-jira-issue', ({ roomCode, issue }) => {
+    try {
+      const session = memoryStore.get(roomCode);
+      if (!session) return;
+
+      const facilitator = Array.from(session.participants.values())
+        .find(p => p.socketId === socket.id);
+      
+      if (!facilitator?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can set Jira issues' });
+        return;
+      }
+
+      session.currentJiraIssue = issue;
+      session.currentTicket = `${issue.key}: ${issue.summary}`;
+      session.votes.clear();
+      session.votingRevealed = false;
+      session.lastActivity = new Date();
+
+      // Clear countdown if active
+      if (session.countdownTimer) {
+        clearInterval(session.countdownTimer);
+        session.countdownTimer = null;
+        session.countdownActive = false;
+      }
+
+      io.to(roomCode).emit('jira-issue-set', {
+        issue,
+        sessionData: getSessionData(session)
+      });
+
+      console.log(`Jira issue ${issue.key} set for voting in session ${roomCode}`);
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to set Jira issue' });
+    }
+  });
+
+  // Finalize estimation and write back to Jira
+  socket.on('finalize-estimation', async ({ roomCode, finalEstimate }) => {
+    try {
+      const session = memoryStore.get(roomCode);
+      if (!session || !session.currentJiraIssue || !session.jiraConfig) return;
+
+      const facilitator = Array.from(session.participants.values())
+        .find(p => p.socketId === socket.id);
+      
+      if (!facilitator?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can finalize estimations' });
+        return;
+      }
+
+      const roundedEstimate = roundToNearestFibonacci(finalEstimate);
+      if (roundedEstimate === null) {
+        socket.emit('jira-update-failed', { message: 'Invalid estimate value' });
+        return;
+      }
+      
+      const updateResult = await updateJiraIssueStoryPoints(
+        session.jiraConfig, 
+        session.currentJiraIssue.key, 
+        roundedEstimate
+      );
+
+      if (!updateResult.success) {
+        socket.emit('jira-update-failed', { 
+          message: `Failed to update Jira: ${updateResult.error}` 
+        });
+        return;
+      }
+
+      session.currentJiraIssue.currentStoryPoints = roundedEstimate;
+      session.lastActivity = new Date();
+
+      const updatedIssueKey = session.currentJiraIssue.key;
+
+      // Store completed estimation in session history
+      recordHistory(session, {
+        issueKey: updatedIssueKey,
+        summary: session.currentJiraIssue.summary,
+        storyPoints: roundedEstimate,
+        originalEstimate: finalEstimate
+      });
+
+      // Clear current ticket and voting after successful Jira update
+      session.currentTicket = '';
+      session.currentJiraIssue = null;
+      session.votes.clear();
+      session.votingRevealed = false;
+
+      io.to(roomCode).emit('jira-updated', {
+        issueKey: updatedIssueKey,
+        storyPoints: roundedEstimate,
+        originalEstimate: finalEstimate,
+        sessionData: getSessionData(session)
+      });
+
+      console.log(`Updated Jira issue ${updatedIssueKey} with ${roundedEstimate} story points`);
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to update Jira issue' });
+    }
+  });
+
+  // Set current ticket (manual entry)
+  socket.on('set-ticket', ({ roomCode, ticket }) => {
+    try {
+      const session = memoryStore.get(roomCode);
+      if (!session) return;
+
+      const participant = Array.from(session.participants.values())
+        .find(p => p.socketId === socket.id);
+      
+      if (!participant?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can set tickets' });
+        return;
+      }
+
+      session.currentTicket = ticket;
+      session.currentJiraIssue = null;
+      session.votes.clear();
+      session.votingRevealed = false;
+      session.lastActivity = new Date();
+
+      if (session.countdownTimer) {
+        clearInterval(session.countdownTimer);
+        session.countdownTimer = null;
+        session.countdownActive = false;
+      }
+
+      io.to(roomCode).emit('ticket-set', {
+        ticket,
+        sessionData: getSessionData(session)
+      });
+
+      console.log(`Ticket set in session ${roomCode}: ${ticket.substring(0, 50)}...`);
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to set ticket' });
+    }
+  });
+
+  // Submit vote
+  socket.on('submit-vote', ({ roomCode, vote }) => {
+    try {
+      const session = memoryStore.get(roomCode);
+      if (!session) return;
+
+      const participant = Array.from(session.participants.values())
+        .find(p => p.socketId === socket.id);
+      
+      if (!participant) return;
+
+      if (participant.isViewer) {
+        socket.emit('error', { message: 'Viewers cannot vote' });
+        return;
+      }
+
+      if (session.votingRevealed) {
+        socket.emit('error', { message: 'Voting is already complete for this round' });
+        return;
+      }
+
+      session.votes.set(participant.name, vote);
+      participant.hasVoted = true;
+      session.lastActivity = new Date();
+
+      io.to(roomCode).emit('vote-submitted', {
+        participantName: participant.name,
+        sessionData: getSessionData(session)
+      });
+
+      console.log(`Vote submitted by ${participant.name} in session ${roomCode}`);
+
+      // Check if all eligible voters have voted
+      if (session.countdownActive) {
+        const eligibleVoters = Array.from(session.participants.values())
+          .filter(p => !p.isViewer && p.socketId);
+
+        if (session.votes.size >= eligibleVoters.length && eligibleVoters.length > 0) {
+          if (session.countdownTimer) {
+            clearInterval(session.countdownTimer);
+            session.countdownTimer = null;
+          }
+          session.countdownActive = false;
+          session.votingRevealed = true;
+          session.lastActivity = new Date();
+
+          const results = calculateVotingResults(session.votes);
+          
+          if (session.currentJiraIssue) {
+            recordHistory(session, {
+              issueKey: session.currentJiraIssue.key,
+              summary: session.currentJiraIssue.summary,
+              votes: Object.fromEntries(session.votes),
+              stats: {
+                consensus: results.consensus,
+                average: results.average,
+                min: results.min,
+                max: results.max
+              }
+            });
+          } else if (session.currentTicket) {
+            recordHistory(session, {
+              ticket: session.currentTicket,
+              votes: Object.fromEntries(session.votes),
+              stats: {
+                consensus: results.consensus,
+                average: results.average,
+                min: results.min,
+                max: results.max
+              }
+            });
+          }
+
+          io.to(roomCode).emit('countdown-finished', {
+            sessionData: getSessionData(session)
+          });
+          
+          io.to(roomCode).emit('votes-revealed', {
+            sessionData: getSessionData(session),
+            results
+          });
+
+          console.log(`Countdown finished early and votes auto-revealed in session ${roomCode}`);
+        }
+      }
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to submit vote' });
+    }
+  });
+
+  // Reveal votes
+  socket.on('reveal-votes', ({ roomCode }) => {
+    try {
+      const session = memoryStore.get(roomCode);
+      if (!session) return;
+
+      const participant = Array.from(session.participants.values())
+        .find(p => p.socketId === socket.id);
+      
+      if (!participant?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can reveal votes' });
+        return;
+      }
+
+      session.votingRevealed = true;
+      session.lastActivity = new Date();
+
+      const results = calculateVotingResults(session.votes);
+
+      // Record history
+      if (session.currentJiraIssue) {
+        recordHistory(session, {
+          issueKey: session.currentJiraIssue.key,
+          summary: session.currentJiraIssue.summary,
+          votes: Object.fromEntries(session.votes),
+          stats: {
+            consensus: results.consensus,
+            average: results.average,
+            min: results.min,
+            max: results.max
+          }
+        });
+      } else if (session.currentTicket) {
+        recordHistory(session, {
+          ticket: session.currentTicket,
+          votes: Object.fromEntries(session.votes),
+          stats: {
+            consensus: results.consensus,
+            average: results.average,
+            min: results.min,
+            max: results.max
+          }
+        });
+      }
+
+      io.to(roomCode).emit('votes-revealed', {
+        sessionData: getSessionData(session),
+        results
+      });
+
+      console.log(`Votes revealed in session ${roomCode}`);
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to reveal votes' });
+    }
+  });
+
+  // Reset voting
+  socket.on('reset-voting', ({ roomCode }) => {
+    try {
+      const session = memoryStore.get(roomCode);
+      if (!session) return;
+
+      const participant = Array.from(session.participants.values())
+        .find(p => p.socketId === socket.id);
+      
+      if (!participant?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can reset voting' });
+        return;
+      }
+
+      session.votes.clear();
+      session.votingRevealed = false;
+      session.lastActivity = new Date();
+
+      // Reset hasVoted for all participants
+      session.participants.forEach(p => p.hasVoted = false);
+
+      if (session.countdownTimer) {
+        clearInterval(session.countdownTimer);
+        session.countdownTimer = null;
+        session.countdownActive = false;
+      }
+
+      io.to(roomCode).emit('voting-reset', {
+        sessionData: getSessionData(session)
+      });
+
+      console.log(`Voting reset in session ${roomCode}`);
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to reset voting' });
+    }
+  });
+
+  // Start countdown
+  socket.on('start-countdown', ({ roomCode, duration }) => {
+    try {
+      const session = memoryStore.get(roomCode);
+      if (!session) return;
+
+      const participant = Array.from(session.participants.values())
+        .find(p => p.socketId === socket.id);
+      
+      if (!participant?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can start countdown' });
+        return;
+      }
+
+      if (session.votingRevealed) {
+        socket.emit('error', { message: 'Voting is already complete' });
+        return;
+      }
+
+      if (session.countdownActive) {
+        socket.emit('error', { message: 'Countdown is already active' });
+        return;
+      }
+
+      if (session.countdownTimer) {
+        clearInterval(session.countdownTimer);
+      }
+
+      session.countdownActive = true;
+      session.lastActivity = new Date();
+      let secondsLeft = duration;
+
+      io.to(roomCode).emit('countdown-started', { duration });
+
+      session.countdownTimer = setInterval(() => {
+        secondsLeft--;
+        
+        if (secondsLeft > 0) {
+          io.to(roomCode).emit('countdown-tick', {
+            secondsLeft,
+            totalDuration: duration
+          });
+        } else {
+          clearInterval(session.countdownTimer!);
+          session.countdownTimer = null;
+          session.countdownActive = false;
+          session.votingRevealed = true;
+          session.lastActivity = new Date();
+
+          const results = calculateVotingResults(session.votes);
+
+          // Record history
+          if (session.currentJiraIssue) {
+            recordHistory(session, {
+              issueKey: session.currentJiraIssue.key,
+              summary: session.currentJiraIssue.summary,
+              votes: Object.fromEntries(session.votes),
+              stats: {
+                consensus: results.consensus,
+                average: results.average,
+                min: results.min,
+                max: results.max
+              }
+            });
+          } else if (session.currentTicket) {
+            recordHistory(session, {
+              ticket: session.currentTicket,
+              votes: Object.fromEntries(session.votes),
+              stats: {
+                consensus: results.consensus,
+                average: results.average,
+                min: results.min,
+                max: results.max
+              }
+            });
+          }
+
+          io.to(roomCode).emit('countdown-finished', {
+            sessionData: getSessionData(session)
+          });
+          
+          io.to(roomCode).emit('votes-revealed', {
+            sessionData: getSessionData(session),
+            results
+          });
+
+          console.log(`Countdown finished and votes auto-revealed in session ${roomCode}`);
+        }
+      }, 1000);
+
+      console.log(`Countdown started in session ${roomCode} for ${duration} seconds`);
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to start countdown' });
+    }
+  });
+
+  // End session
+  socket.on('end-session', ({ roomCode }) => {
+    try {
+      const session = memoryStore.get(roomCode);
+      if (!session) return;
+
+      const participant = Array.from(session.participants.values())
+        .find(p => p.socketId === socket.id);
+      
+      if (!participant?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can end session' });
+        return;
+      }
+
+      if (session.countdownTimer) {
+        clearInterval(session.countdownTimer);
+      }
+
+      io.to(roomCode).emit('session-ended', {
+        message: 'Session has been ended by the facilitator'
+      });
+
+      const room = io.sockets.adapter.rooms.get(roomCode);
+      if (room) {
+        room.forEach(socketId => {
+          const clientSocket = io.sockets.sockets.get(socketId);
+          if (clientSocket) {
+            clientSocket.leave(roomCode);
+          }
+        });
+      }
+
+      memoryStore.delete(roomCode);
+      console.log(`Session ${roomCode} ended by facilitator`);
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to end session' });
+    }
+  });
+}
+
+function calculateVotingResults(votes: Map<string, Vote>): VotingResults {
+  const numericVotes = Array.from(votes.values())
+    .filter(vote => typeof vote === 'number') as number[];
+  
+  const results: VotingResults = {
+    average: numericVotes.length > 0 ? 
+      numericVotes.reduce((sum, vote) => sum + vote, 0) / numericVotes.length : 0,
+    voteCounts: {},
+    totalVotes: votes.size,
+    min: numericVotes.length > 0 ? Math.min(...numericVotes) : null,
+    max: numericVotes.length > 0 ? Math.max(...numericVotes) : null,
+    consensus: '?' as Vote
+  };
+
+  // Count vote distribution
+  votes.forEach(vote => {
+    results.voteCounts[String(vote)] = (results.voteCounts[String(vote)] || 0) + 1;
+  });
+
+  // Find consensus (most common vote)
+  const consensusKey = Object.keys(results.voteCounts).reduce((a, b) => 
+    results.voteCounts[a] > results.voteCounts[b] ? a : b, '?'
+  );
+  
+  results.consensus = isNaN(Number(consensusKey)) ? consensusKey as Vote : Number(consensusKey);
+
+  return results;
+}

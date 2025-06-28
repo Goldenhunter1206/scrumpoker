@@ -1,0 +1,136 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.header {
+  background: linear-gradient(135deg, #059669, #047857);
+  color: white;
+  padding: 30px;
+  text-align: center;
+  position: relative;
+}
+
+.header h1 {
+  font-size: 2.5em;
+  margin-bottom: 10px;
+}
+
+.header p {
+  opacity: 0.9;
+  font-size: 1.1em;
+}
+
+.main-content {
+  padding: 30px;
+}
+
+.setup-section {
+  margin-bottom: 40px;
+}
+
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.input-group input, 
+.input-group textarea, 
+.input-group select {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.3s;
+}
+
+.input-group input:focus, 
+.input-group textarea:focus, 
+.input-group select:focus {
+  outline: none;
+  border-color: #059669;
+}
+
+.input-group input[type="checkbox"] {
+  width: auto;
+}
+
+.btn {
+  background: linear-gradient(135deg, #059669, #047857);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  margin: 5px;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(5, 150, 105, 0.3);
+}
+
+.btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-secondary {
+  background: #6b7280;
+}
+
+.btn-danger {
+  background: #dc2626;
+}
+
+.btn-warning {
+  background: #f59e0b;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 2px solid #059669;
+  color: #059669;
+}
+
+.btn-outline:hover {
+  background: #059669;
+  color: white;
+}
+
+.hidden {
+  display: none;
+}
+
+.copyable {
+  cursor: pointer;
+}
