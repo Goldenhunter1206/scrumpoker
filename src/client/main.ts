@@ -539,8 +539,14 @@ class ScrumPokerApp {
     // Ensure history-section card is visible
     showElement('history-section');
 
-    // Automatically switch to Issues tab the first time issues are loaded
-    this.switchHistoryTab('issues');
+    // Update tab visibility and card title based on available content
+    this.updateHistoryTabsVisibility();
+
+    // Automatically switch to Issues tab if both tabs are visible
+    const hasHistory = state.history && state.history.length > 0;
+    if (hasHistory) {
+      this.switchHistoryTab('issues');
+    }
   }
 
   private createJiraIssueElement(issue: JiraIssue, clickable: boolean): HTMLElement {
@@ -1017,6 +1023,7 @@ class ScrumPokerApp {
     });
     
     this.updateStatsUI();
+    this.updateHistoryTabsVisibility();
   }
 
   private updateStatsUI(): void {
@@ -1288,6 +1295,41 @@ class ScrumPokerApp {
     } else {
       activate(tabHistory);
       deactivate(tabIssues);
+      showElement('history-panel');
+      hideElement('jira-issues-section');
+    }
+  }
+
+  /**
+   * Update the visibility of tabs and card title based on available content
+   */
+  private updateHistoryTabsVisibility(): void {
+    const state = gameState.getState();
+    const hasHistory = state.history && state.history.length > 0;
+    const hasIssues = state.jiraIssues && state.jiraIssues.length > 0;
+    
+    const tabsContainer = document.getElementById('history-tabs-container');
+    const cardTitle = document.getElementById('history-card-title');
+    const issuesTab = document.getElementById('history-tab-issues');
+    
+    if (!tabsContainer || !cardTitle) return;
+    
+    // Determine what content is available
+    if (hasHistory && hasIssues) {
+      // Both available - show tabs
+      showElement('history-tabs-container');
+      cardTitle.textContent = 'Issues & History';
+      if (issuesTab) issuesTab.classList.remove('hidden');
+    } else if (hasIssues) {
+      // Only issues - hide tabs, show issues panel
+      hideElement('history-tabs-container');
+      cardTitle.textContent = 'Issues';
+      showElement('jira-issues-section');
+      hideElement('history-panel');
+    } else if (hasHistory) {
+      // Only history - hide tabs, show history panel
+      hideElement('history-tabs-container');
+      cardTitle.textContent = 'History';
       showElement('history-panel');
       hideElement('jira-issues-section');
     }

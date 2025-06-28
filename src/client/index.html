@@ -226,7 +226,7 @@
                             <div class="dashboard-card-header" onclick="app.toggleCard('history')">
                                 <h3>
                                     <span>📋</span>
-                                    Issues & History
+                                    <span id="history-card-title">History</span>
                                 </h3>
                                 <div class="flex items-center gap-2">
                                     <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
@@ -234,7 +234,7 @@
                                 </div>
                             </div>
                             <div class="dashboard-card-content">
-                            <div class="inline-flex h-10 items-center justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground mb-2">
+                            <div id="history-tabs-container" class="inline-flex h-10 items-center justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground mb-2">
                                 <!-- Issues tab button will be shown once Jira issues are loaded -->
                                 <button id="history-tab-issues" class="tab-btn hidden px-3 py-1.5 text-sm font-medium rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
                                     Issues
