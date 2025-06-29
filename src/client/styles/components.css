@@ -278,6 +278,16 @@
   @apply border-primary border-2 bg-primary/5;
 }
 
+.dashboard-card.drag-over-top {
+  @apply border-t-primary border-t-4 border-primary/30 border-2 bg-primary/5;
+  box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-card.drag-over-bottom {
+  @apply border-b-primary border-b-4 border-primary/30 border-2 bg-primary/5;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
 .column-drop-zone {
   @apply min-h-8 transition-all duration-200 rounded-lg border-2 border-dashed border-transparent;
   display: none;

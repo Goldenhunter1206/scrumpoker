@@ -234,11 +234,9 @@ class ScrumPokerApp {
       this.updateVotingCards();
 
       const facilitatorControls = document.getElementById('facilitator-controls');
-      console.log('DEBUG: roleChanged to:', newRole);
 
       // Handle facilitator role changes
       if (newRole === 'facilitator') {
-        console.log('DEBUG: Role changed to facilitator - showing controls');
         if (facilitatorControls) {
           facilitatorControls.style.display = 'block';
           facilitatorControls.classList.remove('hidden');
@@ -247,7 +245,6 @@ class ScrumPokerApp {
         adaptFacilitatorControlsForViewport();
         this.updateToggleViewerButton();
       } else if (newRole === 'participant' || newRole === 'viewer') {
-        console.log('DEBUG: Role changed to participant/viewer - hiding controls');
         if (facilitatorControls) {
           facilitatorControls.style.display = 'none';
           facilitatorControls.classList.add('hidden');
@@ -1964,28 +1961,23 @@ class ScrumPokerApp {
     this.draggedElement = target.closest('.dashboard-card') as HTMLElement;
 
     if (!this.draggedElement) {
-      console.log('🚀 No draggable element found');
       return;
     }
 
     // Ensure the element is actually draggable before proceeding
     if (!(this.draggedElement as HTMLElement).draggable) {
-      console.log('🚀 Element not draggable, cancelling');
       e.preventDefault();
       return;
     }
 
     this.isDragging = true;
-    console.log('🚀 Dragged element:', this.draggedElement);
 
-    console.log('🚀 Adding dragging class');
     this.draggedElement.classList.add('dragging');
 
     // Show all drop zones during dragging
     document.querySelectorAll('.column-drop-zone').forEach(zone => {
       zone.classList.add('drag-active');
     });
-    console.log('🚀 Drop zones:', document.querySelectorAll('.column-drop-zone'));
 
     // Some browsers require a dataTransfer payload and explicit effectAllowed to keep the drag session alive
     try {
@@ -1994,15 +1986,11 @@ class ScrumPokerApp {
         e.dataTransfer.effectAllowed = 'move';
       }
     } catch {
-      console.log('🚀 Error setting dataTransfer');
       // Ignore potential security errors when setting dataTransfer during automated tests
     }
-    console.log('🚀 DataTransfer set');
   }
 
   private handleDragEnd(_e: DragEvent): void {
-    console.log('🚀 Drag end - cleaning up');
-
     // Clean up visual indicators immediately
     document.querySelectorAll('.dragging').forEach(el => {
       el.classList.remove('dragging');
@@ -2010,6 +1998,9 @@ class ScrumPokerApp {
     });
 
     document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+      el.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
     document
       .querySelectorAll('.drop-indicator.active')
       .forEach(el => el.classList.remove('active'));
@@ -2035,19 +2026,34 @@ class ScrumPokerApp {
 
   private handleDragOver(e: DragEvent): void {
     e.preventDefault();
-    console.log('🚀 Drag over');
+
+    // Clear previous drag-over indicators
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+      el.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
 
     const target = e.target as HTMLElement;
     const card = target.closest('.dashboard-card') as HTMLElement;
 
     if (card && card !== this.draggedElement) {
-      card.classList.add('drag-over');
+      // Determine which half of the card we're over for visual feedback
+      const rect = card.getBoundingClientRect();
+      const mouseY = e.clientY;
+      const cardMiddle = rect.top + rect.height / 2;
+
+      if (mouseY < cardMiddle) {
+        // Mouse is in top half - will insert before
+        card.classList.add('drag-over-top');
+      } else {
+        // Mouse is in bottom half - will insert after
+        card.classList.add('drag-over-bottom');
+      }
     }
   }
 
   private handleDrop(e: DragEvent): void {
     e.preventDefault();
-    console.log('🚀 Drop');
 
     const target = e.target as HTMLElement;
     const targetCard = target.closest('.dashboard-card') as HTMLElement;
@@ -2056,17 +2062,37 @@ class ScrumPokerApp {
       const targetParent = targetCard.parentElement;
 
       if (targetParent) {
-        // Insert before the target card
-        targetParent.insertBefore(this.draggedElement, targetCard);
+        // Determine if we should insert before or after based on mouse position
+        const rect = targetCard.getBoundingClientRect();
+        const mouseY = e.clientY;
+        const cardMiddle = rect.top + rect.height / 2;
+
+        if (mouseY < cardMiddle) {
+          // Mouse is in top half - insert before
+          targetParent.insertBefore(this.draggedElement, targetCard);
+        } else {
+          // Mouse is in bottom half - insert after
+          const nextSibling = targetCard.nextElementSibling;
+          if (nextSibling) {
+            targetParent.insertBefore(this.draggedElement, nextSibling);
+          } else {
+            targetParent.appendChild(this.draggedElement);
+          }
+        }
         this.saveCardLayout();
+
+        // Stop propagation to prevent column drop handler from firing
+        e.stopPropagation();
       }
     }
 
-    targetCard?.classList.remove('drag-over');
+    // Clean up drag over indicators
+    if (targetCard) {
+      targetCard.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+    }
   }
 
   private handleColumnDragOver(e: DragEvent): void {
-    console.log('🚀 Column drag over');
     e.preventDefault();
 
     const target = e.target as HTMLElement;
@@ -2081,7 +2107,6 @@ class ScrumPokerApp {
   }
 
   private handleColumnDrop(e: DragEvent): void {
-    console.log('🚀 Column drop');
     e.preventDefault();
 
     const target = e.target as HTMLElement;
@@ -2117,7 +2142,6 @@ class ScrumPokerApp {
   private handleColumnDragLeave(e: DragEvent): void {
     const target = e.target as HTMLElement;
     target.classList.remove('drag-over');
-    console.log('🚀 Drag leave');
   }
 
   private saveCardLayout(): void {
