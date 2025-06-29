@@ -70,6 +70,9 @@ interface InternalSessionData {
   aggregate: any;
   chatMessages: any[];
   typingUsers: Map<string, NodeJS.Timeout>;
+  // Performance optimization: maintain socket-to-participant lookup
+  socketToParticipant: Map<string, string>;
+  participantToSocket: Map<string, string>;
 }
 
 // Rate limiting
@@ -217,6 +220,9 @@ io.on('connection', socket => {
         aggregate: null,
         chatMessages: [],
         typingUsers: new Map(),
+        // Initialize socket mappings
+        socketToParticipant: new Map(),
+        participantToSocket: new Map(),
       };
 
       // Add facilitator as first participant
@@ -228,6 +234,10 @@ io.on('connection', socket => {
         joinedAt: new Date(),
         hasVoted: false,
       });
+
+      // Initialize socket mappings for facilitator
+      session.socketToParticipant.set(socket.id, sanitizedFacilitatorName);
+      session.participantToSocket.set(sanitizedFacilitatorName, socket.id);
 
       memoryStore.set(roomCode, session);
       socket.join(roomCode);
@@ -303,6 +313,10 @@ io.on('connection', socket => {
         existing.isViewer = asViewer;
         delete existing.disconnectedAt;
 
+        // Update socket mappings for reconnection
+        session.socketToParticipant.set(socket.id, sanitizedParticipantName);
+        session.participantToSocket.set(sanitizedParticipantName, socket.id);
+
         socket.join(upperCode);
         session.lastActivity = new Date();
 
@@ -334,6 +348,10 @@ io.on('connection', socket => {
         hasVoted: false,
       });
 
+      // Add socket mappings for new participant
+      session.socketToParticipant.set(socket.id, sanitizedParticipantName);
+      session.participantToSocket.set(sanitizedParticipantName, socket.id);
+
       session.lastActivity = new Date();
       socket.join(upperCode);
 
@@ -362,24 +380,29 @@ io.on('connection', socket => {
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
 
+    // Optimize disconnect handling with socket mapping
     memoryStore.forEach((session, roomCode) => {
-      const participant = Array.from(session.participants.values()).find(
-        p => p.socketId === socket.id
-      );
+      const participantName = session.socketToParticipant.get(socket.id);
+      if (participantName) {
+        const participant = session.participants.get(participantName);
+        if (participant) {
+          participant.socketId = undefined;
+          participant.disconnectedAt = new Date();
 
-      if (participant) {
-        participant.socketId = undefined;
-        participant.disconnectedAt = new Date();
+          // Remove from socket mapping but keep participant mapping for reconnection
+          session.socketToParticipant.delete(socket.id);
+          // Keep participantToSocket mapping to track disconnected state
 
-        io.to(roomCode).emit('participant-left', {
-          participantName: participant.name,
-          sessionData: getSessionData(session),
-        });
+          io.to(roomCode).emit('participant-left', {
+            participantName: participant.name,
+            sessionData: getSessionData(session),
+          });
 
-        console.log(`${participant.name} temporarily left session ${roomCode}`);
+          console.log(`${participant.name} temporarily left session ${roomCode}`);
 
-        // Note: Don't invalidate tokens on disconnect - allow reconnection
-        // Tokens will be validated on reconnection attempt
+          // Note: Don't invalidate tokens on disconnect - allow reconnection
+          // Tokens will be validated on reconnection attempt
+        }
       }
     });
   });

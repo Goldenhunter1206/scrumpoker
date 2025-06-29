@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <style>
+      .title { font: bold 16px sans-serif; text-anchor: middle; fill: #1f2937; }
+      .subtitle { font: 12px sans-serif; text-anchor: middle; fill: #4b5563; }
+      .label { font: 11px sans-serif; text-anchor: middle; fill: #374151; }
+      .small-label { font: 9px sans-serif; text-anchor: middle; fill: #6b7280; }
+      .component { fill: #3b82f6; stroke: #1e40af; stroke-width: 2; rx: 8; }
+      .client { fill: #10b981; stroke: #047857; stroke-width: 2; rx: 8; }
+      .server { fill: #f59e0b; stroke: #d97706; stroke-width: 2; rx: 8; }
+      .external { fill: #8b5cf6; stroke: #7c3aed; stroke-width: 2; rx: 8; }
+      .connection { stroke: #374151; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .bi-connection { stroke: #374151; stroke-width: 2; fill: none; marker-end: url(#arrowhead); marker-start: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+            refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#374151" />
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="400" y="25" class="title">Scrum Poker - System Architecture</text>
+  
+  <!-- Client Layer -->
+  <rect x="50" y="50" width="700" height="150" class="client"/>
+  <text x="400" y="70" class="subtitle">Client Layer (TypeScript + Vite)</text>
+  
+  <!-- Client Components -->
+  <rect x="70" y="90" width="120" height="40" class="component"/>
+  <text x="130" y="110" class="label">Game State</text>
+  <text x="130" y="122" class="small-label">Optimized Updates</text>
+  
+  <rect x="210" y="90" width="120" height="40" class="component"/>
+  <text x="270" y="110" class="label">Socket Manager</text>
+  <text x="270" y="122" class="small-label">Real-time Sync</text>
+  
+  <rect x="350" y="90" width="120" height="40" class="component"/>
+  <text x="410" y="110" class="label">DOM Batcher</text>
+  <text x="410" y="122" class="small-label">Performance</text>
+  
+  <rect x="490" y="90" width="120" height="40" class="component"/>
+  <text x="550" y="110" class="label">Event Manager</text>
+  <text x="550" y="122" class="small-label">Memory Safety</text>
+  
+  <rect x="630" y="90" width="100" height="40" class="component"/>
+  <text x="680" y="110" class="label">List Renderer</text>
+  <text x="680" y="122" class="small-label">Incremental</text>
+  
+  <!-- Performance Features -->
+  <rect x="70" y="145" width="660" height="40" style="fill: #dcfce7; stroke: #22c55e; stroke-width: 1; rx: 4;"/>
+  <text x="400" y="162" class="small-label">Performance: DOM Batching • Event Cleanup • State Optimization • Storage Caching</text>
+  <text x="400" y="175" class="small-label">Features: Incremental Updates • Memory Management • Virtual Scrolling • Debounced I/O</text>
+  
+  <!-- WebSocket Connection -->
+  <line x1="400" y1="200" x2="400" y2="230" class="bi-connection"/>
+  <text x="430" y="217" class="small-label">WebSocket (Socket.IO)</text>
+  
+  <!-- Server Layer -->
+  <rect x="50" y="250" width="700" height="180" class="server"/>
+  <text x="400" y="270" class="subtitle">Server Layer (Node.js + Express + Socket.IO)</text>
+  
+  <!-- Server Components -->
+  <rect x="70" y="290" width="100" height="50" class="component"/>
+  <text x="120" y="312" class="label">Session Store</text>
+  <text x="120" y="324" class="small-label">O(1) Lookups</text>
+  <text x="120" y="334" class="small-label">Auto Cleanup</text>
+  
+  <rect x="190" y="290" width="100" height="50" class="component"/>
+  <text x="240" y="312" class="label">Socket Handlers</text>
+  <text x="240" y="324" class="small-label">Event Routing</text>
+  <text x="240" y="334" class="small-label">Validation</text>
+  
+  <rect x="310" y="290" width="100" height="50" class="component"/>
+  <text x="360" y="312" class="label">Jira Integration</text>
+  <text x="360" y="324" class="small-label">Async API</text>
+  <text x="360" y="334" class="small-label">Batched Requests</text>
+  
+  <rect x="430" y="290" width="100" height="50" class="component"/>
+  <text x="480" y="312" class="label">Rate Limiter</text>
+  <text x="480" y="324" class="small-label">DoS Protection</text>
+  <text x="480" y="334" class="small-label">API Throttling</text>
+  
+  <rect x="550" y="290" width="100" height="50" class="component"/>
+  <text x="600" y="312" class="label">Security</text>
+  <text x="600" y="324" class="small-label">Input Validation</text>
+  <text x="600" y="334" class="small-label">CSRF Protection</text>
+  
+  <!-- Server Performance Features -->
+  <rect x="70" y="355" width="660" height="40" style="fill: #fef3c7; stroke: #f59e0b; stroke-width: 1; rx: 4;"/>
+  <text x="400" y="372" class="small-label">Performance: Hash Map Indexing • Parallel Processing • Connection Pooling • Memory Optimization</text>
+  <text x="400" y="385" class="small-label">Reliability: Auto Session Cleanup • Error Recovery • Graceful Shutdown • Health Monitoring</text>
+  
+  <!-- REST API -->
+  <rect x="70" y="405" width="660" height="15" style="fill: #fbbf24; stroke: #d97706; stroke-width: 1; rx: 2;"/>
+  <text x="400" y="415" class="small-label">REST API: /api/health • /api/stats • /api/session/:code</text>
+  
+  <!-- External Services -->
+  <rect x="100" y="460" width="150" height="60" class="external"/>
+  <text x="175" y="485" class="label">Redis</text>
+  <text x="175" y="497" class="small-label">(Optional)</text>
+  <text x="175" y="509" class="small-label">Session Persistence</text>
+  
+  <rect x="550" y="460" width="150" height="60" class="external"/>
+  <text x="625" y="485" class="label">Jira Cloud API</text>
+  <text x="625" y="497" class="small-label">Issue Import</text>
+  <text x="625" y="509" class="small-label">Story Point Updates</text>
+  
+  <!-- Connections to External Services -->
+  <line x1="175" y1="430" x2="175" y2="460" class="connection"/>
+  <line x1="625" y1="430" x2="625" y2="460" class="connection"/>
+  
+  <!-- Data Flow Annotations -->
+  <text x="50" y="550" class="small-label">Data Flow:</text>
+  <text x="50" y="565" class="small-label">1. Create/Join Session → 2. Real-time Updates → 3. Voting Process → 4. Jira Sync → 5. Persistence</text>
+  
+  <!-- Performance Metrics Box -->
+  <rect x="300" y="535" width="450" height="50" style="fill: #f0f9ff; stroke: #0ea5e9; stroke-width: 1; rx: 4;"/>
+  <text x="525" y="550" class="small-label">Key Optimizations</text>
+  <text x="525" y="565" class="small-label">• O(n) → O(1) participant lookups • Parallel Jira pagination • DOM batching • Memory leak prevention</text>
+  <text x="525" y="578" class="small-label">• Incremental list updates • Debounced localStorage • Event cleanup • Virtual scrolling</text>
+</svg>

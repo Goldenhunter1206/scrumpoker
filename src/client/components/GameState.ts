@@ -33,7 +33,14 @@ export class GameStateManager {
   }
 
   updateState(updates: Partial<GameState>): void {
-    this.state = { ...this.state, ...updates };
+    // Optimized state update to avoid full object recreation
+    // Only update changed properties to maintain object references
+    Object.keys(updates).forEach(key => {
+      const typedKey = key as keyof GameState;
+      if (this.state[typedKey] !== updates[typedKey]) {
+        (this.state as any)[typedKey] = updates[typedKey];
+      }
+    });
   }
 
   setMyVote(vote: Vote | null): void {

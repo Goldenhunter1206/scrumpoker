@@ -1,9 +1,10 @@
 import { SavedSessionInfo, SavedJiraCredentials } from '@shared/types/index.js';
+import { setStorageItem, getStorageItem, getStorageItemParsed, removeStorageItem } from './storageOptimizer.js';
 
 // User name storage
 export function saveUserName(name: string): void {
   try {
-    localStorage.setItem('userName', name);
+    setStorageItem('userName', name);
   } catch (e) {
     console.error('Failed to save user name', e);
   }
@@ -11,7 +12,7 @@ export function saveUserName(name: string): void {
 
 export function loadUserName(): string {
   try {
-    return localStorage.getItem('userName') || '';
+    return getStorageItem('userName') || '';
   } catch {
     return '';
   }
@@ -20,7 +21,7 @@ export function loadUserName(): string {
 // Active session storage
 export function saveActiveSession(sessionInfo: SavedSessionInfo): void {
   try {
-    localStorage.setItem('activeSession', JSON.stringify(sessionInfo));
+    setStorageItem('activeSession', sessionInfo);
   } catch (e) {
     console.error('Failed to save active session', e);
   }
@@ -28,9 +29,7 @@ export function saveActiveSession(sessionInfo: SavedSessionInfo): void {
 
 export function loadActiveSessionInfo(): SavedSessionInfo | null {
   try {
-    const raw = localStorage.getItem('activeSession');
-    if (!raw) return null;
-    return JSON.parse(raw);
+    return getStorageItemParsed<SavedSessionInfo>('activeSession');
   } catch {
     return null;
   }
@@ -38,7 +37,7 @@ export function loadActiveSessionInfo(): SavedSessionInfo | null {
 
 export function clearActiveSession(): void {
   try {
-    localStorage.removeItem('activeSession');
+    removeStorageItem('activeSession');
   } catch {
     // Ignore errors
   }
@@ -90,7 +89,7 @@ export function clearJiraCredentials(): void {
 // Sound settings
 export function loadSoundSetting(): boolean {
   try {
-    const val = localStorage.getItem('soundEnabled');
+    const val = getStorageItem('soundEnabled');
     return val === null ? true : val === 'true';
   } catch {
     return true;
@@ -99,7 +98,7 @@ export function loadSoundSetting(): boolean {
 
 export function saveSoundSetting(enabled: boolean): void {
   try {
-    localStorage.setItem('soundEnabled', enabled ? 'true' : 'false');
+    setStorageItem('soundEnabled', enabled ? 'true' : 'false');
   } catch {
     // Ignore errors
   }

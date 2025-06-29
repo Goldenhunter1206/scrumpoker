@@ -23,6 +23,9 @@ import {
 } from './utils/ui.js';
 import { playSound, toggleSound, updateSoundIcon } from './utils/sound.js';
 import { setTextContent, createElement, createSafeLink } from './utils/security.js';
+import { domBatcher, updateElements, mutateDOM } from './utils/domBatcher.js';
+import { eventManager, addTrackedEventListener } from './utils/eventManager.js';
+import { updateListIncrementally } from './utils/listRenderer.js';
 import {
   SessionData,
   VotingResults,
@@ -33,6 +36,8 @@ import {
 } from '@shared/types/index.js';
 
 class ScrumPokerApp {
+  private eventListenerIds: string[] = [];
+  
   constructor() {
     this.setupEventListeners();
     this.setupSocketEventHandlers();
@@ -196,7 +201,9 @@ class ScrumPokerApp {
     document
       .getElementById('toggle-controls-btn')
       ?.addEventListener('click', toggleFacilitatorControlsVisibility);
-    window.addEventListener('resize', adaptFacilitatorControlsForViewport);
+    this.eventListenerIds.push(
+      addTrackedEventListener(window, 'resize', adaptFacilitatorControlsForViewport)
+    );
 
     /* History / Issues Tabs */
     const tabIssues = document.getElementById('history-tab-issues');
@@ -759,16 +766,20 @@ class ScrumPokerApp {
 
   private updateVotingCards(): void {
     const state = gameState.getState();
-    const cards = document.querySelectorAll('.card');
-
-    cards.forEach(card => {
-      if (state.isViewer || state.votingRevealed) {
-        card.classList.add('disabled');
-        (card as HTMLElement).style.cursor = 'not-allowed';
-      } else {
-        card.classList.remove('disabled');
-        (card as HTMLElement).style.cursor = 'pointer';
-      }
+    
+    // Batch voting card updates
+    mutateDOM(() => {
+      const cards = document.querySelectorAll('.card');
+      
+      cards.forEach(card => {
+        if (state.isViewer || state.votingRevealed) {
+          card.classList.add('disabled');
+          (card as HTMLElement).style.cursor = 'not-allowed';
+        } else {
+          card.classList.remove('disabled');
+          (card as HTMLElement).style.cursor = 'pointer';
+        }
+      });
     });
   }
 
@@ -883,40 +894,54 @@ class ScrumPokerApp {
 
     if (!list || !count) return;
 
-    list.innerHTML = '';
-    count.textContent = String(state.participants.length);
+    // Batch DOM updates for better performance
+    mutateDOM(() => {
+      count.textContent = String(state.participants.length);
 
-    state.participants.forEach(participant => {
-      const div = document.createElement('div');
-      div.className = 'participant';
+      // Use incremental list rendering for better performance
+      updateListIncrementally(
+        list,
+        state.participants,
+        (participant) => participant.name,
+        (participant) => {
+          const div = document.createElement('div');
+          div.className = 'participant';
 
-      let statusHtml;
-      if (participant.isViewer) {
-        statusHtml = `<span class="viewer-badge">👁️ Viewer</span>`;
-      } else if (state.votingRevealed && participant.hasVoted) {
-        statusHtml = `<span class="vote-value">${participant.vote}</span>`;
-      } else if (participant.hasVoted) {
-        statusHtml = `<span class="vote-status voted">✓ Voted</span>`;
-      } else {
-        statusHtml = `<span class="vote-status not-voted">⏳ Waiting</span>`;
-      }
+          let statusHtml;
+          if (participant.isViewer) {
+            statusHtml = `<span class="viewer-badge">👁️ Viewer</span>`;
+          } else if (state.votingRevealed && participant.hasVoted) {
+            statusHtml = `<span class="vote-value">${participant.vote}</span>`;
+          } else if (participant.hasVoted) {
+            statusHtml = `<span class="vote-status voted">✓ Voted</span>`;
+          } else {
+            statusHtml = `<span class="vote-status not-voted">⏳ Waiting</span>`;
+          }
 
-      const moderationButton =
-        state.isFacilitator && !participant.isFacilitator
-          ? `<button class="btn btn-outline" style="border: 0px; padding: 4px 8px; font-size: 12px; margin-left: 10px;" onclick="app.openModerationModal('${participant.name}')">⚙️</button>`
-          : '';
+          const moderationButton =
+            state.isFacilitator && !participant.isFacilitator
+              ? `<button class="btn btn-outline" style="border: 0px; padding: 4px 8px; font-size: 12px; margin-left: 10px;" onclick="app.openModerationModal('${participant.name}')">⚙️</button>`
+              : '';
 
-      div.innerHTML = `
-        <span class="participant-name">
-          ${participant.name} ${participant.isFacilitator ? '👑' : ''}
-        </span>
-        <div style="display: flex; align-items: center;">
-          ${statusHtml}
-          ${moderationButton}
-        </div>
-      `;
+          div.innerHTML = `
+            <span class="participant-name">
+              ${participant.name} ${participant.isFacilitator ? '👑' : ''}
+            </span>
+            <div style="display: flex; align-items: center;">
+              ${statusHtml}
+              ${moderationButton}
+            </div>
+          `;
 
-      list.appendChild(div);
+          return div;
+        },
+        // Equality function to determine if participant has changed
+        (a, b) => a.name === b.name && 
+                  a.hasVoted === b.hasVoted && 
+                  a.isViewer === b.isViewer && 
+                  a.isFacilitator === b.isFacilitator &&
+                  a.vote === b.vote
+      );
     });
   }
 
@@ -925,14 +950,18 @@ class ScrumPokerApp {
     if (!state.isFacilitator) return;
 
     const hasVotes = state.participants.some(p => p.hasVoted && !p.isViewer);
-    const revealBtn = document.getElementById('reveal-btn') as HTMLButtonElement;
-    const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
-    const countdownBtn = document.getElementById('countdown-btn') as HTMLButtonElement;
+    
+    // Batch button updates
+    mutateDOM(() => {
+      const revealBtn = document.getElementById('reveal-btn') as HTMLButtonElement;
+      const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
+      const countdownBtn = document.getElementById('countdown-btn') as HTMLButtonElement;
 
-    if (revealBtn) revealBtn.disabled = !hasVotes || state.votingRevealed || state.countdownActive;
-    if (resetBtn) resetBtn.disabled = !state.currentTicket;
-    if (countdownBtn)
-      countdownBtn.disabled = !state.currentTicket || state.votingRevealed || state.countdownActive;
+      if (revealBtn) revealBtn.disabled = !hasVotes || state.votingRevealed || state.countdownActive;
+      if (resetBtn) resetBtn.disabled = !state.currentTicket;
+      if (countdownBtn)
+        countdownBtn.disabled = !state.currentTicket || state.votingRevealed || state.countdownActive;
+    });
   }
 
   private revealVotes(): void {
@@ -2065,6 +2094,19 @@ class ScrumPokerApp {
       indicator.classList.remove('hidden');
     }
   }
+
+  /**
+   * Clean up all event listeners and resources
+   */
+  cleanup(): void {
+    // Clean up tracked event listeners
+    this.eventListenerIds.forEach(id => eventManager.removeEventListener(id));
+    this.eventListenerIds = [];
+    
+    // Clean up all other tracked listeners
+    console.log(`Cleaning up ${eventManager.getListenerCount()} event listeners`);
+    eventManager.removeAllEventListeners();
+  }
 }
 
 // Helper function to round to nearest Fibonacci number
@@ -2098,3 +2140,8 @@ if (document.readyState === 'loading') {
 } else {
   app.init();
 }
+
+// Ensure cleanup on page unload
+window.addEventListener('beforeunload', () => {
+  app.cleanup();
+});

@@ -40,6 +40,9 @@ interface InternalSessionData {
   aggregate: any;
   chatMessages: ChatMessage[];
   typingUsers: Map<string, NodeJS.Timeout>;
+  // Performance optimization: maintain socket-to-participant lookup
+  socketToParticipant: Map<string, string>;
+  participantToSocket: Map<string, string>;
 }
 
 // Create validation wrapper that has access to socket
@@ -60,6 +63,25 @@ function createValidationWrapper(socket: Socket<ClientToServerEvents, ServerToCl
   };
 }
 
+// Helper function to get participant by socket ID efficiently
+function getParticipantBySocketId(session: InternalSessionData, socketId: string): any | null {
+  const participantName = session.socketToParticipant.get(socketId);
+  return participantName ? session.participants.get(participantName) : null;
+}
+
+// Helper function to update socket mappings
+function updateSocketMappings(session: InternalSessionData, participantName: string, socketId: string): void {
+  // Remove old socket mapping if participant had a different socket
+  const oldSocketId = session.participantToSocket.get(participantName);
+  if (oldSocketId) {
+    session.socketToParticipant.delete(oldSocketId);
+  }
+  
+  // Set new mappings
+  session.socketToParticipant.set(socketId, participantName);
+  session.participantToSocket.set(participantName, socketId);
+}
+
 export function setupSocketHandlers(
   socket: Socket<ClientToServerEvents, ServerToClientEvents>,
   io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>,
@@ -76,9 +98,7 @@ export function setupSocketHandlers(
         const session = memoryStore.get(roomCode);
         if (!session) return;
 
-        const facilitator = Array.from(session.participants.values()).find(
-          p => p.socketId === socket.id
-        );
+        const facilitator = getParticipantBySocketId(session, socket.id);
 
         if (!facilitator?.isFacilitator) {
           socket.emit('error', { message: 'Only facilitator can configure Jira' });
@@ -121,9 +141,7 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session || !session.jiraConfig) return;
 
-      const facilitator = Array.from(session.participants.values()).find(
-        p => p.socketId === socket.id
-      );
+      const facilitator = getParticipantBySocketId(session, socket.id);
 
       if (!facilitator?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can fetch Jira issues' });
@@ -157,9 +175,7 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const facilitator = Array.from(session.participants.values()).find(
-        p => p.socketId === socket.id
-      );
+      const facilitator = getParticipantBySocketId(session, socket.id);
 
       if (!facilitator?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can set Jira issues' });
@@ -197,9 +213,7 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session || !session.currentJiraIssue || !session.jiraConfig) return;
 
-      const facilitator = Array.from(session.participants.values()).find(
-        p => p.socketId === socket.id
-      );
+      const facilitator = getParticipantBySocketId(session, socket.id);
 
       if (!facilitator?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can finalize estimations' });
@@ -264,9 +278,7 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const participant = Array.from(session.participants.values()).find(
-        p => p.socketId === socket.id
-      );
+      const participant = getParticipantBySocketId(session, socket.id);
 
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can set tickets' });
@@ -303,9 +315,7 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const participant = Array.from(session.participants.values()).find(
-        p => p.socketId === socket.id
-      );
+      const participant = getParticipantBySocketId(session, socket.id);
 
       if (!participant) return;
 
@@ -396,9 +406,7 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const participant = Array.from(session.participants.values()).find(
-        p => p.socketId === socket.id
-      );
+      const participant = getParticipantBySocketId(session, socket.id);
 
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can reveal votes' });
@@ -454,9 +462,7 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const participant = Array.from(session.participants.values()).find(
-        p => p.socketId === socket.id
-      );
+      const participant = getParticipantBySocketId(session, socket.id);
 
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can reset voting' });
@@ -494,9 +500,11 @@ export function setupSocketHandlers(
       if (!session) return;
 
       // Find the facilitator by socket id
-      const facilitatorEntry = Array.from(session.participants.values()).find(
-        p => p.socketId === socket.id && p.isFacilitator
-      );
+      const facilitatorEntry = getParticipantBySocketId(session, socket.id);
+      if (facilitatorEntry && !facilitatorEntry.isFacilitator) {
+        socket.emit('error', { message: 'Only the facilitator can change their viewer status' });
+        return;
+      }
 
       if (!facilitatorEntry) {
         socket.emit('error', { message: 'Only the facilitator can change their viewer status' });
@@ -530,11 +538,9 @@ export function setupSocketHandlers(
       if (!session) return;
 
       // Ensure that the requesting socket is the facilitator
-      const facilitatorEntry = Array.from(session.participants.values()).find(
-        p => p.socketId === socket.id && p.isFacilitator
-      );
+      const facilitatorEntry = getParticipantBySocketId(session, socket.id);
 
-      if (!facilitatorEntry) {
+      if (!facilitatorEntry?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can moderate participants' });
         return;
       }
@@ -631,9 +637,7 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const participant = Array.from(session.participants.values()).find(
-        p => p.socketId === socket.id
-      );
+      const participant = getParticipantBySocketId(session, socket.id);
 
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can start countdown' });
@@ -729,9 +733,7 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const participant = Array.from(session.participants.values()).find(
-        p => p.socketId === socket.id
-      );
+      const participant = getParticipantBySocketId(session, socket.id);
 
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can end session' });
@@ -774,9 +776,7 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const participant = Array.from(session.participants.values()).find(
-        p => p.socketId === socket.id
-      );
+      const participant = getParticipantBySocketId(session, socket.id);
 
       if (!participant) return;
 
@@ -810,11 +810,8 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const participant = Array.from(session.participants.values()).find(
-        p => p.socketId === socket.id && p.name === userName
-      );
-
-      if (!participant) return;
+      const participant = getParticipantBySocketId(session, socket.id);
+      if (!participant || participant.name !== userName) return;
 
       // Clear existing timeout for this user
       const existingTimeout = session.typingUsers.get(userName);

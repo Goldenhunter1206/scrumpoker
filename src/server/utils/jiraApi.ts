@@ -85,36 +85,74 @@ export async function getJiraBoardIssues(
   let allIssues: any[] = [];
   let isLast = false;
 
-  while (!isLast) {
-    const endpoint = `${base}?fields=${fields}&startAt=${startAt}&maxResults=${maxResults}`;
-    const pageResult = await makeJiraRequest(config, endpoint);
+  // Optimize pagination with parallel requests for better performance
+  try {
+    // First request to get total count
+    const endpoint = `${base}?fields=${fields}&startAt=0&maxResults=${maxResults}`;
+    const firstPageResult = await makeJiraRequest(config, endpoint);
 
-    if (!pageResult.success) {
-      return pageResult as JiraApiResponse<{ issues: JiraIssue[] }>;
+    if (!firstPageResult.success) {
+      return firstPageResult as JiraApiResponse<{ issues: JiraIssue[] }>;
     }
 
-    const data = pageResult.data as any;
-    allIssues = allIssues.concat(data.issues || []);
-
-    if (data.isLast || data.startAt + data.maxResults >= data.total) {
-      isLast = true;
-    } else {
-      startAt += maxResults;
+    const firstData = firstPageResult.data as any;
+    allIssues = allIssues.concat(firstData.issues || []);
+    
+    const total = firstData.total || 0;
+    
+    // If we have more data, fetch remaining pages in parallel batches
+    if (total > maxResults) {
+      const remainingPages: Promise<any>[] = [];
+      const batchSize = 3; // Process 3 requests at a time to avoid overwhelming Jira
+      
+      for (let currentStart = maxResults; currentStart < total; currentStart += maxResults) {
+        const pageEndpoint = `${base}?fields=${fields}&startAt=${currentStart}&maxResults=${maxResults}`;
+        remainingPages.push(makeJiraRequest(config, pageEndpoint));
+        
+        // Process in batches to avoid overwhelming the API
+        if (remainingPages.length >= batchSize || currentStart + maxResults >= total) {
+          const batchResults = await Promise.all(remainingPages);
+          
+          for (const pageResult of batchResults) {
+            if (!pageResult.success) {
+              console.warn('Failed to fetch Jira page:', pageResult.error);
+              continue; // Continue with other pages
+            }
+            
+            const pageData = pageResult.data as any;
+            allIssues = allIssues.concat(pageData.issues || []);
+          }
+          
+          remainingPages.length = 0; // Clear the batch
+          
+          // Add small delay between batches to be API-friendly
+          if (currentStart + maxResults < total) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+      }
     }
+
+    const transformedIssues: JiraIssue[] = allIssues.map(issue => ({
+      key: issue.key,
+      summary: issue.fields.summary,
+      description: issue.fields.description || '',
+      issueType: issue.fields.issuetype?.name || 'Story',
+      priority: issue.fields.priority?.name || 'Medium',
+      status: issue.fields.status?.name || 'To Do',
+      assignee: issue.fields.assignee?.displayName || 'Unassigned',
+      currentStoryPoints: issue.fields[JIRA_STORYPOINT_FIELD] || null,
+    }));
+
+    return { success: true, data: { issues: transformedIssues } };
+    
+  } catch (error) {
+    console.error('Error in optimized Jira pagination:', error);
+    return {
+      success: false,
+      error: 'Failed to fetch issues due to pagination error'
+    };
   }
-
-  const transformedIssues: JiraIssue[] = allIssues.map(issue => ({
-    key: issue.key,
-    summary: issue.fields.summary,
-    description: issue.fields.description || '',
-    issueType: issue.fields.issuetype?.name || 'Story',
-    priority: issue.fields.priority?.name || 'Medium',
-    status: issue.fields.status?.name || 'To Do',
-    assignee: issue.fields.assignee?.displayName || 'Unassigned',
-    currentStoryPoints: issue.fields[JIRA_STORYPOINT_FIELD] || null,
-  }));
-
-  return { success: true, data: { issues: transformedIssues } };
 }
 
 export async function updateJiraIssueStoryPoints(
