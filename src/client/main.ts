@@ -45,6 +45,9 @@ class ScrumPokerApp {
     this.restoreCardStates();
     this.setupDragAndDrop();
     this.restoreCardLayout();
+    
+    // Initialize export stats button as disabled
+    this.updateExportStatsButtonState(false);
   }
 
   private setupEventListeners(): void {
@@ -991,7 +994,7 @@ class ScrumPokerApp {
   private updateEndSessionDownloadButtons(): void {
     const state = gameState.getState();
     const hasHistory = state.history && state.history.length > 0;
-    const hasParticipants = state.participants && state.participants.length > 0;
+    const hasStats = state.aggregate && state.aggregate.totalRounds > 0;
     
     const historyBtn = document.getElementById('download-history-btn') as HTMLButtonElement;
     const statsBtn = document.getElementById('download-statistics-btn') as HTMLButtonElement;
@@ -1003,13 +1006,13 @@ class ScrumPokerApp {
     }
     
     if (statsBtn) {
-      statsBtn.disabled = !hasParticipants;
-      statsBtn.style.opacity = hasParticipants ? '1' : '0.5';
+      statsBtn.disabled = !hasStats;
+      statsBtn.style.opacity = hasStats ? '1' : '0.5';
     }
     
     // Hide entire downloads section if no data available
     if (downloadsSection) {
-      if (!hasHistory && !hasParticipants) {
+      if (!hasHistory && !hasStats) {
         downloadsSection.style.display = 'none';
       } else {
         downloadsSection.style.display = 'block';
@@ -1097,12 +1100,14 @@ class ScrumPokerApp {
     
     if (!section || !teamDiv || !userDiv || !state.aggregate) {
       if (section) hideElement('stats-section');
+      this.updateExportStatsButtonState(false);
       return;
     }
     
     const agg = state.aggregate;
     if (agg.totalRounds === 0) {
       hideElement('stats-section');
+      this.updateExportStatsButtonState(false);
       return;
     }
     
@@ -1186,6 +1191,18 @@ class ScrumPokerApp {
     });
     
     userDiv.appendChild(table);
+    
+    // Enable export stats button since we have stats to export
+    this.updateExportStatsButtonState(true);
+  }
+
+  private updateExportStatsButtonState(hasStats: boolean): void {
+    const exportBtn = document.getElementById('export-stats-btn') as HTMLButtonElement;
+    if (exportBtn) {
+      exportBtn.disabled = !hasStats;
+      exportBtn.style.opacity = hasStats ? '1' : '0.5';
+      exportBtn.title = hasStats ? 'Export session statistics as CSV' : 'No statistics available to export';
+    }
   }
 
   private exportHistory(): void {
