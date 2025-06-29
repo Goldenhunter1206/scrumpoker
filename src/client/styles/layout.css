@@ -1,3 +1,5 @@
+@reference "./main.css";
+
 /* Connection Status */
 .connection-status {
   @apply fixed top-5 right-5 px-4 py-2 rounded-full text-sm font-medium z-50;

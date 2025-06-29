@@ -1,3 +1,6 @@
+@import "tailwindcss";
+@config "../../../tailwind.config.js";
+
 body {
   @apply font-sans bg-gradient-to-br from-emerald-500 to-emerald-600 min-h-screen p-5;
 }

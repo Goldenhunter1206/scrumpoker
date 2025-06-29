@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import tailwindcss from '@tailwindcss/vite';
 
 // Custom plugin to replace template variables in HTML
 function htmlTemplatePlugin() {
@@ -17,7 +18,7 @@ function htmlTemplatePlugin() {
 
 export default defineConfig({
   root: 'src/client',
-  plugins: [htmlTemplatePlugin()],
+  plugins: [htmlTemplatePlugin(), tailwindcss()],
   build: {
     outDir: '../../dist/public',
     emptyOutDir: true,
