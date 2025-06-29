@@ -81,7 +81,7 @@ const schemas = {
   jiraToken: Joi.string()
     .min(1)
     .max(1000)
-    .pattern(/^[a-zA-Z0-9\+\/=]{1,1000}$/)
+    .pattern(/^[a-zA-Z0-9\+\/=\-_\.]{1,1000}$/)
     .required()
     .messages({
       'string.pattern.base': 'Invalid token format',
