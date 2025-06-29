@@ -130,7 +130,7 @@ export default [
     files: ['**/*.js', '**/*.mjs'],
     languageOptions: {
       ecmaVersion: 'latest',
-      sourceType: 'script', // Most config files use CommonJS
+      sourceType: 'module',
       globals: {
         console: 'readonly',
         process: 'readonly',

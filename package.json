@@ -19,7 +19,13 @@
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
-    "check": "npm run type-check && npm run lint && npm run format:check"
+    "check": "npm run type-check && npm run lint && npm run format:check",
+    "load-test": "node load-test.js",
+    "load-test:basic": "node load-test.js --scenario=basic",
+    "load-test:concurrent": "node load-test.js --scenario=concurrent",
+    "load-test:high-load": "node load-test.js --scenario=high-load",
+    "load-test:rapid": "node load-test.js --scenario=rapid",
+    "load-test:comprehensive": "node load-test.js --scenario=comprehensive"
   },
   "engines": {
     "node": ">=18.0.0",
