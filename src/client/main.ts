@@ -1814,6 +1814,9 @@ class ScrumPokerApp {
     const card = document.querySelector(`[data-card="${cardId}"]`);
     if (!card) return;
 
+    // Don't toggle if drag was intended
+    if (card.classList.contains('drag-intent')) return;
+
     card.classList.toggle('collapsed');
 
     // Clear unread indicator when chat is opened
@@ -1861,7 +1864,8 @@ class ScrumPokerApp {
   }
 
   private setupDragEvents(): void {
-    const cards = document.querySelectorAll('.dashboard-card[draggable="true"]');
+    // Select all dashboard cards that have the draggable attribute (regardless of its value)
+    const cards = document.querySelectorAll('.dashboard-card[draggable]');
 
     cards.forEach(card => {
       // Remove existing listeners to prevent duplicates
@@ -1896,13 +1900,25 @@ class ScrumPokerApp {
       const dragHandle = card.querySelector('.drag-handle');
       if (dragHandle) {
         const existingMouseDown = (dragHandle as any)._mouseDownHandler;
+        const existingMouseUp = (dragHandle as any)._mouseUpHandler;
         if (existingMouseDown) dragHandle.removeEventListener('mousedown', existingMouseDown);
+        if (existingMouseUp) dragHandle.removeEventListener('mouseup', existingMouseUp);
 
-        const mouseDownHandler = (e: Event) => {
-          e.stopPropagation(); // Prevent card toggle
+        const mouseDownHandler = (_e: Event) => {
+          // Don't stop propagation
+          // Instead, add a class to indicate dragging is about to start
+          card.classList.add('drag-intent');
         };
+
+        const mouseUpHandler = () => {
+          // Remove the class when done
+          setTimeout(() => card.classList.remove('drag-intent'), 100);
+        };
+
         (dragHandle as any)._mouseDownHandler = mouseDownHandler;
+        (dragHandle as any)._mouseUpHandler = mouseUpHandler;
         dragHandle.addEventListener('mousedown', mouseDownHandler);
+        dragHandle.addEventListener('mouseup', mouseUpHandler);
       }
     });
   }
@@ -1934,7 +1950,18 @@ class ScrumPokerApp {
         zone.classList.add('drag-active');
       });
 
-      e.dataTransfer?.setData('text/plain', this.draggedElement.dataset.card || '');
+      // Some browsers require a dataTransfer payload and explicit effectAllowed to keep the drag session alive
+      try {
+        if (e.dataTransfer) {
+          e.dataTransfer.setData('text/plain', this.draggedElement?.dataset.card || '');
+          e.dataTransfer.effectAllowed = 'move';
+        }
+      } catch {
+        // Ignore potential security errors when setting dataTransfer during automated tests
+      }
+
+      // Note: do not stop propagation here to allow drag events to bubble
+      // e.stopPropagation();
     }
   }
 

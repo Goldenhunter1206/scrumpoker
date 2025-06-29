@@ -218,7 +218,7 @@
   @apply flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 transition-colors;
 }
 
-.dashboard-card[draggable='true'] .dashboard-card-header {
+.dashboard-card[draggable] .dashboard-card-header {
   @apply cursor-move;
 }
 
@@ -266,7 +266,7 @@
   @apply cursor-move transition-all duration-200;
 }
 
-.dashboard-card[draggable='true'] {
+.dashboard-card[draggable] {
   @apply select-none;
 }
 
