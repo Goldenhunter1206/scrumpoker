@@ -234,27 +234,29 @@
                                 </div>
                             </div>
                             <div class="dashboard-card-content">
-                            <div id="history-tabs-container" class="inline-flex h-10 items-center justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground mb-2">
-                                <!-- Issues tab button will be shown once Jira issues are loaded -->
-                                <button id="history-tab-issues" class="tab-btn hidden px-3 py-1.5 text-sm font-medium rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
-                                    Issues
-                                </button>
-                                <button id="history-tab-history" class="tab-btn px-3 py-1.5 text-sm font-medium rounded-sm data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                                    History
-                                </button>
-                            </div>
+                                <div id="history-tabs-container" class="inline-flex h-10 items-center justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground mb-2">
+                                    <!-- Issues tab button will be shown once Jira issues are loaded -->
+                                    <button id="history-tab-issues" class="tab-btn hidden px-3 py-1.5 text-sm font-medium rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
+                                        Issues
+                                    </button>
+                                    <button id="history-tab-history" class="tab-btn px-3 py-1.5 text-sm font-medium rounded-sm data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                        History
+                                    </button>
+                                </div>
 
-                            <!-- Issues Panel -->
-                            <div id="jira-issues-section" class="hidden mt-2">
-                                <div id="jira-issues-list" class="max-h-80 overflow-y-auto space-y-1"></div>
-                            </div>
+                                <!-- Issues Panel -->
+                                <div id="jira-issues-section" class="hidden mt-2">
+                                    <div id="jira-issues-list" class="max-h-80 overflow-y-auto space-y-1"></div>
+                                </div>
 
-                            <!-- History Panel -->
-                            <div id="history-panel" class="mt-2">
-                                <div id="history-list" class="space-y-1 max-h-32 overflow-y-auto"></div>
-                                <button class="btn btn-outline btn-sm w-full mt-2" id="export-history-btn">Export CSV</button>
+                                <!-- History Panel -->
+                                <div id="history-panel" class="mt-2">
+                                    <div id="history-list" class="space-y-1 max-h-32 overflow-y-auto"></div>
+                                    <button class="btn btn-outline btn-sm w-full mt-2" id="export-history-btn">Export CSV</button>
+                                </div>
                             </div>
                         </div>
+
 
                         <!-- Session Statistics -->
                         <div id="stats-section" class="dashboard-card group collapsed hidden" data-card="stats" draggable="true">
@@ -326,7 +328,6 @@
 
                         <div class="column-drop-zone" data-drop-zone="sidebar"></div>
                     </div>
-                </div>
 
                     <!-- Main Column: Current Ticket, Voting, Results -->
                     <div class="main-column" data-column="main">
@@ -358,6 +359,8 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="column-drop-zone" data-drop-zone="main"></div>
 
                         <!-- Voting Cards -->
                         <div class="voting-cards" id="voting-cards">
@@ -408,7 +411,7 @@
                                 </p>
                             </div>
                         </div>
-                        <div class="column-drop-zone" data-drop-zone="main"></div>
+                    </div>
                 </div>
 
                 <!-- Moderation Modal -->
