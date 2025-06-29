@@ -1916,15 +1916,28 @@ class ScrumPokerApp {
         };
 
         const mouseUpHandler = () => {
-          // Disable dragging and remove intent class
-          (card as HTMLElement).draggable = false;
-          setTimeout(() => card.classList.remove('drag-intent'), 100);
+          // Only disable dragging if we're not currently dragging
+          if (!this.isDragging) {
+            (card as HTMLElement).draggable = false;
+            setTimeout(() => card.classList.remove('drag-intent'), 100);
+          } else {
+            // If we're dragging, clean up after drag completes
+            setTimeout(() => {
+              if (!this.isDragging) {
+                (card as HTMLElement).draggable = false;
+                card.classList.remove('drag-intent');
+              }
+            }, 200);
+          }
         };
 
         const mouseLeaveHandler = () => {
-          // Disable dragging if mouse leaves the drag handle
-          (card as HTMLElement).draggable = false;
-          setTimeout(() => card.classList.remove('drag-intent'), 100);
+          // Only disable dragging if mouse leaves the drag handle and we're not currently dragging
+          if (!this.isDragging) {
+            (card as HTMLElement).draggable = false;
+            setTimeout(() => card.classList.remove('drag-intent'), 100);
+          }
+          // If we're dragging, let dragend handle cleanup
         };
 
         (dragHandle as any)._mouseDownHandler = mouseDownHandler;
@@ -1949,20 +1962,25 @@ class ScrumPokerApp {
   }
 
   private draggedElement: HTMLElement | null = null;
+  private isDragging = false;
   private typingTimeout?: ReturnType<typeof setTimeout>;
   private isTyping = false;
 
   private handleDragStart(e: DragEvent): void {
     const target = e.target as HTMLElement;
     this.draggedElement = target.closest('.dashboard-card') as HTMLElement;
+    this.isDragging = true;
+    console.log('🚀 Dragged element:', this.draggedElement);
 
     if (this.draggedElement) {
+      console.log('🚀 Adding dragging class');
       this.draggedElement.classList.add('dragging');
 
       // Show all drop zones during dragging
       document.querySelectorAll('.column-drop-zone').forEach(zone => {
         zone.classList.add('drag-active');
       });
+      console.log('🚀 Drop zones:', document.querySelectorAll('.column-drop-zone'));
 
       // Some browsers require a dataTransfer payload and explicit effectAllowed to keep the drag session alive
       try {
@@ -1971,9 +1989,10 @@ class ScrumPokerApp {
           e.dataTransfer.effectAllowed = 'move';
         }
       } catch {
+        console.log('🚀 Error setting dataTransfer');
         // Ignore potential security errors when setting dataTransfer during automated tests
       }
-
+      console.log('🚀 DataTransfer set');
       // Note: do not stop propagation here to allow drag events to bubble
       // e.stopPropagation();
     }
@@ -1984,9 +2003,11 @@ class ScrumPokerApp {
     const card = target.closest('.dashboard-card') as HTMLElement;
 
     if (card) {
+      console.log('🚀 Removing dragging class');
       card.classList.remove('dragging');
-      // Disable dragging after drag operation
-      card.draggable = false;
+      card.classList.remove('drag-intent');
+      // Don't set draggable = false here - let mouse handlers manage it
+      // This prevents interference with the drag operation completion
     }
 
     // Clean up drag indicators
@@ -2001,10 +2022,19 @@ class ScrumPokerApp {
     });
 
     this.draggedElement = null;
+    this.isDragging = false;
+
+    // Delay disabling draggable to ensure drag operation completes properly
+    if (card) {
+      setTimeout(() => {
+        card.draggable = false;
+      }, 100);
+    }
   }
 
   private handleDragOver(e: DragEvent): void {
     e.preventDefault();
+    console.log('🚀 Drag over');
 
     const target = e.target as HTMLElement;
     const card = target.closest('.dashboard-card') as HTMLElement;
@@ -2016,6 +2046,7 @@ class ScrumPokerApp {
 
   private handleDrop(e: DragEvent): void {
     e.preventDefault();
+    console.log('🚀 Drop');
 
     const target = e.target as HTMLElement;
     const targetCard = target.closest('.dashboard-card') as HTMLElement;
@@ -2034,6 +2065,7 @@ class ScrumPokerApp {
   }
 
   private handleColumnDragOver(e: DragEvent): void {
+    console.log('🚀 Column drag over');
     e.preventDefault();
 
     const target = e.target as HTMLElement;
@@ -2048,6 +2080,7 @@ class ScrumPokerApp {
   }
 
   private handleColumnDrop(e: DragEvent): void {
+    console.log('🚀 Column drop');
     e.preventDefault();
 
     const target = e.target as HTMLElement;
@@ -2083,6 +2116,7 @@ class ScrumPokerApp {
   private handleColumnDragLeave(e: DragEvent): void {
     const target = e.target as HTMLElement;
     target.classList.remove('drag-over');
+    console.log('🚀 Drag leave');
   }
 
   private saveCardLayout(): void {
