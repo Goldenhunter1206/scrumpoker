@@ -22,7 +22,7 @@ import {
   toggleFacilitatorControlsVisibility,
 } from './utils/ui.js';
 import { playSound, toggleSound, updateSoundIcon } from './utils/sound.js';
-import { escapeHtml, setTextContent, setSafeHtml, createElement, createSafeLink } from './utils/security.js';
+import { setTextContent, createElement, createSafeLink } from './utils/security.js';
 import {
   SessionData,
   VotingResults,
@@ -657,34 +657,38 @@ class ScrumPokerApp {
     const keyDiv = createElement('div');
     keyDiv.className = 'jira-issue-key';
     setTextContent(keyDiv, issue.key);
-    
+
     // Add current points if they exist
     if (issue.currentStoryPoints) {
-      const pointsSpan = createElement('span', `${issue.currentStoryPoints} SP`, 'jira-current-points');
+      const pointsSpan = createElement(
+        'span',
+        `${issue.currentStoryPoints} SP`,
+        'jira-current-points'
+      );
       keyDiv.appendChild(document.createTextNode(' '));
       keyDiv.appendChild(pointsSpan);
     }
-    
+
     // Create summary div
     const summaryDiv = createElement('div', issue.summary, 'jira-issue-summary');
-    
+
     // Create meta container
     const metaDiv = createElement('div');
     metaDiv.className = 'jira-issue-meta';
-    
+
     // Add meta items with escaped content
     const metaItems = [
       `📋 ${issue.issueType}`,
       `🔺 ${issue.priority}`,
       `📊 ${issue.status}`,
-      `👤 ${issue.assignee}`
+      `👤 ${issue.assignee}`,
     ];
-    
+
     metaItems.forEach(item => {
       const span = createElement('span', item);
       metaDiv.appendChild(span);
     });
-    
+
     // Add all elements to div
     div.appendChild(keyDiv);
     div.appendChild(summaryDiv);
@@ -801,57 +805,62 @@ class ScrumPokerApp {
       if (state.currentJiraIssue) {
         const issue = state.currentJiraIssue;
         const jiraBaseUrl = state.jiraConfig ? `https://${state.jiraConfig.domain}` : '#';
-        
+
         // Clear the element first
         ticketElement.innerHTML = '';
-        
+
         // Create main container
         const mainContainer = createElement('div');
-        mainContainer.style.cssText = 'display: flex; align-items: center; margin-bottom: 10px; gap: 10px;';
-        
+        mainContainer.style.cssText =
+          'display: flex; align-items: center; margin-bottom: 10px; gap: 10px;';
+
         // Create safe link to Jira
         const jiraUrl = `${jiraBaseUrl}/browse/${encodeURIComponent(issue.key)}`;
         const jiraLink = createSafeLink(jiraUrl, issue.key, '_blank');
-        jiraLink.style.cssText = 'color: #059669; font-size: 16px; font-weight: bold; text-decoration: underline;';
+        jiraLink.style.cssText =
+          'color: #059669; font-size: 16px; font-weight: bold; text-decoration: underline;';
         mainContainer.appendChild(jiraLink);
-        
+
         // Add current points if they exist
         if (issue.currentStoryPoints) {
           const pointsSpan = createElement('span', `Current: ${issue.currentStoryPoints} SP`);
-          pointsSpan.style.cssText = 'background: #fbbf24; color: #92400e; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-left: 10px;';
+          pointsSpan.style.cssText =
+            'background: #fbbf24; color: #92400e; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-left: 10px;';
           mainContainer.appendChild(pointsSpan);
         }
-        
+
         // Create summary element
         const summaryDiv = createElement('div', issue.summary);
         summaryDiv.style.cssText = 'font-weight: 600; margin-bottom: 8px;';
-        
+
         // Create metadata container
         const metaDiv = createElement('div');
-        metaDiv.style.cssText = 'font-size: 14px; color: #6b7280; display: flex; gap: 15px; flex-wrap: wrap;';
-        
+        metaDiv.style.cssText =
+          'font-size: 14px; color: #6b7280; display: flex; gap: 15px; flex-wrap: wrap;';
+
         // Add metadata spans with escaped content
         const metaItems = [
           `📋 ${issue.issueType}`,
           `🔺 ${issue.priority}`,
           `📊 ${issue.status}`,
-          `👤 ${issue.assignee}`
+          `👤 ${issue.assignee}`,
         ];
-        
+
         metaItems.forEach(item => {
           const span = createElement('span', item);
           metaDiv.appendChild(span);
         });
-        
+
         // Add all elements to ticket element
         ticketElement.appendChild(mainContainer);
         ticketElement.appendChild(summaryDiv);
         ticketElement.appendChild(metaDiv);
-        
+
         // Add description if it exists
         if (issue.description) {
           const descDiv = createElement('div');
-          descDiv.style.cssText = 'margin-top: 10px; padding: 10px; background: #f9fafb; border-radius: 6px; font-size: 14px;';
+          descDiv.style.cssText =
+            'margin-top: 10px; padding: 10px; background: #f9fafb; border-radius: 6px; font-size: 14px;';
           const truncatedDesc = issue.description.substring(0, 200);
           const finalDesc = issue.description.length > 200 ? truncatedDesc + '...' : truncatedDesc;
           setTextContent(descDiv, finalDesc);
@@ -1013,9 +1022,9 @@ class ScrumPokerApp {
         const barWidth = (count / results.totalVotes) * 100;
         breakdown.innerHTML += `
           <div style="
-            margin: 5px 0; 
-            padding: 8px; 
-            background: linear-gradient(to right, #dcfce7 ${barWidth}%, white ${barWidth}%); 
+            margin: 5px 0;
+            padding: 8px;
+            background: linear-gradient(to right, #dcfce7 ${barWidth}%, white ${barWidth}%);
             border-radius: 4px;
             border: 1px solid #e5e7eb;
             position: relative;
@@ -1617,16 +1626,16 @@ class ScrumPokerApp {
       // Create header
       const headerDiv = createElement('div');
       headerDiv.className = 'chat-message-header';
-      
+
       const authorSpan = createElement('span', message.author, 'chat-message-author');
       const timeSpan = createElement('span', timeStr, 'chat-message-time');
-      
+
       headerDiv.appendChild(authorSpan);
       headerDiv.appendChild(timeSpan);
-      
+
       // Create content
       const contentDiv = createElement('div', message.content, 'chat-message-content');
-      
+
       messageDiv.appendChild(headerDiv);
       messageDiv.appendChild(contentDiv);
     }
@@ -1641,12 +1650,6 @@ class ScrumPokerApp {
       playSound('chat');
       this.showUnreadIndicator();
     }
-  }
-
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 
   private updateTypingIndicator(typingUsers: string[]): void {
@@ -1844,7 +1847,7 @@ class ScrumPokerApp {
   }
 
   private draggedElement: HTMLElement | null = null;
-  private typingTimeout: number | null = null;
+  private typingTimeout?: ReturnType<typeof setTimeout>;
   private isTyping = false;
 
   private handleDragStart(e: DragEvent): void {
