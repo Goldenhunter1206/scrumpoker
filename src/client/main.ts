@@ -1868,6 +1868,9 @@ class ScrumPokerApp {
     const cards = document.querySelectorAll('.dashboard-card[draggable]');
 
     cards.forEach(card => {
+      // Initially disable dragging
+      (card as HTMLElement).draggable = false;
+
       // Remove existing listeners to prevent duplicates
       const existingDragStart = (card as any)._dragStartHandler;
       const existingDragEnd = (card as any)._dragEndHandler;
@@ -1901,24 +1904,35 @@ class ScrumPokerApp {
       if (dragHandle) {
         const existingMouseDown = (dragHandle as any)._mouseDownHandler;
         const existingMouseUp = (dragHandle as any)._mouseUpHandler;
+        const existingMouseLeave = (dragHandle as any)._mouseLeaveHandler;
         if (existingMouseDown) dragHandle.removeEventListener('mousedown', existingMouseDown);
         if (existingMouseUp) dragHandle.removeEventListener('mouseup', existingMouseUp);
+        if (existingMouseLeave) dragHandle.removeEventListener('mouseleave', existingMouseLeave);
 
         const mouseDownHandler = (_e: Event) => {
-          // Don't stop propagation
-          // Instead, add a class to indicate dragging is about to start
+          // Enable dragging only when drag handle is pressed
+          (card as HTMLElement).draggable = true;
           card.classList.add('drag-intent');
         };
 
         const mouseUpHandler = () => {
-          // Remove the class when done
+          // Disable dragging and remove intent class
+          (card as HTMLElement).draggable = false;
+          setTimeout(() => card.classList.remove('drag-intent'), 100);
+        };
+
+        const mouseLeaveHandler = () => {
+          // Disable dragging if mouse leaves the drag handle
+          (card as HTMLElement).draggable = false;
           setTimeout(() => card.classList.remove('drag-intent'), 100);
         };
 
         (dragHandle as any)._mouseDownHandler = mouseDownHandler;
         (dragHandle as any)._mouseUpHandler = mouseUpHandler;
+        (dragHandle as any)._mouseLeaveHandler = mouseLeaveHandler;
         dragHandle.addEventListener('mousedown', mouseDownHandler);
         dragHandle.addEventListener('mouseup', mouseUpHandler);
+        dragHandle.addEventListener('mouseleave', mouseLeaveHandler);
       }
     });
   }
@@ -1971,6 +1985,8 @@ class ScrumPokerApp {
 
     if (card) {
       card.classList.remove('dragging');
+      // Disable dragging after drag operation
+      card.draggable = false;
     }
 
     // Clean up drag indicators

@@ -219,7 +219,7 @@
 }
 
 .dashboard-card[draggable] .dashboard-card-header {
-  @apply cursor-move;
+  @apply cursor-pointer;
 }
 
 .dashboard-card-header h3 {
@@ -263,7 +263,7 @@
 
 /* Drag and Drop Styles */
 .dashboard-card {
-  @apply cursor-move transition-all duration-200;
+  @apply transition-all duration-200;
 }
 
 .dashboard-card[draggable] {
