@@ -47,7 +47,7 @@ A real-time, self-hosted Planning Poker application for agile teams to estimate 
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
 - Optional: Redis for session persistence
 - Optional: Jira Cloud instance for integration
@@ -197,7 +197,7 @@ For complete API documentation including all endpoints, events, and examples, se
 
 **REST Endpoints:**
 - `GET /api/health` - Server health check
-- `GET /api/stats` - Server statistics  
+- `GET /api/stats` - Server statistics
 - `GET /api/session/:code` - Session information
 
 **Key WebSocket Events:**
@@ -229,7 +229,7 @@ For detailed deployment instructions across different platforms, see the [Deploy
 ### Quick Deploy Options
 
 - **[Render.com](docs/deployment.md#rendercom-recommended)** - Automatic deployments with SSL
-- **[Railway](docs/deployment.md#railway)** - Simple Git-based deployments  
+- **[Railway](docs/deployment.md#railway)** - Simple Git-based deployments
 - **[Heroku](docs/deployment.md#heroku)** - Classic PaaS deployment
 - **[Docker](docs/deployment.md#docker-deployment)** - Self-hosted containerized deployment
 
@@ -295,7 +295,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ### Support
 
 For issues and questions:
-1. Check the [GitHub Issues](https://github.com/your-repo/issues)
+1. Check the [GitHub Issues](https://github.com/Goldenhunter1206/scrumpoker/issues)
 2. Review the troubleshooting guide
 3. Create a new issue with detailed information
 
