@@ -1,9 +1,9 @@
 import { io, Socket } from 'socket.io-client';
-import { 
-  ServerToClientEvents, 
+import {
+  ServerToClientEvents,
   ClientToServerEvents,
   JiraIssue,
-  Vote
+  Vote,
 } from '@shared/types/index.js';
 import { gameState } from './GameState.js';
 import { updateConnectionStatus, showNotification, enableButtons } from '../utils/ui.js';
@@ -25,19 +25,19 @@ export class SocketManager {
     this.socket.on('connect', () => {
       updateConnectionStatus(true);
       this.emit('connected');
-      
+
       // Auto-rejoin if we have saved session info
       const saved = loadActiveSessionInfo();
       if (saved && !gameState.getState().roomCode) {
         gameState.updateState({
           myName: saved.name,
-          isViewer: saved.isViewer
+          isViewer: saved.isViewer,
         });
-        
+
         this.socket!.emit('join-session', {
           roomCode: saved.roomCode,
           participantName: saved.name,
-          asViewer: saved.isViewer
+          asViewer: saved.isViewer,
         });
       }
     });
@@ -48,20 +48,20 @@ export class SocketManager {
     });
 
     // Session creation and joining
-    this.socket.on('session-created', (data) => {
+    this.socket.on('session-created', data => {
       if (data.success) {
         const state = gameState.getState();
         gameState.updateState({
           roomCode: data.roomCode,
-          isFacilitator: true
+          isFacilitator: true,
         });
-        
+
         saveActiveSession({
           roomCode: data.roomCode,
           name: state.myName,
-          isViewer: false
+          isViewer: false,
         });
-        
+
         this.emit('sessionCreated', data.sessionData);
         showNotification('Session created successfully!', 'success');
       } else {
@@ -69,14 +69,14 @@ export class SocketManager {
       }
     });
 
-    this.socket.on('join-success', (data) => {
+    this.socket.on('join-success', data => {
       const state = gameState.getState();
       const myParticipant = data.sessionData.participants.find(p => p.name === state.myName);
-      
+
       gameState.updateState({
         roomCode: data.roomCode,
         isFacilitator: !!(myParticipant && myParticipant.isFacilitator),
-        isViewer: myParticipant ? myParticipant.isViewer : false
+        isViewer: myParticipant ? myParticipant.isViewer : false,
       });
 
       if (data.yourVote !== null && data.yourVote !== undefined) {
@@ -86,39 +86,39 @@ export class SocketManager {
       saveActiveSession({
         roomCode: data.roomCode,
         name: state.myName,
-        isViewer: gameState.getState().isViewer
+        isViewer: gameState.getState().isViewer,
       });
 
       this.emit('joinSuccess', data.sessionData);
       showNotification('Joined session successfully!', 'success');
     });
 
-    this.socket.on('join-failed', (data) => {
+    this.socket.on('join-failed', data => {
       showNotification(data.message, 'error');
       enableButtons();
       clearActiveSession();
     });
 
     // Real-time updates
-    this.socket.on('participant-joined', (data) => {
+    this.socket.on('participant-joined', data => {
       this.emit('sessionUpdated', data.sessionData);
       showNotification(`${data.participantName} joined the session`, 'success');
     });
 
-    this.socket.on('participant-left', (data) => {
+    this.socket.on('participant-left', data => {
       this.emit('sessionUpdated', data.sessionData);
       showNotification(`${data.participantName} left the session`, 'error');
     });
 
-    this.socket.on('participant-removed', (data) => {
+    this.socket.on('participant-removed', data => {
       this.emit('sessionUpdated', data.sessionData);
       showNotification(`${data.participantName} was removed from the session`, 'error');
     });
 
-    this.socket.on('participant-role-changed', (data) => {
+    this.socket.on('participant-role-changed', data => {
       this.emit('sessionUpdated', data.sessionData);
       showNotification(`${data.participantName} is now a ${data.newRole}`, 'success');
-      
+
       const state = gameState.getState();
       if (data.participantName === state.myName) {
         gameState.updateState({ isViewer: data.newRole === 'viewer' });
@@ -126,10 +126,10 @@ export class SocketManager {
       }
     });
 
-    this.socket.on('facilitator-changed', (data) => {
+    this.socket.on('facilitator-changed', data => {
       this.emit('sessionUpdated', data.sessionData);
       showNotification(`${data.newFacilitatorName} is now the facilitator`, 'success');
-      
+
       const state = gameState.getState();
       if (data.newFacilitatorName === state.myName) {
         gameState.updateState({ isFacilitator: true, isViewer: false });
@@ -140,74 +140,74 @@ export class SocketManager {
       }
     });
 
-    this.socket.on('removed-from-session', (data) => {
+    this.socket.on('removed-from-session', data => {
       showNotification(data.message, 'error');
       clearActiveSession();
       setTimeout(() => location.reload(), 3000);
     });
 
     // Jira integration
-    this.socket.on('jira-config-success', (data) => {
+    this.socket.on('jira-config-success', data => {
       gameState.updateState({ jiraConfig: data.sessionData.jiraConfig });
       this.emit('jiraConfigured', { boards: data.boards, sessionData: data.sessionData });
       showNotification('Successfully connected to Jira!', 'success');
     });
 
-    this.socket.on('jira-config-failed', (data) => {
+    this.socket.on('jira-config-failed', data => {
       showNotification(data.message, 'error');
       enableButtons();
     });
 
-    this.socket.on('jira-issues-loaded', (data) => {
+    this.socket.on('jira-issues-loaded', data => {
       gameState.updateState({ jiraIssues: data.issues });
       this.emit('jiraIssuesLoaded', data.issues);
       showNotification(`Loaded ${data.issues.length} issues from Jira`, 'success');
     });
 
-    this.socket.on('jira-issues-failed', (data) => {
+    this.socket.on('jira-issues-failed', data => {
       showNotification(data.message, 'error');
     });
 
-    this.socket.on('jira-issue-set', (data) => {
+    this.socket.on('jira-issue-set', data => {
       gameState.updateState({
         currentJiraIssue: data.issue,
         currentTicket: `${data.issue.key}: ${data.issue.summary}`,
-        votingRevealed: false
+        votingRevealed: false,
       });
       gameState.clearVote();
-      
+
       this.emit('sessionUpdated', data.sessionData);
       this.emit('ticketSet', data.issue);
       showNotification(`Set Jira issue: ${data.issue.key}`, 'success');
       playSound('ticket');
     });
 
-    this.socket.on('jira-updated', (data) => {
+    this.socket.on('jira-updated', data => {
       showNotification(`Updated ${data.issueKey} with ${data.storyPoints} story points`, 'success');
-      
+
       gameState.updateState({
         currentTicket: '',
         currentJiraIssue: null,
-        votingRevealed: false
+        votingRevealed: false,
       });
       gameState.clearVote();
-      
+
       this.emit('sessionUpdated', data.sessionData);
       this.emit('jiraUpdated', data);
     });
 
-    this.socket.on('jira-update-failed', (data) => {
+    this.socket.on('jira-update-failed', data => {
       showNotification(data.message, 'error');
       this.emit('jiraUpdateFailed');
     });
 
-    this.socket.on('ticket-set', (data) => {
+    this.socket.on('ticket-set', data => {
       gameState.updateState({
         currentTicket: data.ticket,
-        votingRevealed: false
+        votingRevealed: false,
       });
       gameState.clearVote();
-      
+
       this.emit('sessionUpdated', data.sessionData);
       this.emit('ticketSet', data.ticket);
       showNotification('New ticket set for estimation', 'success');
@@ -215,55 +215,58 @@ export class SocketManager {
     });
 
     // Voting
-    this.socket.on('vote-submitted', (data) => {
+    this.socket.on('vote-submitted', data => {
       this.emit('sessionUpdated', data.sessionData);
       this.emit('voteSubmitted', data.participantName);
     });
 
-    this.socket.on('votes-revealed', (data) => {
+    this.socket.on('votes-revealed', data => {
       this.emit('sessionUpdated', data.sessionData);
       this.emit('votesRevealed', data.results);
       showNotification('Votes revealed!', 'success');
       playSound('reveal');
     });
 
-    this.socket.on('voting-reset', (data) => {
+    this.socket.on('voting-reset', data => {
       gameState.updateState({ votingRevealed: false });
       gameState.clearVote();
-      
+
       this.emit('sessionUpdated', data.sessionData);
       this.emit('votingReset');
       showNotification('New voting round started', 'success');
     });
 
     // Countdown
-    this.socket.on('countdown-started', (data) => {
+    this.socket.on('countdown-started', data => {
       gameState.setCountdown(true, data.duration);
       this.emit('countdownStarted', data.duration);
       showNotification(`${data.duration} second countdown started!`, 'success');
       playSound('countdown');
     });
 
-    this.socket.on('countdown-tick', (data) => {
+    this.socket.on('countdown-tick', data => {
       gameState.setCountdown(true, data.secondsLeft);
-      this.emit('countdownTick', { secondsLeft: data.secondsLeft, totalDuration: data.totalDuration });
+      this.emit('countdownTick', {
+        secondsLeft: data.secondsLeft,
+        totalDuration: data.totalDuration,
+      });
     });
 
-    this.socket.on('countdown-finished', (data) => {
+    this.socket.on('countdown-finished', data => {
       gameState.setCountdown(false, 0);
       this.emit('sessionUpdated', data.sessionData);
       this.emit('countdownFinished');
-      showNotification('Time\'s up! Votes revealed automatically.', 'success');
+      showNotification("Time's up! Votes revealed automatically.", 'success');
     });
 
     // Session management
-    this.socket.on('session-ended', (data) => {
+    this.socket.on('session-ended', data => {
       showNotification(data.message, 'error');
       clearActiveSession();
       setTimeout(() => location.reload(), 3000);
     });
 
-    this.socket.on('error', (data) => {
+    this.socket.on('error', data => {
       showNotification(data.message, 'error');
       enableButtons();
     });
@@ -303,7 +306,13 @@ export class SocketManager {
     this.socket?.emit('join-session', { roomCode, participantName, asViewer });
   }
 
-  configureJira(roomCode: string, domain: string, email: string, token: string, projectKey?: string): void {
+  configureJira(
+    roomCode: string,
+    domain: string,
+    email: string,
+    token: string,
+    projectKey?: string
+  ): void {
     this.socket?.emit('configure-jira', { roomCode, domain, email, token, projectKey });
   }
 

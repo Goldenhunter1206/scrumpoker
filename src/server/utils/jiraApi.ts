@@ -14,8 +14,8 @@ interface JiraRequestOptions {
 const JIRA_STORYPOINT_FIELD = process.env.JIRA_STORYPOINT_FIELD || 'customfield_10016';
 
 export async function makeJiraRequest<T>(
-  config: JiraConfig & { email: string; token: string }, 
-  endpoint: string, 
+  config: JiraConfig & { email: string; token: string },
+  endpoint: string,
   options: JiraRequestOptions = {}
 ): Promise<JiraApiResponse<T>> {
   const { method = 'GET', data = null } = options;
@@ -29,11 +29,11 @@ export async function makeJiraRequest<T>(
     const fetchOptions: RequestInit = {
       method,
       headers: {
-        'Authorization': `Basic ${auth}`,
-        'Accept': 'application/json',
+        Authorization: `Basic ${auth}`,
+        Accept: 'application/json',
         'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Node.js Jira Client)'
-      }
+        'User-Agent': 'Mozilla/5.0 (Node.js Jira Client)',
+      },
     };
 
     if (data) {
@@ -47,7 +47,7 @@ export async function makeJiraRequest<T>(
       console.error('Jira API Error:', responseData);
       return {
         success: false,
-        error: (responseData as any)?.errorMessages?.[0] || response.statusText
+        error: (responseData as any)?.errorMessages?.[0] || response.statusText,
       };
     }
 
@@ -56,25 +56,25 @@ export async function makeJiraRequest<T>(
     console.error('Jira API Error:', (error as Error).message);
     return {
       success: false,
-      error: (error as Error).message
+      error: (error as Error).message,
     };
   }
 }
 
 export async function getJiraBoards(
-  config: JiraConfig & { email: string; token: string }, 
+  config: JiraConfig & { email: string; token: string },
   projectKey?: string
 ): Promise<JiraApiResponse<{ values: JiraBoard[] }>> {
   const endpointBase = 'agile/1.0/board';
-  const endpoint = projectKey 
-    ? `${endpointBase}?projectKeyOrId=${encodeURIComponent(projectKey)}` 
+  const endpoint = projectKey
+    ? `${endpointBase}?projectKeyOrId=${encodeURIComponent(projectKey)}`
     : endpointBase;
-  
+
   return await makeJiraRequest(config, endpoint);
 }
 
 export async function getJiraBoardIssues(
-  config: JiraConfig & { email: string; token: string }, 
+  config: JiraConfig & { email: string; token: string },
   boardId: string
 ): Promise<JiraApiResponse<{ issues: JiraIssue[] }>> {
   const base = `agile/1.0/board/${boardId}/backlog`;
@@ -96,7 +96,7 @@ export async function getJiraBoardIssues(
     const data = pageResult.data as any;
     allIssues = allIssues.concat(data.issues || []);
 
-    if (data.isLast || (data.startAt + data.maxResults) >= data.total) {
+    if (data.isLast || data.startAt + data.maxResults >= data.total) {
       isLast = true;
     } else {
       startAt += maxResults;
@@ -111,41 +111,41 @@ export async function getJiraBoardIssues(
     priority: issue.fields.priority?.name || 'Medium',
     status: issue.fields.status?.name || 'To Do',
     assignee: issue.fields.assignee?.displayName || 'Unassigned',
-    currentStoryPoints: issue.fields[JIRA_STORYPOINT_FIELD] || null
+    currentStoryPoints: issue.fields[JIRA_STORYPOINT_FIELD] || null,
   }));
 
   return { success: true, data: { issues: transformedIssues } };
 }
 
 export async function updateJiraIssueStoryPoints(
-  config: JiraConfig & { email: string; token: string }, 
-  issueKey: string, 
+  config: JiraConfig & { email: string; token: string },
+  issueKey: string,
   storyPoints: number
 ): Promise<JiraApiResponse<any>> {
   const endpoint = `issue/${issueKey}`;
   const data = {
     fields: {
-      [JIRA_STORYPOINT_FIELD]: storyPoints
-    }
+      [JIRA_STORYPOINT_FIELD]: storyPoints,
+    },
   };
-  
+
   return await makeJiraRequest(config, endpoint, { method: 'PUT', data });
 }
 
 export function roundToNearestFibonacci(value: number): number | null {
   const fibonacci = [0, 0.5, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
   if (typeof value !== 'number' || isNaN(value)) return null;
-  
+
   let closest = fibonacci[0];
   let minDiff = Math.abs(value - closest);
-  
-  for (let fib of fibonacci) {
+
+  for (const fib of fibonacci) {
     const diff = Math.abs(value - fib);
     if (diff < minDiff) {
       minDiff = diff;
       closest = fib;
     }
   }
-  
+
   return closest;
 }

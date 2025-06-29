@@ -1,0 +1,30 @@
+# Build outputs
+dist/
+build/
+
+# Dependencies
+node_modules/
+
+# Generated files
+package-lock.json
+*.log
+*.tsbuildinfo
+
+# Legacy files
+server.js
+
+# IDE and editor files
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Documentation
+LICENSE
+CHANGELOG.md
+
+# Config files that have specific formatting
+.gitignore
+.dockerignore

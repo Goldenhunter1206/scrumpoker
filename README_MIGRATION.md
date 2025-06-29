@@ -53,16 +53,19 @@ src/
 ### Quick Start
 
 1. **Install dependencies and build:**
+
    ```bash
    ./setup.sh
    ```
 
 2. **Start development (both client and server with hot reload):**
+
    ```bash
    npm run dev
    ```
 
 3. **Build for production:**
+
    ```bash
    npm run build
    ```
@@ -129,7 +132,7 @@ npm run dev:client
 ### TypeScript Configuration
 
 - **`tsconfig.json`** - Client-side TypeScript config
-- **`tsconfig.server.json`** - Server-side TypeScript config  
+- **`tsconfig.server.json`** - Server-side TypeScript config
 - **`tsconfig.node.json`** - Node.js tools config
 
 ## 🚀 Production Deployment

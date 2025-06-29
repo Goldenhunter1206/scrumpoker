@@ -1,16 +1,16 @@
 import { Socket, Server as SocketIOServer } from 'socket.io';
-import { 
-  ServerToClientEvents, 
+import {
+  ServerToClientEvents,
   ClientToServerEvents,
   Vote,
   VotingResults,
-  JiraIssue
+  JiraIssue,
 } from '@shared/types/index.js';
-import { 
-  getJiraBoards, 
-  getJiraBoardIssues, 
-  updateJiraIssueStoryPoints, 
-  roundToNearestFibonacci 
+import {
+  getJiraBoards,
+  getJiraBoardIssues,
+  updateJiraIssueStoryPoints,
+  roundToNearestFibonacci,
 } from './utils/jiraApi.js';
 import { getSessionData, recordHistory } from './utils/sessionHelpers.js';
 
@@ -48,9 +48,10 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const facilitator = Array.from(session.participants.values())
-        .find(p => p.socketId === socket.id);
-      
+      const facilitator = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id
+      );
+
       if (!facilitator?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can configure Jira' });
         return;
@@ -58,10 +59,10 @@ export function setupSocketHandlers(
 
       const config = { domain, email, token, hasToken: true };
       const boardsResult = await getJiraBoards(config, projectKey || undefined);
-      
+
       if (!boardsResult.success) {
-        socket.emit('jira-config-failed', { 
-          message: `Failed to connect to Jira: ${boardsResult.error}` 
+        socket.emit('jira-config-failed', {
+          message: `Failed to connect to Jira: ${boardsResult.error}`,
         });
         return;
       }
@@ -71,7 +72,7 @@ export function setupSocketHandlers(
 
       socket.emit('jira-config-success', {
         boards: boardsResult.data?.values || [],
-        sessionData: getSessionData(session)
+        sessionData: getSessionData(session),
       });
 
       console.log(`Jira configured for session ${roomCode}`);
@@ -86,9 +87,10 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session || !session.jiraConfig) return;
 
-      const facilitator = Array.from(session.participants.values())
-        .find(p => p.socketId === socket.id);
-      
+      const facilitator = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id
+      );
+
       if (!facilitator?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can fetch Jira issues' });
         return;
@@ -96,16 +98,18 @@ export function setupSocketHandlers(
 
       session.jiraConfig.boardId = boardId;
       const issuesResult = await getJiraBoardIssues(session.jiraConfig, boardId);
-      
+
       if (!issuesResult.success) {
-        socket.emit('jira-issues-failed', { 
-          message: `Failed to fetch issues: ${issuesResult.error}` 
+        socket.emit('jira-issues-failed', {
+          message: `Failed to fetch issues: ${issuesResult.error}`,
         });
         return;
       }
 
       socket.emit('jira-issues-loaded', { issues: issuesResult.data?.issues || [] });
-      console.log(`Loaded ${issuesResult.data?.issues?.length || 0} issues from Jira board ${boardId}`);
+      console.log(
+        `Loaded ${issuesResult.data?.issues?.length || 0} issues from Jira board ${boardId}`
+      );
     } catch (error) {
       socket.emit('error', { message: 'Failed to fetch Jira issues' });
     }
@@ -117,9 +121,10 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const facilitator = Array.from(session.participants.values())
-        .find(p => p.socketId === socket.id);
-      
+      const facilitator = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id
+      );
+
       if (!facilitator?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can set Jira issues' });
         return;
@@ -140,7 +145,7 @@ export function setupSocketHandlers(
 
       io.to(roomCode).emit('jira-issue-set', {
         issue,
-        sessionData: getSessionData(session)
+        sessionData: getSessionData(session),
       });
 
       console.log(`Jira issue ${issue.key} set for voting in session ${roomCode}`);
@@ -155,9 +160,10 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session || !session.currentJiraIssue || !session.jiraConfig) return;
 
-      const facilitator = Array.from(session.participants.values())
-        .find(p => p.socketId === socket.id);
-      
+      const facilitator = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id
+      );
+
       if (!facilitator?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can finalize estimations' });
         return;
@@ -168,16 +174,16 @@ export function setupSocketHandlers(
         socket.emit('jira-update-failed', { message: 'Invalid estimate value' });
         return;
       }
-      
+
       const updateResult = await updateJiraIssueStoryPoints(
-        session.jiraConfig, 
-        session.currentJiraIssue.key, 
+        session.jiraConfig,
+        session.currentJiraIssue.key,
         roundedEstimate
       );
 
       if (!updateResult.success) {
-        socket.emit('jira-update-failed', { 
-          message: `Failed to update Jira: ${updateResult.error}` 
+        socket.emit('jira-update-failed', {
+          message: `Failed to update Jira: ${updateResult.error}`,
         });
         return;
       }
@@ -192,7 +198,7 @@ export function setupSocketHandlers(
         issueKey: updatedIssueKey,
         summary: session.currentJiraIssue.summary,
         storyPoints: roundedEstimate,
-        originalEstimate: finalEstimate
+        originalEstimate: finalEstimate,
       });
 
       // Clear current ticket and voting after successful Jira update
@@ -205,7 +211,7 @@ export function setupSocketHandlers(
         issueKey: updatedIssueKey,
         storyPoints: roundedEstimate,
         originalEstimate: finalEstimate,
-        sessionData: getSessionData(session)
+        sessionData: getSessionData(session),
       });
 
       console.log(`Updated Jira issue ${updatedIssueKey} with ${roundedEstimate} story points`);
@@ -220,9 +226,10 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const participant = Array.from(session.participants.values())
-        .find(p => p.socketId === socket.id);
-      
+      const participant = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id
+      );
+
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can set tickets' });
         return;
@@ -242,7 +249,7 @@ export function setupSocketHandlers(
 
       io.to(roomCode).emit('ticket-set', {
         ticket,
-        sessionData: getSessionData(session)
+        sessionData: getSessionData(session),
       });
 
       console.log(`Ticket set in session ${roomCode}: ${ticket.substring(0, 50)}...`);
@@ -257,9 +264,10 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const participant = Array.from(session.participants.values())
-        .find(p => p.socketId === socket.id);
-      
+      const participant = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id
+      );
+
       if (!participant) return;
 
       if (participant.isViewer) {
@@ -278,15 +286,16 @@ export function setupSocketHandlers(
 
       io.to(roomCode).emit('vote-submitted', {
         participantName: participant.name,
-        sessionData: getSessionData(session)
+        sessionData: getSessionData(session),
       });
 
       console.log(`Vote submitted by ${participant.name} in session ${roomCode}`);
 
       // Check if all eligible voters have voted
       if (session.countdownActive) {
-        const eligibleVoters = Array.from(session.participants.values())
-          .filter(p => !p.isViewer && p.socketId);
+        const eligibleVoters = Array.from(session.participants.values()).filter(
+          p => !p.isViewer && p.socketId
+        );
 
         if (session.votes.size >= eligibleVoters.length && eligibleVoters.length > 0) {
           if (session.countdownTimer) {
@@ -298,7 +307,7 @@ export function setupSocketHandlers(
           session.lastActivity = new Date();
 
           const results = calculateVotingResults(session.votes);
-          
+
           if (session.currentJiraIssue) {
             recordHistory(session, {
               issueKey: session.currentJiraIssue.key,
@@ -308,8 +317,8 @@ export function setupSocketHandlers(
                 consensus: results.consensus,
                 average: results.average,
                 min: results.min,
-                max: results.max
-              }
+                max: results.max,
+              },
             });
           } else if (session.currentTicket) {
             recordHistory(session, {
@@ -319,18 +328,18 @@ export function setupSocketHandlers(
                 consensus: results.consensus,
                 average: results.average,
                 min: results.min,
-                max: results.max
-              }
+                max: results.max,
+              },
             });
           }
 
           io.to(roomCode).emit('countdown-finished', {
-            sessionData: getSessionData(session)
+            sessionData: getSessionData(session),
           });
-          
+
           io.to(roomCode).emit('votes-revealed', {
             sessionData: getSessionData(session),
-            results
+            results,
           });
 
           console.log(`Countdown finished early and votes auto-revealed in session ${roomCode}`);
@@ -347,9 +356,10 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const participant = Array.from(session.participants.values())
-        .find(p => p.socketId === socket.id);
-      
+      const participant = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id
+      );
+
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can reveal votes' });
         return;
@@ -370,8 +380,8 @@ export function setupSocketHandlers(
             consensus: results.consensus,
             average: results.average,
             min: results.min,
-            max: results.max
-          }
+            max: results.max,
+          },
         });
       } else if (session.currentTicket) {
         recordHistory(session, {
@@ -381,14 +391,14 @@ export function setupSocketHandlers(
             consensus: results.consensus,
             average: results.average,
             min: results.min,
-            max: results.max
-          }
+            max: results.max,
+          },
         });
       }
 
       io.to(roomCode).emit('votes-revealed', {
         sessionData: getSessionData(session),
-        results
+        results,
       });
 
       console.log(`Votes revealed in session ${roomCode}`);
@@ -403,9 +413,10 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const participant = Array.from(session.participants.values())
-        .find(p => p.socketId === socket.id);
-      
+      const participant = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id
+      );
+
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can reset voting' });
         return;
@@ -416,7 +427,7 @@ export function setupSocketHandlers(
       session.lastActivity = new Date();
 
       // Reset hasVoted for all participants
-      session.participants.forEach(p => p.hasVoted = false);
+      session.participants.forEach(p => (p.hasVoted = false));
 
       if (session.countdownTimer) {
         clearInterval(session.countdownTimer);
@@ -425,7 +436,7 @@ export function setupSocketHandlers(
       }
 
       io.to(roomCode).emit('voting-reset', {
-        sessionData: getSessionData(session)
+        sessionData: getSessionData(session),
       });
 
       console.log(`Voting reset in session ${roomCode}`);
@@ -441,8 +452,9 @@ export function setupSocketHandlers(
       if (!session) return;
 
       // Find the facilitator by socket id
-      const facilitatorEntry = Array.from(session.participants.values())
-        .find(p => p.socketId === socket.id && p.isFacilitator);
+      const facilitatorEntry = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id && p.isFacilitator
+      );
 
       if (!facilitatorEntry) {
         socket.emit('error', { message: 'Only the facilitator can change their viewer status' });
@@ -457,10 +469,12 @@ export function setupSocketHandlers(
       io.to(roomCode).emit('participant-role-changed', {
         participantName: facilitatorEntry.name,
         newRole: isViewer ? 'viewer' : 'participant',
-        sessionData: getSessionData(session)
+        sessionData: getSessionData(session),
       });
 
-      console.log(`Facilitator ${facilitatorEntry.name} is now a ${isViewer ? 'viewer' : 'participant'} in session ${roomCode}`);
+      console.log(
+        `Facilitator ${facilitatorEntry.name} is now a ${isViewer ? 'viewer' : 'participant'} in session ${roomCode}`
+      );
     } catch (error) {
       socket.emit('error', { message: 'Failed to change viewer status' });
     }
@@ -473,8 +487,9 @@ export function setupSocketHandlers(
       if (!session) return;
 
       // Ensure that the requesting socket is the facilitator
-      const facilitatorEntry = Array.from(session.participants.values())
-        .find(p => p.socketId === socket.id && p.isFacilitator);
+      const facilitatorEntry = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id && p.isFacilitator
+      );
 
       if (!facilitatorEntry) {
         socket.emit('error', { message: 'Only facilitator can moderate participants' });
@@ -495,7 +510,7 @@ export function setupSocketHandlers(
           io.to(roomCode).emit('participant-role-changed', {
             participantName: targetName,
             newRole: 'viewer',
-            sessionData: getSessionData(session)
+            sessionData: getSessionData(session),
           });
           break;
 
@@ -504,7 +519,7 @@ export function setupSocketHandlers(
           io.to(roomCode).emit('participant-role-changed', {
             participantName: targetName,
             newRole: 'participant',
-            sessionData: getSessionData(session)
+            sessionData: getSessionData(session),
           });
           break;
 
@@ -514,20 +529,20 @@ export function setupSocketHandlers(
             socket.emit('error', { message: 'You are already the facilitator' });
             return;
           }
-          
+
           // Transfer facilitator role
           facilitatorEntry.isFacilitator = false;
           target.isFacilitator = true;
           target.isViewer = false; // New facilitator should be able to vote by default
-          
+
           // Update session facilitator info
           session.facilitator.name = targetName;
           session.facilitator.socketId = target.socketId || '';
-          
+
           io.to(roomCode).emit('facilitator-changed', {
             oldFacilitatorName: facilitatorEntry.name,
             newFacilitatorName: targetName,
-            sessionData: getSessionData(session)
+            sessionData: getSessionData(session),
           });
           break;
 
@@ -536,14 +551,16 @@ export function setupSocketHandlers(
           session.votes.delete(targetName);
           io.to(roomCode).emit('participant-removed', {
             participantName: targetName,
-            sessionData: getSessionData(session)
+            sessionData: getSessionData(session),
           });
 
           // Inform the removed participant if still connected and kick them from the room
           if (target.socketId) {
             const targetSocket = io.sockets.sockets.get(target.socketId);
             if (targetSocket) {
-              targetSocket.emit('removed-from-session', { message: 'You have been removed from the session by the facilitator' });
+              targetSocket.emit('removed-from-session', {
+                message: 'You have been removed from the session by the facilitator',
+              });
               targetSocket.leave(roomCode);
             }
           }
@@ -566,9 +583,10 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const participant = Array.from(session.participants.values())
-        .find(p => p.socketId === socket.id);
-      
+      const participant = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id
+      );
+
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can start countdown' });
         return;
@@ -596,11 +614,11 @@ export function setupSocketHandlers(
 
       session.countdownTimer = setInterval(() => {
         secondsLeft--;
-        
+
         if (secondsLeft > 0) {
           io.to(roomCode).emit('countdown-tick', {
             secondsLeft,
-            totalDuration: duration
+            totalDuration: duration,
           });
         } else {
           clearInterval(session.countdownTimer!);
@@ -621,8 +639,8 @@ export function setupSocketHandlers(
                 consensus: results.consensus,
                 average: results.average,
                 min: results.min,
-                max: results.max
-              }
+                max: results.max,
+              },
             });
           } else if (session.currentTicket) {
             recordHistory(session, {
@@ -632,18 +650,18 @@ export function setupSocketHandlers(
                 consensus: results.consensus,
                 average: results.average,
                 min: results.min,
-                max: results.max
-              }
+                max: results.max,
+              },
             });
           }
 
           io.to(roomCode).emit('countdown-finished', {
-            sessionData: getSessionData(session)
+            sessionData: getSessionData(session),
           });
-          
+
           io.to(roomCode).emit('votes-revealed', {
             sessionData: getSessionData(session),
-            results
+            results,
           });
 
           console.log(`Countdown finished and votes auto-revealed in session ${roomCode}`);
@@ -662,9 +680,10 @@ export function setupSocketHandlers(
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      const participant = Array.from(session.participants.values())
-        .find(p => p.socketId === socket.id);
-      
+      const participant = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id
+      );
+
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can end session' });
         return;
@@ -675,7 +694,7 @@ export function setupSocketHandlers(
       }
 
       io.to(roomCode).emit('session-ended', {
-        message: 'Session has been ended by the facilitator'
+        message: 'Session has been ended by the facilitator',
       });
 
       const room = io.sockets.adapter.rooms.get(roomCode);
@@ -697,17 +716,20 @@ export function setupSocketHandlers(
 }
 
 function calculateVotingResults(votes: Map<string, Vote>): VotingResults {
-  const numericVotes = Array.from(votes.values())
-    .filter(vote => typeof vote === 'number') as number[];
-  
+  const numericVotes = Array.from(votes.values()).filter(
+    vote => typeof vote === 'number'
+  ) as number[];
+
   const results: VotingResults = {
-    average: numericVotes.length > 0 ? 
-      numericVotes.reduce((sum, vote) => sum + vote, 0) / numericVotes.length : 0,
+    average:
+      numericVotes.length > 0
+        ? numericVotes.reduce((sum, vote) => sum + vote, 0) / numericVotes.length
+        : 0,
     voteCounts: {},
     totalVotes: votes.size,
     min: numericVotes.length > 0 ? Math.min(...numericVotes) : null,
     max: numericVotes.length > 0 ? Math.max(...numericVotes) : null,
-    consensus: '?' as Vote
+    consensus: '?' as Vote,
   };
 
   // Count vote distribution
@@ -717,13 +739,13 @@ function calculateVotingResults(votes: Map<string, Vote>): VotingResults {
 
   // Find consensus (most common vote, or "-" if tied)
   const maxCount = Math.max(...Object.values(results.voteCounts));
-  const mostCommonVotes = Object.keys(results.voteCounts).filter(vote => 
-    results.voteCounts[vote] === maxCount
+  const mostCommonVotes = Object.keys(results.voteCounts).filter(
+    vote => results.voteCounts[vote] === maxCount
   );
-  
+
   if (mostCommonVotes.length === 1) {
     const consensusKey = mostCommonVotes[0];
-    results.consensus = isNaN(Number(consensusKey)) ? consensusKey as Vote : Number(consensusKey);
+    results.consensus = isNaN(Number(consensusKey)) ? (consensusKey as Vote) : Number(consensusKey);
   } else {
     results.consensus = '-' as Vote;
   }

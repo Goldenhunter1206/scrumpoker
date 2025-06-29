@@ -25,8 +25,14 @@
 }
 
 @keyframes slideIn {
-  from { transform: translateX(100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 /* Sound Toggle */
@@ -85,15 +91,15 @@
   .two-column-layout {
     display: grid;
     grid-template-columns: 320px 1fr;
-    grid-template-areas: "sidebar main";
+    grid-template-areas: 'sidebar main';
     gap: 1.5rem;
   }
-  
+
   .sidebar-column {
     grid-area: sidebar;
     min-width: 0; /* Prevent overflow */
   }
-  
+
   .main-column {
     grid-area: main;
     min-width: 0; /* Prevent overflow */
@@ -101,7 +107,8 @@
 }
 
 /* Column Styling - Two Column */
-.sidebar-column, .main-column {
+.sidebar-column,
+.main-column {
   @apply min-h-0;
 }
 
@@ -124,7 +131,7 @@
   .voting-cards {
     grid-template-columns: repeat(3, 1fr);
   }
-  
+
   .join-section {
     @apply flex-col gap-3;
   }
@@ -132,21 +139,21 @@
   #facilitator-controls.collapsed {
     display: none;
   }
-  
+
   .two-column-layout {
     @apply space-y-4;
     grid-template-columns: 1fr;
   }
-  
+
   .facilitator-actions {
     grid-template-columns: 1fr 1fr;
   }
-  
+
   /* Mobile: Reorder for better UX - main content first, then sidebar */
   .main-column {
     order: 1;
   }
-  
+
   .sidebar-column {
     order: 2;
   }

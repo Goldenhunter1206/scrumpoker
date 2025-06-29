@@ -1,5 +1,5 @@
-import { defineConfig } from 'vite'
-import { resolve } from 'path'
+import { defineConfig } from 'vite';
+import { resolve } from 'path';
 
 // Custom plugin to replace template variables in HTML
 function htmlTemplatePlugin() {
@@ -7,13 +7,12 @@ function htmlTemplatePlugin() {
     name: 'html-template',
     transformIndexHtml(html: string) {
       const appTitle = process.env.APP_TITLE || 'Scrum Poker';
-      const appSubtitle = process.env.APP_SUBTITLE || 'Collaborative Story Point Estimation for Your Team';
-      
-      return html
-        .replace(/{{APP_TITLE}}/g, appTitle)
-        .replace(/{{APP_SUBTITLE}}/g, appSubtitle);
-    }
-  }
+      const appSubtitle =
+        process.env.APP_SUBTITLE || 'Collaborative Story Point Estimation for Your Team';
+
+      return html.replace(/{{APP_TITLE}}/g, appTitle).replace(/{{APP_SUBTITLE}}/g, appSubtitle);
+    },
+  };
 }
 
 export default defineConfig({
@@ -24,9 +23,9 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'src/client/index.html')
-      }
-    }
+        main: resolve(__dirname, 'src/client/index.html'),
+      },
+    },
   },
   server: {
     port: 5173,
@@ -34,18 +33,18 @@ export default defineConfig({
       '/socket.io': {
         target: 'http://localhost:3000',
         changeOrigin: true,
-        ws: true
+        ws: true,
       },
       '/api': {
         target: 'http://localhost:3000',
-        changeOrigin: true
-      }
-    }
+        changeOrigin: true,
+      },
+    },
   },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src/client'),
-      '@shared': resolve(__dirname, 'src/shared')
-    }
-  }
-})
+      '@shared': resolve(__dirname, 'src/shared'),
+    },
+  },
+});

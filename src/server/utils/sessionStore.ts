@@ -5,7 +5,11 @@ export class SessionStore {
   private redis: any | null;
   private ttl: number;
 
-  constructor(memoryStore = new Map<string, SessionData>(), redisClient: any = null, ttlSeconds = 24 * 60 * 60) {
+  constructor(
+    memoryStore = new Map<string, SessionData>(),
+    redisClient: any = null,
+    ttlSeconds = 24 * 60 * 60
+  ) {
     this.memory = memoryStore;
     this.redis = redisClient;
     this.ttl = ttlSeconds;
@@ -17,10 +21,12 @@ export class SessionStore {
       const serialisable = {
         ...session,
         participants: Array.from(session.participants.entries()),
-        votes: session.participants.map(p => [p.name, p.vote]).filter(([, vote]) => vote !== undefined)
+        votes: session.participants
+          .map(p => [p.name, p.vote])
+          .filter(([, vote]) => vote !== undefined),
       };
       await this.redis.set(`session:${key}`, JSON.stringify(serialisable), {
-        EX: this.ttl
+        EX: this.ttl,
       });
     } catch (err) {
       console.error('Failed to persist session to Redis:', err);
@@ -35,7 +41,7 @@ export class SessionStore {
         const raw = await this.redis.get(fullKey);
         if (!raw) continue;
         const obj = JSON.parse(raw);
-        
+
         // Re-hydrate Maps and proper data structures
         const sessionData: SessionData = {
           ...obj,
@@ -43,9 +49,9 @@ export class SessionStore {
           history: obj.history || [],
           aggregate: obj.aggregate || null,
           currentJiraIssue: obj.currentJiraIssue || null,
-          jiraConfig: obj.jiraConfig || null
+          jiraConfig: obj.jiraConfig || null,
         };
-        
+
         this.memory.set(obj.id || fullKey.split(':')[1], sessionData);
       }
       if (keys.length) {
@@ -73,7 +79,9 @@ export class SessionStore {
   delete(key: string): boolean {
     const res = this.memory.delete(key);
     if (this.redis) {
-      this.redis.del(`session:${key}`).catch((err: any) => console.error('Redis delete error', err));
+      this.redis
+        .del(`session:${key}`)
+        .catch((err: any) => console.error('Redis delete error', err));
     }
     return res;
   }

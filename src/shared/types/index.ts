@@ -80,21 +80,42 @@ export type Vote = number | '?' | '☕';
 
 // Socket.IO Event Types
 export interface ServerToClientEvents {
-  'session-created': (data: { success: boolean; roomCode: string; sessionData: SessionData }) => void;
-  'join-success': (data: { roomCode: string; sessionData: SessionData; yourVote: Vote | null }) => void;
+  'session-created': (data: {
+    success: boolean;
+    roomCode: string;
+    sessionData: SessionData;
+  }) => void;
+  'join-success': (data: {
+    roomCode: string;
+    sessionData: SessionData;
+    yourVote: Vote | null;
+  }) => void;
   'join-failed': (data: { message: string }) => void;
   'participant-joined': (data: { participantName: string; sessionData: SessionData }) => void;
   'participant-left': (data: { participantName: string; sessionData: SessionData }) => void;
   'participant-removed': (data: { participantName: string; sessionData: SessionData }) => void;
-  'participant-role-changed': (data: { participantName: string; newRole: string; sessionData: SessionData }) => void;
-  'facilitator-changed': (data: { oldFacilitatorName: string; newFacilitatorName: string; sessionData: SessionData }) => void;
+  'participant-role-changed': (data: {
+    participantName: string;
+    newRole: string;
+    sessionData: SessionData;
+  }) => void;
+  'facilitator-changed': (data: {
+    oldFacilitatorName: string;
+    newFacilitatorName: string;
+    sessionData: SessionData;
+  }) => void;
   'removed-from-session': (data: { message: string }) => void;
   'jira-config-success': (data: { boards: JiraBoard[]; sessionData: SessionData }) => void;
   'jira-config-failed': (data: { message: string }) => void;
   'jira-issues-loaded': (data: { issues: JiraIssue[] }) => void;
   'jira-issues-failed': (data: { message: string }) => void;
   'jira-issue-set': (data: { issue: JiraIssue; sessionData: SessionData }) => void;
-  'jira-updated': (data: { issueKey: string; storyPoints: number; originalEstimate: number; sessionData: SessionData }) => void;
+  'jira-updated': (data: {
+    issueKey: string;
+    storyPoints: number;
+    originalEstimate: number;
+    sessionData: SessionData;
+  }) => void;
   'jira-update-failed': (data: { message: string }) => void;
   'ticket-set': (data: { ticket: string; sessionData: SessionData }) => void;
   'vote-submitted': (data: { participantName: string; sessionData: SessionData }) => void;
@@ -105,13 +126,19 @@ export interface ServerToClientEvents {
   'countdown-tick': (data: { secondsLeft: number; totalDuration: number }) => void;
   'countdown-finished': (data: { sessionData: SessionData }) => void;
   'server-shutdown': (data: { message: string }) => void;
-  'error': (data: { message: string }) => void;
+  error: (data: { message: string }) => void;
 }
 
 export interface ClientToServerEvents {
   'create-session': (data: { sessionName: string; facilitatorName: string }) => void;
   'join-session': (data: { roomCode: string; participantName: string; asViewer?: boolean }) => void;
-  'configure-jira': (data: { roomCode: string; domain: string; email: string; token: string; projectKey?: string }) => void;
+  'configure-jira': (data: {
+    roomCode: string;
+    domain: string;
+    email: string;
+    token: string;
+    projectKey?: string;
+  }) => void;
   'get-jira-issues': (data: { roomCode: string; boardId: string }) => void;
   'set-jira-issue': (data: { roomCode: string; issue: JiraIssue }) => void;
   'finalize-estimation': (data: { roomCode: string; finalEstimate: number }) => void;

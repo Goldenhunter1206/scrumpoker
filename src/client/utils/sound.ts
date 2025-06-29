@@ -11,22 +11,27 @@ function getAudioContext(): AudioContext | null {
   return audioContext;
 }
 
-function playTone(freq = 600, durationMs = 150, volume = 0.15, type: OscillatorType = 'sine'): void {
+function playTone(
+  freq = 600,
+  durationMs = 150,
+  volume = 0.15,
+  type: OscillatorType = 'sine'
+): void {
   const ctx = getAudioContext();
   if (!ctx) return;
-  
+
   try {
     if (ctx.state === 'suspended') {
       ctx.resume();
     }
-    
+
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    
+
     osc.type = type;
     osc.frequency.value = freq;
     gain.gain.value = volume;
-    
+
     osc.connect(gain).connect(ctx.destination);
     osc.start();
     osc.stop(ctx.currentTime + durationMs / 1000);
@@ -37,7 +42,7 @@ function playTone(freq = 600, durationMs = 150, volume = 0.15, type: OscillatorT
 
 export function playSound(eventName: string): void {
   if (!soundEnabled) return;
-  
+
   switch (eventName) {
     case 'vote':
       playTone(600, 120, 0.2);

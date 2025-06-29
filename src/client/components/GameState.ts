@@ -22,7 +22,7 @@ export class GameStateManager {
       countdownActive: false,
       countdownSeconds: 0,
       history: [],
-      aggregate: null
+      aggregate: null,
     };
   }
 
@@ -70,7 +70,7 @@ export class GameStateManager {
       countdownActive: false,
       countdownSeconds: 0,
       history: [],
-      aggregate: null
+      aggregate: null,
     };
   }
 }

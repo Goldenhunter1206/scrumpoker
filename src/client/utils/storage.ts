@@ -47,10 +47,13 @@ export function clearActiveSession(): void {
 // Jira credentials storage (encrypted)
 export function saveJiraCredentials(credentials: SavedJiraCredentials): void {
   try {
-    const encryptedToken = (window as any).CryptoJS.AES.encrypt(credentials.token, credentials.email).toString();
+    const encryptedToken = (window as any).CryptoJS.AES.encrypt(
+      credentials.token,
+      credentials.email
+    ).toString();
     const dataToSave = {
       ...credentials,
-      token: encryptedToken
+      token: encryptedToken,
     };
     localStorage.setItem('jiraCredentials', JSON.stringify(dataToSave));
   } catch (e) {
@@ -63,10 +66,12 @@ export function loadJiraCredentials(): SavedJiraCredentials | null {
     const raw = localStorage.getItem('jiraCredentials');
     if (!raw) return null;
     const data = JSON.parse(raw);
-    const decryptedToken = (window as any).CryptoJS.AES.decrypt(data.token, data.email).toString((window as any).CryptoJS.enc.Utf8);
+    const decryptedToken = (window as any).CryptoJS.AES.decrypt(data.token, data.email).toString(
+      (window as any).CryptoJS.enc.Utf8
+    );
     return {
       ...data,
-      token: decryptedToken
+      token: decryptedToken,
     };
   } catch (e) {
     console.error('Failed to load Jira credentials', e);

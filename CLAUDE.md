@@ -33,6 +33,7 @@ npm run build:win
 ## Key Components
 
 ### Server Architecture (`server.js`)
+
 - Express app with Socket.IO integration
 - RESTful API endpoints (`/api/health`, `/api/stats`, `/api/session/:roomCode`)
 - WebSocket event handlers for real-time session management
@@ -40,6 +41,7 @@ npm run build:win
 - Session cleanup and graceful shutdown handling
 
 ### Frontend Architecture (`public/index.html`)
+
 - Single-page application with embedded CSS and JavaScript
 - Real-time UI updates via Socket.IO client
 - Session management (create/join/moderate)
@@ -47,12 +49,14 @@ npm run build:win
 - Jira integration UI for ticket selection and estimation
 
 ### Session Management
+
 - Room-based sessions with 6-character codes
 - Role-based permissions (facilitator, participant, viewer)
 - Real-time participant tracking and moderation
 - Vote collection and revelation system
 
 ### Jira Integration
+
 - OAuth-free Basic Auth implementation
 - Board and issue fetching from Jira Cloud
 - Story point updates with Fibonacci rounding
@@ -61,6 +65,7 @@ npm run build:win
 ## Environment Configuration
 
 Copy `.env.example` to `.env` and configure:
+
 - `PORT`: Server port (default: 3000)
 - `MAX_SESSIONS`: Maximum concurrent sessions
 - `SESSION_TIMEOUT`: Session expiration time in milliseconds
@@ -69,6 +74,7 @@ Copy `.env.example` to `.env` and configure:
 ## Deployment
 
 The application is containerized and configured for Render.com:
+
 - `Dockerfile`: Production-ready container with security best practices
 - `render.yaml`: Render.com deployment configuration
 - Health checks at `/api/health`
@@ -85,6 +91,7 @@ The application is containerized and configured for Render.com:
 ## Testing
 
 No test framework is currently configured. When adding tests, follow the existing code patterns and consider testing:
+
 - Socket.IO event handlers
 - Jira API integration
 - Session management logic

@@ -1,22 +1,28 @@
-import { SessionData, Participant, EstimationHistoryEntry, AggregateStats, Vote } from '@shared/types/index.js';
+import {
+  SessionData,
+  Participant,
+  EstimationHistoryEntry,
+  AggregateStats,
+  Vote,
+} from '@shared/types/index.js';
 
 export function generateRoomCode(): string {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
 export function createSession(
-  sessionName: string, 
-  facilitatorName: string, 
+  sessionName: string,
+  facilitatorName: string,
   facilitatorSocketId: string
 ): SessionData {
   const roomCode = generateRoomCode();
-  
+
   const facilitator: Participant = {
     name: facilitatorName,
     isFacilitator: true,
     isViewer: false,
     joinedAt: new Date(),
-    hasVoted: false
+    hasVoted: false,
   };
 
   const session: SessionData = {
@@ -30,9 +36,9 @@ export function createSession(
     votingRevealed: false,
     totalVotes: 0,
     history: [],
-    aggregate: null
+    aggregate: null,
   };
-  
+
   return session;
 }
 
@@ -40,31 +46,34 @@ export function getSessionData(session: any): SessionData {
   return {
     id: session.id,
     sessionName: session.sessionName,
-    facilitator: typeof session.facilitator === 'string' ? session.facilitator : session.facilitator.name,
+    facilitator:
+      typeof session.facilitator === 'string' ? session.facilitator : session.facilitator.name,
     currentTicket: session.currentTicket,
     currentJiraIssue: session.currentJiraIssue,
-    jiraConfig: session.jiraConfig ? {
-      domain: session.jiraConfig.domain,
-      boardId: session.jiraConfig.boardId,
-      hasToken: !!(session.jiraConfig as any).token
-    } : null,
+    jiraConfig: session.jiraConfig
+      ? {
+          domain: session.jiraConfig.domain,
+          boardId: session.jiraConfig.boardId,
+          hasToken: !!(session.jiraConfig as any).token,
+        }
+      : null,
     participants: Array.from(session.participants.values()).map((p: any) => ({
       name: p.name,
       isFacilitator: p.isFacilitator,
       isViewer: p.isViewer,
       joinedAt: p.joinedAt,
       hasVoted: session.votes.has(p.name),
-      vote: session.votingRevealed ? session.votes.get(p.name) : undefined
+      vote: session.votingRevealed ? session.votes.get(p.name) : undefined,
     })),
     votingRevealed: session.votingRevealed,
     totalVotes: session.votes.size,
     history: session.history || [],
-    aggregate: session.aggregate || null
+    aggregate: session.aggregate || null,
   };
 }
 
 export function recordHistory(
-  session: any, 
+  session: any,
   entry: Omit<EstimationHistoryEntry, 'timestamp'>
 ): void {
   if (!session.history) session.history = [];
@@ -72,13 +81,13 @@ export function recordHistory(
     session.aggregate = {
       totalRounds: 0,
       consensusRounds: 0,
-      perUser: {}
+      perUser: {},
     };
   }
 
-  const stamped: EstimationHistoryEntry = { 
-    ...entry, 
-    timestamp: new Date() 
+  const stamped: EstimationHistoryEntry = {
+    ...entry,
+    timestamp: new Date(),
   };
   session.history.push(stamped);
 

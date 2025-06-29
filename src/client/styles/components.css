@@ -216,7 +216,7 @@
   @apply flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 transition-colors;
 }
 
-.dashboard-card[draggable="true"] .dashboard-card-header {
+.dashboard-card[draggable='true'] .dashboard-card-header {
   @apply cursor-move;
 }
 
@@ -241,15 +241,15 @@
 }
 
 /* Default collapsed cards for space saving */
-.dashboard-card[data-card="jira-integration"].collapsed .dashboard-card-content,
-.dashboard-card[data-card="manual-ticket"].collapsed .dashboard-card-content,
-.dashboard-card[data-card="stats"].collapsed .dashboard-card-content {
+.dashboard-card[data-card='jira-integration'].collapsed .dashboard-card-content,
+.dashboard-card[data-card='manual-ticket'].collapsed .dashboard-card-content,
+.dashboard-card[data-card='stats'].collapsed .dashboard-card-content {
   display: none;
 }
 
-.dashboard-card[data-card="jira-integration"].collapsed .dashboard-card-toggle,
-.dashboard-card[data-card="manual-ticket"].collapsed .dashboard-card-toggle,
-.dashboard-card[data-card="stats"].collapsed .dashboard-card-toggle {
+.dashboard-card[data-card='jira-integration'].collapsed .dashboard-card-toggle,
+.dashboard-card[data-card='manual-ticket'].collapsed .dashboard-card-toggle,
+.dashboard-card[data-card='stats'].collapsed .dashboard-card-toggle {
   @apply rotate-180;
 }
 
@@ -264,7 +264,7 @@
   @apply cursor-move transition-all duration-200;
 }
 
-.dashboard-card[draggable="true"] {
+.dashboard-card[draggable='true'] {
   @apply select-none;
 }
 
@@ -297,7 +297,8 @@
   @apply opacity-100;
 }
 
-.sidebar-column, .main-column {
+.sidebar-column,
+.main-column {
   @apply relative;
 }
 

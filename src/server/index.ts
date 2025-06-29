@@ -6,27 +6,27 @@ import { dirname, join } from 'path';
 import cors from 'cors';
 import { createClient } from 'redis';
 import dotenv from 'dotenv';
-import { 
-  ServerToClientEvents, 
+import {
+  ServerToClientEvents,
   ClientToServerEvents,
   SessionData,
   Participant,
   Vote,
   VotingResults,
-  JiraIssue
+  JiraIssue,
 } from '@shared/types/index.js';
 import { SessionStore } from './utils/sessionStore.js';
-import { 
-  getJiraBoards, 
-  getJiraBoardIssues, 
-  updateJiraIssueStoryPoints, 
-  roundToNearestFibonacci 
+import {
+  getJiraBoards,
+  getJiraBoardIssues,
+  updateJiraIssueStoryPoints,
+  roundToNearestFibonacci,
 } from './utils/jiraApi.js';
 import {
   generateRoomCode,
   createSession,
   getSessionData,
-  recordHistory
+  recordHistory,
 } from './utils/sessionHelpers.js';
 import { setupSocketHandlers } from './socketHandlers.js';
 
@@ -40,15 +40,16 @@ try {
 }
 
 const APP_TITLE = process.env.APP_TITLE || 'Scrum Poker';
-const APP_SUBTITLE = process.env.APP_SUBTITLE || 'Collaborative Story Point Estimation for Your Team';
+const APP_SUBTITLE =
+  process.env.APP_SUBTITLE || 'Collaborative Story Point Estimation for Your Team';
 
 const app = express();
 const server = createServer(app);
 const io = new SocketIOServer<ClientToServerEvents, ServerToClientEvents>(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN || "*",
-    methods: ["GET", "POST"]
-  }
+    origin: process.env.CORS_ORIGIN || '*',
+    methods: ['GET', 'POST'],
+  },
 });
 
 const PORT = parseInt(process.env.PORT || '3000');
@@ -80,10 +81,12 @@ interface InternalSessionData {
 }
 
 // Middleware
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || "*",
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN || '*',
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: '10mb' }));
 
 // Trust proxy for production deployments
@@ -106,7 +109,7 @@ if (NODE_ENV === 'production') {
 if (NODE_ENV === 'production') {
   const clientPath = join(__dirname, '../public');
   app.use(express.static(clientPath));
-  
+
   app.get('/', (req, res) => {
     res.sendFile(join(clientPath, 'index.html'));
   });
@@ -119,9 +122,10 @@ const sessions = new SessionStore(memoryStore as any);
 // Redis setup
 if (process.env.REDIS_URL) {
   const redisClient = createClient({ url: process.env.REDIS_URL });
-  redisClient.on('error', (err) => console.error('Redis client error', err));
+  redisClient.on('error', err => console.error('Redis client error', err));
 
-  redisClient.connect()
+  redisClient
+    .connect()
     .then(async () => {
       console.log('🔌 Connected to Redis');
       sessions.setRedisClient(redisClient);
@@ -135,7 +139,7 @@ if (process.env.REDIS_URL) {
 }
 
 // Socket.IO connection handling
-io.on('connection', (socket) => {
+io.on('connection', socket => {
   console.log(`User connected: ${socket.id}`);
 
   socket.on('create-session', ({ sessionName, facilitatorName }) => {
@@ -146,7 +150,7 @@ io.on('connection', (socket) => {
         sessionName,
         facilitator: {
           name: facilitatorName,
-          socketId: socket.id
+          socketId: socket.id,
         },
         currentTicket: '',
         currentJiraIssue: null,
@@ -160,9 +164,9 @@ io.on('connection', (socket) => {
         createdAt: new Date(),
         lastActivity: new Date(),
         history: [],
-        aggregate: null
+        aggregate: null,
       };
-      
+
       // Add facilitator as first participant
       session.participants.set(facilitatorName, {
         name: facilitatorName,
@@ -170,18 +174,18 @@ io.on('connection', (socket) => {
         isFacilitator: true,
         isViewer: false,
         joinedAt: new Date(),
-        hasVoted: false
+        hasVoted: false,
       });
-      
+
       memoryStore.set(roomCode, session);
       socket.join(roomCode);
-      
+
       socket.emit('session-created', {
         success: true,
         roomCode,
-        sessionData: getSessionData(session)
+        sessionData: getSessionData(session),
       });
-      
+
       console.log(`Session created: ${roomCode} by ${facilitatorName}`);
     } catch (error) {
       socket.emit('error', { message: 'Failed to create session' });
@@ -192,7 +196,7 @@ io.on('connection', (socket) => {
     try {
       const upperCode = roomCode.toUpperCase();
       const session = memoryStore.get(upperCode);
-      
+
       if (!session) {
         socket.emit('join-failed', { message: 'Session not found' });
         return;
@@ -215,13 +219,13 @@ io.on('connection', (socket) => {
 
         io.to(upperCode).emit('participant-joined', {
           participantName,
-          sessionData: getSessionData(session)
+          sessionData: getSessionData(session),
         });
 
         socket.emit('join-success', {
           roomCode: upperCode,
           sessionData: getSessionData(session),
-          yourVote: session.votes.get(participantName) || null
+          yourVote: session.votes.get(participantName) || null,
         });
 
         console.log(`${participantName} reconnected to session ${upperCode}`);
@@ -235,7 +239,7 @@ io.on('connection', (socket) => {
         isFacilitator: false,
         isViewer: asViewer,
         joinedAt: new Date(),
-        hasVoted: false
+        hasVoted: false,
       });
 
       session.lastActivity = new Date();
@@ -243,13 +247,13 @@ io.on('connection', (socket) => {
 
       io.to(upperCode).emit('participant-joined', {
         participantName,
-        sessionData: getSessionData(session)
+        sessionData: getSessionData(session),
       });
 
       socket.emit('join-success', {
         roomCode: upperCode,
         sessionData: getSessionData(session),
-        yourVote: session.votes.get(participantName) || null
+        yourVote: session.votes.get(participantName) || null,
       });
 
       console.log(`${participantName} joined session ${upperCode}`);
@@ -263,18 +267,19 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
-    
+
     memoryStore.forEach((session, roomCode) => {
-      const participant = Array.from(session.participants.values())
-        .find(p => p.socketId === socket.id);
-      
+      const participant = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id
+      );
+
       if (participant) {
         participant.socketId = undefined;
         participant.disconnectedAt = new Date();
-        
+
         io.to(roomCode).emit('participant-left', {
           participantName: participant.name,
-          sessionData: getSessionData(session)
+          sessionData: getSessionData(session),
         });
 
         console.log(`${participant.name} temporarily left session ${roomCode}`);
@@ -285,23 +290,23 @@ io.on('connection', (socket) => {
 
 // API endpoints
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     sessions: sessions.size,
     uptime: process.uptime(),
     environment: NODE_ENV,
-    version: '1.0.0'
+    version: '1.0.0',
   });
 });
 
 app.get('/api/stats', (req, res) => {
   const stats = {
     totalSessions: sessions.size,
-    activeSessions: Array.from(sessions.values()).filter(s => 
-      Date.now() - (s as any).lastActivity < 60000
+    activeSessions: Array.from(sessions.values()).filter(
+      s => Date.now() - (s as any).lastActivity < 60000
     ).length,
     environment: NODE_ENV,
-    uptime: process.uptime()
+    uptime: process.uptime(),
   };
   res.json(stats);
 });
@@ -315,37 +320,40 @@ app.get('/api/session/:roomCode', (req, res) => {
 });
 
 // Clean up old sessions
-setInterval(() => {
-  const now = new Date();
-  let cleaned = 0;
-  
-  memoryStore.forEach((session, roomCode) => {
-    if (now.getTime() - session.lastActivity.getTime() > SESSION_TIMEOUT) {
-      if (session.countdownTimer) {
-        clearInterval(session.countdownTimer);
+setInterval(
+  () => {
+    const now = new Date();
+    let cleaned = 0;
+
+    memoryStore.forEach((session, roomCode) => {
+      if (now.getTime() - session.lastActivity.getTime() > SESSION_TIMEOUT) {
+        if (session.countdownTimer) {
+          clearInterval(session.countdownTimer);
+        }
+        memoryStore.delete(roomCode);
+        cleaned++;
       }
-      memoryStore.delete(roomCode);
-      cleaned++;
+    });
+
+    if (cleaned > 0) {
+      console.log(`🧹 Cleaned up ${cleaned} inactive sessions`);
     }
-  });
-  
-  if (cleaned > 0) {
-    console.log(`🧹 Cleaned up ${cleaned} inactive sessions`);
-  }
-  
-  if (NODE_ENV === 'production' && sessions.size > 0) {
-    console.log(`📊 Active sessions: ${sessions.size}/${MAX_SESSIONS}`);
-  }
-}, 60 * 60 * 1000);
+
+    if (NODE_ENV === 'production' && sessions.size > 0) {
+      console.log(`📊 Active sessions: ${sessions.size}/${MAX_SESSIONS}`);
+    }
+  },
+  60 * 60 * 1000
+);
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('🛑 SIGTERM received, shutting down gracefully');
-  
-  io.emit('server-shutdown', { 
-    message: 'Server is shutting down for maintenance. Please reconnect in a few minutes.' 
+
+  io.emit('server-shutdown', {
+    message: 'Server is shutting down for maintenance. Please reconnect in a few minutes.',
   });
-  
+
   server.close(() => {
     console.log('✅ Process terminated');
     process.exit(0);
@@ -358,7 +366,7 @@ server.listen(PORT, () => {
   console.log(`📱 Frontend: http://localhost:${PORT}`);
   console.log(`🔧 Health check: http://localhost:${PORT}/api/health`);
   console.log(`📊 Stats: http://localhost:${PORT}/api/stats`);
-  
+
   if (NODE_ENV === 'production') {
     console.log(`🚀 Production deployment ready!`);
     console.log(`📊 Max sessions: ${MAX_SESSIONS}`);

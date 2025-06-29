@@ -20,13 +20,6 @@
       "@shared/*": ["src/shared/*"]
     }
   },
-  "include": [
-    "src/server/**/*.ts",
-    "src/shared/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "src/client"
-  ]
+  "include": ["src/server/**/*.ts", "src/shared/**/*.ts"],
+  "exclude": ["node_modules", "dist", "src/client"]
 }

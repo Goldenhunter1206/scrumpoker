@@ -18,7 +18,7 @@ export function showNotification(message: string, type: 'success' | 'error' = 's
 export function updateConnectionStatus(connected: boolean): void {
   const status = document.getElementById('connection-status');
   if (!status) return;
-  
+
   if (connected) {
     status.textContent = '🟢 Connected';
     status.className = 'connection-status connected';
@@ -89,12 +89,15 @@ export function setupClickToCopy(elementId: string, successMessage: string): voi
   element.addEventListener('click', () => {
     const text = element.textContent?.trim();
     if (!text) return;
-    
-    navigator.clipboard.writeText(text).then(() => {
-      showNotification(successMessage, 'success');
-    }).catch(() => {
-      showNotification(`Failed to copy ${elementId}`, 'error');
-    });
+
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        showNotification(successMessage, 'success');
+      })
+      .catch(() => {
+        showNotification(`Failed to copy ${elementId}`, 'error');
+      });
   });
 }
 
