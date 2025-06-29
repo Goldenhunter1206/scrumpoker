@@ -6,6 +6,7 @@ import { dirname, join } from 'path';
 import cors from 'cors';
 import { createClient } from 'redis';
 import dotenv from 'dotenv';
+import rateLimit from 'express-rate-limit';
 import {
   ServerToClientEvents,
   ClientToServerEvents,
@@ -29,6 +30,7 @@ import {
   recordHistory,
 } from './utils/sessionHelpers.js';
 import { setupSocketHandlers } from './socketHandlers.js';
+import { rateLimitConfig } from './middleware/validation.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -82,6 +84,10 @@ interface InternalSessionData {
   typingUsers: Map<string, NodeJS.Timeout>;
 }
 
+// Rate limiting
+const generalRateLimit = rateLimit(rateLimitConfig.general);
+const sessionCreationRateLimit = rateLimit(rateLimitConfig.sessionCreation);
+
 // Middleware
 app.use(
   cors({
@@ -89,6 +95,10 @@ app.use(
     credentials: true,
   })
 );
+
+// Apply general rate limiting to all routes
+app.use(generalRateLimit);
+
 app.use(express.json({ limit: '10mb' }));
 
 // Trust proxy for production deployments
@@ -96,16 +106,38 @@ if (process.env.TRUST_PROXY === 'true') {
   app.set('trust proxy', 1);
 }
 
-// Security headers for production
-if (NODE_ENV === 'production') {
-  app.use((req, res, next) => {
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
-    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    next();
-  });
-}
+// Security headers for all environments
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-DNS-Prefetch-Control', 'off');
+  res.setHeader('X-Download-Options', 'noopen');
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+  
+  // Content Security Policy
+  const cspDirectives = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com",
+    "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
+    "font-src 'self' fonts.gstatic.com",
+    "img-src 'self' data: https:",
+    "connect-src 'self' ws: wss:",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'"
+  ].join('; ');
+  
+  res.setHeader('Content-Security-Policy', cspDirectives);
+  
+  // Additional security headers for production
+  if (NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  }
+  
+  next();
+});
 
 // Serve built client files in production
 if (NODE_ENV === 'production') {
@@ -146,12 +178,31 @@ io.on('connection', socket => {
 
   socket.on('create-session', ({ sessionName, facilitatorName }) => {
     try {
+      // Basic validation
+      if (!sessionName || !facilitatorName || 
+          sessionName.length > 100 || facilitatorName.length > 50 ||
+          typeof sessionName !== 'string' || typeof facilitatorName !== 'string') {
+        socket.emit('error', { message: 'Invalid session data' });
+        return;
+      }
+
+      // Check session limit
+      if (memoryStore.size >= MAX_SESSIONS) {
+        socket.emit('error', { message: 'Server capacity reached. Please try again later.' });
+        return;
+      }
+
       const roomCode = generateRoomCode();
+      
+      // Sanitize inputs
+      const sanitizedSessionName = sessionName.trim().substring(0, 100);
+      const sanitizedFacilitatorName = facilitatorName.trim().substring(0, 50);
+
       const session: InternalSessionData = {
         id: roomCode,
-        sessionName,
+        sessionName: sanitizedSessionName,
         facilitator: {
-          name: facilitatorName,
+          name: sanitizedFacilitatorName,
           socketId: socket.id,
         },
         currentTicket: '',
@@ -172,8 +223,8 @@ io.on('connection', socket => {
       };
 
       // Add facilitator as first participant
-      session.participants.set(facilitatorName, {
-        name: facilitatorName,
+      session.participants.set(sanitizedFacilitatorName, {
+        name: sanitizedFacilitatorName,
         socketId: socket.id,
         isFacilitator: true,
         isViewer: false,
@@ -190,7 +241,7 @@ io.on('connection', socket => {
         sessionData: getSessionData(session),
       });
 
-      console.log(`Session created: ${roomCode} by ${facilitatorName}`);
+      console.log(`Session created: ${roomCode} by ${sanitizedFacilitatorName}`);
     } catch (error) {
       socket.emit('error', { message: 'Failed to create session' });
     }

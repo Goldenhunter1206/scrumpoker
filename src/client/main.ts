@@ -22,6 +22,7 @@ import {
   toggleFacilitatorControlsVisibility,
 } from './utils/ui.js';
 import { playSound, toggleSound, updateSoundIcon } from './utils/sound.js';
+import { escapeHtml, setTextContent, setSafeHtml, createElement, createSafeLink } from './utils/security.js';
 import {
   SessionData,
   VotingResults,
@@ -652,20 +653,42 @@ class ScrumPokerApp {
       div.style.background = '#f9fafb';
     }
 
-    const currentPoints = issue.currentStoryPoints
-      ? `<span class="jira-current-points">${issue.currentStoryPoints} SP</span>`
-      : '';
-
-    div.innerHTML = `
-      <div class="jira-issue-key">${issue.key} ${currentPoints}</div>
-      <div class="jira-issue-summary">${issue.summary}</div>
-      <div class="jira-issue-meta">
-        <span>📋 ${issue.issueType}</span>
-        <span>🔺 ${issue.priority}</span>
-        <span>📊 ${issue.status}</span>
-        <span>👤 ${issue.assignee}</span>
-      </div>
-    `;
+    // Create key container
+    const keyDiv = createElement('div');
+    keyDiv.className = 'jira-issue-key';
+    setTextContent(keyDiv, issue.key);
+    
+    // Add current points if they exist
+    if (issue.currentStoryPoints) {
+      const pointsSpan = createElement('span', `${issue.currentStoryPoints} SP`, 'jira-current-points');
+      keyDiv.appendChild(document.createTextNode(' '));
+      keyDiv.appendChild(pointsSpan);
+    }
+    
+    // Create summary div
+    const summaryDiv = createElement('div', issue.summary, 'jira-issue-summary');
+    
+    // Create meta container
+    const metaDiv = createElement('div');
+    metaDiv.className = 'jira-issue-meta';
+    
+    // Add meta items with escaped content
+    const metaItems = [
+      `📋 ${issue.issueType}`,
+      `🔺 ${issue.priority}`,
+      `📊 ${issue.status}`,
+      `👤 ${issue.assignee}`
+    ];
+    
+    metaItems.forEach(item => {
+      const span = createElement('span', item);
+      metaDiv.appendChild(span);
+    });
+    
+    // Add all elements to div
+    div.appendChild(keyDiv);
+    div.appendChild(summaryDiv);
+    div.appendChild(metaDiv);
 
     return div;
   }
@@ -778,28 +801,64 @@ class ScrumPokerApp {
       if (state.currentJiraIssue) {
         const issue = state.currentJiraIssue;
         const jiraBaseUrl = state.jiraConfig ? `https://${state.jiraConfig.domain}` : '#';
-        const currentPoints = issue.currentStoryPoints
-          ? `<span style="background: #fbbf24; color: #92400e; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-left: 10px;">Current: ${issue.currentStoryPoints} SP</span>`
-          : '';
-
-        ticketElement.innerHTML = `
-          <div style="display: flex; align-items: center; margin-bottom: 10px; gap: 10px;">
-            <a href="${jiraBaseUrl}/browse/${issue.key}" target="_blank" style="color: #059669; font-size: 16px; font-weight: bold; text-decoration: underline;">
-              ${issue.key}
-            </a>
-            ${currentPoints}
-          </div>
-          <div style="font-weight: 600; margin-bottom: 8px;">${issue.summary}</div>
-          <div style="font-size: 14px; color: #6b7280; display: flex; gap: 15px; flex-wrap: wrap;">
-            <span>📋 ${issue.issueType}</span>
-            <span>🔺 ${issue.priority}</span>
-            <span>📊 ${issue.status}</span>
-            <span>👤 ${issue.assignee}</span>
-          </div>
-          ${issue.description ? `<div style="margin-top: 10px; padding: 10px; background: #f9fafb; border-radius: 6px; font-size: 14px;">${issue.description.substring(0, 200)}${issue.description.length > 200 ? '...' : ''}</div>` : ''}
-        `;
+        
+        // Clear the element first
+        ticketElement.innerHTML = '';
+        
+        // Create main container
+        const mainContainer = createElement('div');
+        mainContainer.style.cssText = 'display: flex; align-items: center; margin-bottom: 10px; gap: 10px;';
+        
+        // Create safe link to Jira
+        const jiraUrl = `${jiraBaseUrl}/browse/${encodeURIComponent(issue.key)}`;
+        const jiraLink = createSafeLink(jiraUrl, issue.key, '_blank');
+        jiraLink.style.cssText = 'color: #059669; font-size: 16px; font-weight: bold; text-decoration: underline;';
+        mainContainer.appendChild(jiraLink);
+        
+        // Add current points if they exist
+        if (issue.currentStoryPoints) {
+          const pointsSpan = createElement('span', `Current: ${issue.currentStoryPoints} SP`);
+          pointsSpan.style.cssText = 'background: #fbbf24; color: #92400e; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-left: 10px;';
+          mainContainer.appendChild(pointsSpan);
+        }
+        
+        // Create summary element
+        const summaryDiv = createElement('div', issue.summary);
+        summaryDiv.style.cssText = 'font-weight: 600; margin-bottom: 8px;';
+        
+        // Create metadata container
+        const metaDiv = createElement('div');
+        metaDiv.style.cssText = 'font-size: 14px; color: #6b7280; display: flex; gap: 15px; flex-wrap: wrap;';
+        
+        // Add metadata spans with escaped content
+        const metaItems = [
+          `📋 ${issue.issueType}`,
+          `🔺 ${issue.priority}`,
+          `📊 ${issue.status}`,
+          `👤 ${issue.assignee}`
+        ];
+        
+        metaItems.forEach(item => {
+          const span = createElement('span', item);
+          metaDiv.appendChild(span);
+        });
+        
+        // Add all elements to ticket element
+        ticketElement.appendChild(mainContainer);
+        ticketElement.appendChild(summaryDiv);
+        ticketElement.appendChild(metaDiv);
+        
+        // Add description if it exists
+        if (issue.description) {
+          const descDiv = createElement('div');
+          descDiv.style.cssText = 'margin-top: 10px; padding: 10px; background: #f9fafb; border-radius: 6px; font-size: 14px;';
+          const truncatedDesc = issue.description.substring(0, 200);
+          const finalDesc = issue.description.length > 200 ? truncatedDesc + '...' : truncatedDesc;
+          setTextContent(descDiv, finalDesc);
+          ticketElement.appendChild(descDiv);
+        }
       } else {
-        ticketElement.textContent = state.currentTicket;
+        setTextContent(ticketElement, state.currentTicket);
       }
 
       showElement('current-ticket');
@@ -1547,22 +1606,29 @@ class ScrumPokerApp {
     messageDiv.className = `chat-message ${isSystem ? 'system' : isOwn ? 'own' : 'other'}`;
 
     if (isSystem) {
-      messageDiv.innerHTML = `
-        <div class="chat-message-content text-center">${message.content}</div>
-      `;
+      const contentDiv = createElement('div', message.content, 'chat-message-content text-center');
+      messageDiv.appendChild(contentDiv);
     } else {
       const timeStr = new Date(message.timestamp).toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
       });
 
-      messageDiv.innerHTML = `
-        <div class="chat-message-header">
-          <span class="chat-message-author">${message.author}</span>
-          <span class="chat-message-time">${timeStr}</span>
-        </div>
-        <div class="chat-message-content">${this.escapeHtml(message.content)}</div>
-      `;
+      // Create header
+      const headerDiv = createElement('div');
+      headerDiv.className = 'chat-message-header';
+      
+      const authorSpan = createElement('span', message.author, 'chat-message-author');
+      const timeSpan = createElement('span', timeStr, 'chat-message-time');
+      
+      headerDiv.appendChild(authorSpan);
+      headerDiv.appendChild(timeSpan);
+      
+      // Create content
+      const contentDiv = createElement('div', message.content, 'chat-message-content');
+      
+      messageDiv.appendChild(headerDiv);
+      messageDiv.appendChild(contentDiv);
     }
 
     container.appendChild(messageDiv);

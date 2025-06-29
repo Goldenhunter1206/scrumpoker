@@ -53,10 +53,20 @@ app.get('/', (req, res) => {
             return res.status(500).send('Error loading page');
         }
         
-        // Replace placeholders with environment variables
+        // HTML escape function to prevent XSS
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+        
+        // Replace placeholders with escaped environment variables
         const processedHtml = data
-            .replace(/{{APP_TITLE}}/g, APP_TITLE)
-            .replace(/{{APP_SUBTITLE}}/g, APP_SUBTITLE);
+            .replace(/{{APP_TITLE}}/g, escapeHtml(APP_TITLE))
+            .replace(/{{APP_SUBTITLE}}/g, escapeHtml(APP_SUBTITLE));
         
         res.setHeader('Content-Type', 'text/html');
         res.send(processedHtml);
