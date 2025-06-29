@@ -191,10 +191,8 @@ export class SocketManager {
 
       // Update the cached Jira issues to reflect the new story points
       const state = gameState.getState();
-      const updatedIssues = state.jiraIssues.map(issue => 
-        issue.key === data.issueKey 
-          ? { ...issue, currentStoryPoints: data.storyPoints }
-          : issue
+      const updatedIssues = state.jiraIssues.map(issue =>
+        issue.key === data.issueKey ? { ...issue, currentStoryPoints: data.storyPoints } : issue
       );
 
       gameState.updateState({

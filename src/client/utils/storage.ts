@@ -1,5 +1,10 @@
 import { SavedSessionInfo, SavedJiraCredentials } from '@shared/types/index.js';
-import { setStorageItem, getStorageItem, getStorageItemParsed, removeStorageItem } from './storageOptimizer.js';
+import {
+  setStorageItem,
+  getStorageItem,
+  getStorageItemParsed,
+  removeStorageItem,
+} from './storageOptimizer.js';
 
 // User name storage
 export function saveUserName(name: string): void {

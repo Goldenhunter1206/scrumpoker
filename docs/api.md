@@ -11,6 +11,7 @@ Complete API reference for the Scrum Poker application.
 Returns server health status and basic information.
 
 **Response:**
+
 ```json
 {
   "status": "ok",
@@ -22,6 +23,7 @@ Returns server health status and basic information.
 ```
 
 **Status Codes:**
+
 - `200 OK` - Server is healthy
 - `500 Internal Server Error` - Server issues
 
@@ -34,16 +36,18 @@ Returns server health status and basic information.
 Returns server usage statistics.
 
 **Response:**
+
 ```json
 {
   "totalSessions": 15,
   "activeSessions": 8,
-  "environment": "production", 
+  "environment": "production",
   "uptime": 3600.5
 }
 ```
 
 **Status Codes:**
+
 - `200 OK` - Statistics retrieved successfully
 
 ---
@@ -55,9 +59,11 @@ Returns server usage statistics.
 Retrieves public information about a specific session.
 
 **Parameters:**
+
 - `roomCode` (string) - 6-character room code (case-insensitive)
 
 **Response:**
+
 ```json
 {
   "id": "ABC123",
@@ -97,6 +103,7 @@ Retrieves public information about a specific session.
 ```
 
 **Status Codes:**
+
 - `200 OK` - Session found
 - `404 Not Found` - Session doesn't exist
 
@@ -112,7 +119,7 @@ Connect to the WebSocket endpoint:
 import { io } from 'socket.io-client';
 
 const socket = io('https://your-domain.com', {
-  transports: ['websocket', 'polling']
+  transports: ['websocket', 'polling'],
 });
 ```
 
@@ -125,6 +132,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `create-session`
 
 **Payload:**
+
 ```json
 {
   "sessionName": "Sprint 23 Planning",
@@ -141,6 +149,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `join-session`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123",
@@ -159,6 +168,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `configure-jira`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123",
@@ -178,6 +188,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `get-jira-issues`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123",
@@ -194,6 +205,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `set-jira-issue`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123",
@@ -219,6 +231,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `set-ticket`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123",
@@ -235,6 +248,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `submit-vote`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123",
@@ -253,6 +267,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `reveal-votes`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123"
@@ -268,6 +283,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `reset-voting`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123"
@@ -283,6 +299,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `start-countdown`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123",
@@ -299,6 +316,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `finalize-estimation`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123",
@@ -315,6 +333,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `moderate-participant`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123",
@@ -334,6 +353,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `set-facilitator-viewer`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123",
@@ -350,6 +370,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `end-session`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123"
@@ -365,6 +386,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `send-chat-message`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123",
@@ -381,6 +403,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `typing-indicator`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123",
@@ -400,6 +423,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `session-created`
 
 **Payload:**
+
 ```json
 {
   "success": true,
@@ -416,6 +440,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `join-success`
 
 **Payload:**
+
 ```json
 {
   "roomCode": "ABC123",
@@ -432,6 +457,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `join-failed`
 
 **Payload:**
+
 ```json
 {
   "message": "Session not found"
@@ -445,6 +471,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `participant-joined`
 
 **Payload:**
+
 ```json
 {
   "participantName": "Jane Smith",
@@ -459,6 +486,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `participant-left`
 
 **Payload:**
+
 ```json
 {
   "participantName": "Jane Smith",
@@ -473,6 +501,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `vote-submitted`
 
 **Payload:**
+
 ```json
 {
   "participantName": "Jane Smith",
@@ -487,6 +516,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `votes-revealed`
 
 **Payload:**
+
 ```json
 {
   "sessionData": {...},
@@ -512,6 +542,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `countdown-started`
 
 **Payload:**
+
 ```json
 {
   "duration": 30
@@ -525,6 +556,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `countdown-tick`
 
 **Payload:**
+
 ```json
 {
   "secondsLeft": 25,
@@ -539,6 +571,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `countdown-finished`
 
 **Payload:**
+
 ```json
 {
   "sessionData": {...}
@@ -552,6 +585,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `chatMessage`
 
 **Payload:**
+
 ```json
 {
   "id": "msg-12345",
@@ -569,6 +603,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `typingUpdate`
 
 **Payload:**
+
 ```json
 ["Jane Smith", "John Doe"]
 ```
@@ -580,6 +615,7 @@ const socket = io('https://your-domain.com', {
 **Event:** `error`
 
 **Payload:**
+
 ```json
 {
   "message": "Only facilitator can reveal votes"
@@ -603,11 +639,11 @@ Session tokens are used for reconnection authentication:
 
 Default rate limits:
 
-| Endpoint/Event | Limit | Window |
-|----------------|-------|--------|
-| REST API | 100 requests | 15 minutes |
-| Socket Events | 60 events | 1 minute |
-| Chat Messages | 20 messages | 1 minute |
+| Endpoint/Event | Limit        | Window     |
+| -------------- | ------------ | ---------- |
+| REST API       | 100 requests | 15 minutes |
+| Socket Events  | 60 events    | 1 minute   |
+| Chat Messages  | 20 messages  | 1 minute   |
 
 ### Input Validation
 
@@ -648,11 +684,11 @@ const socket = io('https://your-domain.com');
 // Create session
 socket.emit('create-session', {
   sessionName: 'Sprint Planning',
-  facilitatorName: 'John Doe'
+  facilitatorName: 'John Doe',
 });
 
 // Listen for session creation
-socket.on('session-created', (data) => {
+socket.on('session-created', data => {
   console.log('Room code:', data.roomCode);
   localStorage.setItem('sessionToken', data.sessionToken);
 });
@@ -661,17 +697,17 @@ socket.on('session-created', (data) => {
 socket.emit('join-session', {
   roomCode: 'ABC123',
   participantName: 'Jane Smith',
-  asViewer: false
+  asViewer: false,
 });
 
 // Submit vote
 socket.emit('submit-vote', {
   roomCode: 'ABC123',
-  vote: 5
+  vote: 5,
 });
 
 // Listen for vote reveals
-socket.on('votes-revealed', (data) => {
+socket.on('votes-revealed', data => {
   console.log('Results:', data.results);
 });
 ```
@@ -692,7 +728,7 @@ curl https://your-domain.com/api/stats
 ### Error Handling
 
 ```javascript
-socket.on('error', (error) => {
+socket.on('error', error => {
   console.error('Socket error:', error.message);
   // Handle specific errors
   switch (error.message) {
@@ -703,11 +739,11 @@ socket.on('error', (error) => {
       // Show permission error
       break;
     default:
-      // Show generic error
+    // Show generic error
   }
 });
 
-socket.on('connect_error', (error) => {
+socket.on('connect_error', error => {
   console.error('Connection error:', error);
   // Handle connection failures
 });

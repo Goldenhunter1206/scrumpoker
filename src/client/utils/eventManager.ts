@@ -23,16 +23,16 @@ class EventManager {
     options?: boolean | AddEventListenerOptions
   ): string {
     const id = `listener_${++this.idCounter}`;
-    
+
     element.addEventListener(type, listener, options);
-    
+
     this.listeners.set(id, {
       element,
       type,
       listener,
-      options
+      options,
     });
-    
+
     return id;
   }
 
@@ -53,7 +53,7 @@ class EventManager {
    */
   removeElementListeners(element: Element | Window | Document): number {
     let removed = 0;
-    
+
     for (const [id, info] of this.listeners) {
       if (info.element === element) {
         info.element.removeEventListener(info.type, info.listener, info.options);
@@ -61,7 +61,7 @@ class EventManager {
         removed++;
       }
     }
-    
+
     return removed;
   }
 
@@ -70,7 +70,7 @@ class EventManager {
    */
   removeEventListenersByType(type: string): number {
     let removed = 0;
-    
+
     for (const [id, info] of this.listeners) {
       if (info.type === type) {
         info.element.removeEventListener(info.type, info.listener, info.options);
@@ -78,7 +78,7 @@ class EventManager {
         removed++;
       }
     }
-    
+
     return removed;
   }
 
@@ -87,12 +87,12 @@ class EventManager {
    */
   removeAllEventListeners(): number {
     let removed = 0;
-    
-    for (const [id, info] of this.listeners) {
+
+    for (const info of this.listeners.values()) {
       info.element.removeEventListener(info.type, info.listener, info.options);
       removed++;
     }
-    
+
     this.listeners.clear();
     return removed;
   }
@@ -109,13 +109,13 @@ class EventManager {
    */
   getElementListeners(element: Element | Window | Document): EventListenerInfo[] {
     const result: EventListenerInfo[] = [];
-    
+
     for (const info of this.listeners.values()) {
       if (info.element === element) {
         result.push(info);
       }
     }
-    
+
     return result;
   }
 }
@@ -194,7 +194,7 @@ export class ElementEventTracker {
   cleanup(): void {
     this.eventIds.forEach(id => eventManager.removeEventListener(id));
     this.eventIds = [];
-    
+
     if (this.observer) {
       this.observer.disconnect();
       this.observer = null;
@@ -207,12 +207,14 @@ export class ElementEventTracker {
   private setupCleanupObserver(): void {
     if (!this.element.parentNode) return;
 
-    this.observer = new MutationObserver((mutations) => {
+    this.observer = new MutationObserver(mutations => {
       for (const mutation of mutations) {
         if (mutation.type === 'childList') {
           for (const removedNode of Array.from(mutation.removedNodes)) {
-            if (removedNode === this.element || 
-                (removedNode instanceof Element && removedNode.contains(this.element))) {
+            if (
+              removedNode === this.element ||
+              (removedNode instanceof Element && removedNode.contains(this.element))
+            ) {
               this.cleanup();
               return;
             }
@@ -223,7 +225,7 @@ export class ElementEventTracker {
 
     this.observer.observe(document.body, {
       childList: true,
-      subtree: true
+      subtree: true,
     });
   }
 }

@@ -80,10 +80,8 @@ export async function getJiraBoardIssues(
   const base = `agile/1.0/board/${boardId}/backlog`;
   const fields = `key,summary,description,issuetype,priority,status,assignee,${JIRA_STORYPOINT_FIELD}`;
 
-  let startAt = 0;
   const maxResults = 100;
   let allIssues: any[] = [];
-  let isLast = false;
 
   // Optimize pagination with parallel requests for better performance
   try {
@@ -97,34 +95,34 @@ export async function getJiraBoardIssues(
 
     const firstData = firstPageResult.data as any;
     allIssues = allIssues.concat(firstData.issues || []);
-    
+
     const total = firstData.total || 0;
-    
+
     // If we have more data, fetch remaining pages in parallel batches
     if (total > maxResults) {
       const remainingPages: Promise<any>[] = [];
       const batchSize = 3; // Process 3 requests at a time to avoid overwhelming Jira
-      
+
       for (let currentStart = maxResults; currentStart < total; currentStart += maxResults) {
         const pageEndpoint = `${base}?fields=${fields}&startAt=${currentStart}&maxResults=${maxResults}`;
         remainingPages.push(makeJiraRequest(config, pageEndpoint));
-        
+
         // Process in batches to avoid overwhelming the API
         if (remainingPages.length >= batchSize || currentStart + maxResults >= total) {
           const batchResults = await Promise.all(remainingPages);
-          
+
           for (const pageResult of batchResults) {
             if (!pageResult.success) {
               console.warn('Failed to fetch Jira page:', pageResult.error);
               continue; // Continue with other pages
             }
-            
+
             const pageData = pageResult.data as any;
             allIssues = allIssues.concat(pageData.issues || []);
           }
-          
+
           remainingPages.length = 0; // Clear the batch
-          
+
           // Add small delay between batches to be API-friendly
           if (currentStart + maxResults < total) {
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -145,12 +143,11 @@ export async function getJiraBoardIssues(
     }));
 
     return { success: true, data: { issues: transformedIssues } };
-    
   } catch (error) {
     console.error('Error in optimized Jira pagination:', error);
     return {
       success: false,
-      error: 'Failed to fetch issues due to pagination error'
+      error: 'Failed to fetch issues due to pagination error',
     };
   }
 }

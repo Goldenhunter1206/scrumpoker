@@ -18,7 +18,7 @@ class StorageOptimizer {
   constructor() {
     // Load cache from localStorage on initialization
     this.loadCache();
-    
+
     // Flush pending writes on page unload
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', () => {
@@ -33,12 +33,12 @@ class StorageOptimizer {
   setItem(key: string, value: string): void {
     // Update cache immediately for reads
     this.cache.set(key, value);
-    
+
     // Queue the write operation
     this.pendingWrites.set(key, {
       key,
       value,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     this.scheduleFlush();
@@ -133,7 +133,7 @@ class StorageOptimizer {
     } catch (error) {
       console.warn('Failed to write to localStorage:', error);
       // Re-queue failed writes
-      latestWrites.forEach((operation) => {
+      latestWrites.forEach(operation => {
         this.pendingWrites.set(operation.key, operation);
       });
     }
@@ -177,7 +177,7 @@ class StorageOptimizer {
   getStats(): { cacheSize: number; pendingWrites: number } {
     return {
       cacheSize: this.cache.size,
-      pendingWrites: this.pendingWrites.size
+      pendingWrites: this.pendingWrites.size,
     };
   }
 }
@@ -200,7 +200,7 @@ export function getStorageItem(key: string): string | null {
 export function getStorageItemParsed<T>(key: string): T | null {
   const value = storageOptimizer.getItem(key);
   if (value === null) return null;
-  
+
   try {
     return JSON.parse(value);
   } catch (error) {

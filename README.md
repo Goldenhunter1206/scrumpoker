@@ -19,17 +19,19 @@ A real-time, self-hosted Planning Poker application for agile teams to estimate 
 
 ![Architecture Diagram](docs/architecture.svg)
 
-*[View detailed architecture diagram](docs/architecture.svg)*
+_[View detailed architecture diagram](docs/architecture.svg)_
 
 ### Component Breakdown
 
 #### **Client Architecture**
+
 - **TypeScript Frontend**: Type-safe client application with modern ES modules
 - **State Management**: Optimized game state with incremental updates
 - **Socket Management**: Real-time communication with automatic reconnection
 - **Performance Layer**: Custom utilities for DOM batching, event management, and memory optimization
 
 #### **Server Architecture**
+
 - **Express Server**: RESTful API with health checks and session endpoints
 - **Socket.IO**: Real-time WebSocket communication with room-based sessions
 - **Session Store**: Hybrid memory + Redis storage with automatic cleanup
@@ -175,16 +177,19 @@ The application includes several performance optimizations:
 ## 🛡️ Security
 
 ### Input Validation
+
 - Server-side validation for all inputs
 - Client-side sanitization for XSS prevention
 - Rate limiting to prevent abuse
 
 ### Session Security
+
 - Secure session tokens for reconnection
 - CSRF protection with validation
 - No persistent storage of sensitive credentials
 
 ### Production Headers
+
 - Content Security Policy (CSP)
 - HTTPS enforcement (Strict-Transport-Security)
 - Security headers (X-Frame-Options, X-XSS-Protection)
@@ -196,11 +201,13 @@ For complete API documentation including all endpoints, events, and examples, se
 ### Quick Reference
 
 **REST Endpoints:**
+
 - `GET /api/health` - Server health check
 - `GET /api/stats` - Server statistics
 - `GET /api/session/:code` - Session information
 
 **Key WebSocket Events:**
+
 - `create-session` / `join-session` - Session management
 - `submit-vote` / `reveal-votes` - Voting workflow
 - `configure-jira` / `set-jira-issue` - Jira integration
@@ -235,14 +242,14 @@ For detailed deployment instructions across different platforms, see the [Deploy
 
 ### Environment Variables
 
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `PORT` | Server port | 3000 | No |
-| `NODE_ENV` | Environment | development | No |
-| `REDIS_URL` | Redis connection string | - | No |
-| `MAX_SESSIONS` | Maximum concurrent sessions | 50 | No |
-| `SESSION_TIMEOUT` | Session expiry (ms) | 86400000 | No |
-| `CORS_ORIGIN` | CORS allowed origins | * | No |
+| Variable          | Description                 | Default     | Required |
+| ----------------- | --------------------------- | ----------- | -------- |
+| `PORT`            | Server port                 | 3000        | No       |
+| `NODE_ENV`        | Environment                 | development | No       |
+| `REDIS_URL`       | Redis connection string     | -           | No       |
+| `MAX_SESSIONS`    | Maximum concurrent sessions | 50          | No       |
+| `SESSION_TIMEOUT` | Session expiry (ms)         | 86400000    | No       |
+| `CORS_ORIGIN`     | CORS allowed origins        | \*          | No       |
 
 📖 **[Complete Deployment Guide →](docs/deployment.md)**
 
@@ -278,16 +285,19 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ### Common Issues
 
 **Connection Issues**
+
 - Check firewall settings for WebSocket connections
 - Verify CORS configuration for production
 - Ensure Redis is accessible if configured
 
 **Performance Issues**
+
 - Monitor session count vs. MAX_SESSIONS limit
 - Check Redis memory usage
 - Review server logs for errors
 
 **Jira Integration**
+
 - Verify API token permissions
 - Check domain configuration (no https:// prefix)
 - Ensure story point field ID is correct
@@ -295,6 +305,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ### Support
 
 For issues and questions:
+
 1. Check the [GitHub Issues](https://github.com/Goldenhunter1206/scrumpoker/issues)
 2. Review the troubleshooting guide
 3. Create a new issue with detailed information

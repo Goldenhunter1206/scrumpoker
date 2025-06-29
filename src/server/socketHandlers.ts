@@ -69,19 +69,6 @@ function getParticipantBySocketId(session: InternalSessionData, socketId: string
   return participantName ? session.participants.get(participantName) : null;
 }
 
-// Helper function to update socket mappings
-function updateSocketMappings(session: InternalSessionData, participantName: string, socketId: string): void {
-  // Remove old socket mapping if participant had a different socket
-  const oldSocketId = session.participantToSocket.get(participantName);
-  if (oldSocketId) {
-    session.socketToParticipant.delete(oldSocketId);
-  }
-  
-  // Set new mappings
-  session.socketToParticipant.set(socketId, participantName);
-  session.participantToSocket.set(participantName, socketId);
-}
-
 export function setupSocketHandlers(
   socket: Socket<ClientToServerEvents, ServerToClientEvents>,
   io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>,

@@ -23,7 +23,6 @@ import {
 } from './utils/ui.js';
 import { playSound, toggleSound, updateSoundIcon } from './utils/sound.js';
 import { setTextContent, createElement, createSafeLink } from './utils/security.js';
-import { domBatcher, updateElements, mutateDOM } from './utils/domBatcher.js';
 import { eventManager, addTrackedEventListener } from './utils/eventManager.js';
 import { updateListIncrementally } from './utils/listRenderer.js';
 import {
@@ -34,10 +33,11 @@ import {
   JiraBoard,
   ChatMessage,
 } from '@shared/types/index.js';
+import { mutateDOM } from './utils/domBatcher.js';
 
 class ScrumPokerApp {
   private eventListenerIds: string[] = [];
-  
+
   constructor() {
     this.setupEventListeners();
     this.setupSocketEventHandlers();
@@ -766,11 +766,11 @@ class ScrumPokerApp {
 
   private updateVotingCards(): void {
     const state = gameState.getState();
-    
+
     // Batch voting card updates
     mutateDOM(() => {
       const cards = document.querySelectorAll('.card');
-      
+
       cards.forEach(card => {
         if (state.isViewer || state.votingRevealed) {
           card.classList.add('disabled');
@@ -902,8 +902,8 @@ class ScrumPokerApp {
       updateListIncrementally(
         list,
         state.participants,
-        (participant) => participant.name,
-        (participant) => {
+        participant => participant.name,
+        participant => {
           const div = document.createElement('div');
           div.className = 'participant';
 
@@ -936,11 +936,12 @@ class ScrumPokerApp {
           return div;
         },
         // Equality function to determine if participant has changed
-        (a, b) => a.name === b.name && 
-                  a.hasVoted === b.hasVoted && 
-                  a.isViewer === b.isViewer && 
-                  a.isFacilitator === b.isFacilitator &&
-                  a.vote === b.vote
+        (a, b) =>
+          a.name === b.name &&
+          a.hasVoted === b.hasVoted &&
+          a.isViewer === b.isViewer &&
+          a.isFacilitator === b.isFacilitator &&
+          a.vote === b.vote
       );
     });
   }
@@ -950,17 +951,19 @@ class ScrumPokerApp {
     if (!state.isFacilitator) return;
 
     const hasVotes = state.participants.some(p => p.hasVoted && !p.isViewer);
-    
+
     // Batch button updates
     mutateDOM(() => {
       const revealBtn = document.getElementById('reveal-btn') as HTMLButtonElement;
       const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
       const countdownBtn = document.getElementById('countdown-btn') as HTMLButtonElement;
 
-      if (revealBtn) revealBtn.disabled = !hasVotes || state.votingRevealed || state.countdownActive;
+      if (revealBtn)
+        revealBtn.disabled = !hasVotes || state.votingRevealed || state.countdownActive;
       if (resetBtn) resetBtn.disabled = !state.currentTicket;
       if (countdownBtn)
-        countdownBtn.disabled = !state.currentTicket || state.votingRevealed || state.countdownActive;
+        countdownBtn.disabled =
+          !state.currentTicket || state.votingRevealed || state.countdownActive;
     });
   }
 
@@ -2102,7 +2105,7 @@ class ScrumPokerApp {
     // Clean up tracked event listeners
     this.eventListenerIds.forEach(id => eventManager.removeEventListener(id));
     this.eventListenerIds = [];
-    
+
     // Clean up all other tracked listeners
     console.log(`Cleaning up ${eventManager.getListenerCount()} event listeners`);
     eventManager.removeAllEventListeners();

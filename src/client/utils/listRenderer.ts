@@ -33,7 +33,6 @@ export class IncrementalListRenderer<T> {
   private overscan: number;
   private scrollTop = 0;
   private isVirtualScrolling = false;
-  private scrollContainer?: HTMLElement;
 
   constructor(options: RenderOptions<T>) {
     this.container = options.container;
@@ -47,7 +46,7 @@ export class IncrementalListRenderer<T> {
 
     // Enable virtual scrolling for large lists
     this.isVirtualScrolling = this.itemHeight > 0 && this.containerHeight > 0;
-    
+
     if (this.isVirtualScrolling) {
       this.setupVirtualScrolling();
     }
@@ -64,7 +63,7 @@ export class IncrementalListRenderer<T> {
     const updatedItems: ListItem[] = newItems.map(item => {
       const id = this.getItemId(item);
       const existing = oldItemsMap.get(id);
-      
+
       if (existing && this.isItemEqual(existing.data, item)) {
         // Item unchanged, reuse existing element
         newItemsMap.set(id, existing);
@@ -74,7 +73,7 @@ export class IncrementalListRenderer<T> {
         const listItem: ListItem = {
           id,
           data: item,
-          element: existing?.element // Reuse element if possible
+          element: existing?.element, // Reuse element if possible
         };
         newItemsMap.set(id, listItem);
         return listItem;
@@ -109,14 +108,14 @@ export class IncrementalListRenderer<T> {
   private renderAll(): void {
     // Use document fragment for efficient DOM manipulation
     const fragment = document.createDocumentFragment();
-    
+
     this.items.forEach(item => {
       if (!item.element) {
         item.element = this.renderItem(item.data);
         if (this.className) {
           item.element.classList.add(this.className);
         }
-        
+
         if (this.onItemClick) {
           item.element.addEventListener('click', () => {
             this.onItemClick!(item.data, item.element!);
@@ -129,7 +128,7 @@ export class IncrementalListRenderer<T> {
           item.element = newElement;
         }
       }
-      
+
       fragment.appendChild(item.element);
     });
 
@@ -159,16 +158,16 @@ export class IncrementalListRenderer<T> {
 
     // Create fragment for visible items
     const fragment = document.createDocumentFragment();
-    
+
     for (let i = renderStart; i < renderEnd; i++) {
       const item = this.items[i];
-      
+
       if (!item.element) {
         item.element = this.renderItem(item.data);
         if (this.className) {
           item.element.classList.add(this.className);
         }
-        
+
         if (this.onItemClick) {
           item.element.addEventListener('click', () => {
             this.onItemClick!(item.data, item.element!);
@@ -181,7 +180,7 @@ export class IncrementalListRenderer<T> {
       item.element.style.top = `${i * this.itemHeight}px`;
       item.element.style.width = '100%';
       item.element.style.height = `${this.itemHeight}px`;
-      
+
       fragment.appendChild(item.element);
     }
 
@@ -196,7 +195,7 @@ export class IncrementalListRenderer<T> {
   private setupVirtualScrolling(): void {
     this.container.style.overflow = 'auto';
     this.container.style.height = `${this.containerHeight}px`;
-    
+
     this.container.addEventListener('scroll', () => {
       this.scrollTop = this.container.scrollTop;
       requestAnimationFrame(() => this.render());
@@ -268,7 +267,6 @@ export function updateListIncrementally<T>(
 ): void {
   const existingElements = Array.from(container.children) as HTMLElement[];
   const existingIds = existingElements.map(el => el.dataset.itemId || '');
-  const newIds = newItems.map(getItemId);
 
   // Create maps for efficient lookup
   const existingMap = new Map<string, HTMLElement>();
@@ -280,7 +278,7 @@ export function updateListIncrementally<T>(
   const fragment = document.createDocumentFragment();
   const usedElements = new Set<HTMLElement>();
 
-  newItems.forEach((item, index) => {
+  newItems.forEach(item => {
     const id = getItemId(item);
     const existingElement = existingMap.get(id);
 

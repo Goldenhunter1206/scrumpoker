@@ -16,6 +16,7 @@ This guide covers various deployment options for the Scrum Poker application.
 Render provides automatic deployments with built-in SSL and CDN.
 
 **Steps:**
+
 1. Fork this repository to your GitHub account
 2. Connect your GitHub account to Render
 3. Create a new Web Service
@@ -39,6 +40,7 @@ services:
 ```
 
 **Environment Variables:**
+
 - `REDIS_URL`: Add Redis add-on for session persistence
 - `CORS_ORIGIN`: Your domain (e.g., `https://yourapp.onrender.com`)
 
@@ -55,6 +57,7 @@ railway up
 ```
 
 **Environment Variables:**
+
 ```bash
 railway variables set NODE_ENV=production
 railway variables set MAX_SESSIONS=100
@@ -78,6 +81,7 @@ git push heroku main
 ```
 
 **Procfile:**
+
 ```
 web: npm start
 ```
@@ -88,23 +92,23 @@ web: npm start
 # .do/app.yaml
 name: scrum-poker
 services:
-- name: web
-  source_dir: /
-  github:
-    repo: your-username/scrum-poker
-    branch: main
-  run_command: npm start
-  build_command: npm run build
-  environment_slug: node-js
-  instance_count: 1
-  instance_size_slug: basic-xxs
-  envs:
-  - key: NODE_ENV
-    value: production
+  - name: web
+    source_dir: /
+    github:
+      repo: your-username/scrum-poker
+      branch: main
+    run_command: npm start
+    build_command: npm run build
+    environment_slug: node-js
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: NODE_ENV
+        value: production
 databases:
-- name: redis
-  engine: REDIS
-  version: "6"
+  - name: redis
+    engine: REDIS
+    version: '6'
 ```
 
 ### AWS Elastic Beanstalk
@@ -120,6 +124,7 @@ eb deploy
 ```
 
 **Configuration:**
+
 - Platform: Node.js 18 running on 64bit Amazon Linux 2
 - Environment Variables: Set via EB console
 - Redis: Use ElastiCache for session storage
@@ -135,6 +140,7 @@ gcloud run deploy --image gcr.io/PROJECT-ID/scrum-poker --platform managed
 ```
 
 **Dockerfile optimization for Cloud Run:**
+
 ```dockerfile
 # Multi-stage build for smaller image
 FROM node:18-alpine AS builder
@@ -162,7 +168,7 @@ services:
   app:
     build: .
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       - NODE_ENV=production
       - REDIS_URL=redis://redis:6379
@@ -180,8 +186,8 @@ services:
   nginx:
     image: nginx:alpine
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
       - ./ssl:/etc/nginx/ssl
@@ -205,16 +211,16 @@ docker run -p 3000:3000 -e NODE_ENV=production scrum-poker
 
 ### Environment Variables
 
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `NODE_ENV` | Environment | development | No |
-| `PORT` | Server port | 3000 | No |
-| `REDIS_URL` | Redis connection | - | No |
-| `MAX_SESSIONS` | Max concurrent sessions | 50 | No |
-| `SESSION_TIMEOUT` | Session expiry (ms) | 86400000 | No |
-| `CORS_ORIGIN` | CORS origins | * | No |
-| `TRUST_PROXY` | Trust proxy headers | false | No |
-| `JIRA_STORYPOINT_FIELD` | Jira field ID | customfield_10016 | No |
+| Variable                | Description             | Default           | Required |
+| ----------------------- | ----------------------- | ----------------- | -------- |
+| `NODE_ENV`              | Environment             | development       | No       |
+| `PORT`                  | Server port             | 3000              | No       |
+| `REDIS_URL`             | Redis connection        | -                 | No       |
+| `MAX_SESSIONS`          | Max concurrent sessions | 50                | No       |
+| `SESSION_TIMEOUT`       | Session expiry (ms)     | 86400000          | No       |
+| `CORS_ORIGIN`           | CORS origins            | \*                | No       |
+| `TRUST_PROXY`           | Trust proxy headers     | false             | No       |
+| `JIRA_STORYPOINT_FIELD` | Jira field ID           | customfield_10016 | No       |
 
 ### Nginx Configuration
 
@@ -273,6 +279,7 @@ http {
 ### SSL/TLS Setup
 
 **Let's Encrypt with Certbot:**
+
 ```bash
 # Install certbot
 sudo apt install certbot python3-certbot-nginx
@@ -325,6 +332,7 @@ pm2 logs scrum-poker
 ### Monitoring Tools
 
 **Recommended monitoring solutions:**
+
 - **Uptime**: UptimeRobot, StatusCake
 - **Performance**: New Relic, DataDog
 - **Errors**: Sentry, Rollbar
@@ -360,22 +368,26 @@ tar -czf scrum-poker-backup-$(date +%Y%m%d).tar.gz \
 ### Common Issues
 
 **Build Failures:**
+
 - Ensure Node.js 18+ is installed
 - Clear npm cache: `npm cache clean --force`
 - Delete node_modules and reinstall
 
 **Connection Issues:**
+
 - Check WebSocket support on your platform
 - Verify CORS configuration
 - Ensure proxy passes WebSocket upgrade headers
 
 **Performance Issues:**
+
 - Monitor Redis memory usage
 - Check MAX_SESSIONS limit
 - Review server logs for errors
 - Ensure adequate CPU/RAM allocation
 
 **Session Loss:**
+
 - Verify Redis connectivity
 - Check SESSION_TIMEOUT configuration
 - Monitor Redis persistence settings
@@ -405,12 +417,12 @@ For high-traffic deployments:
 
 **Recommended specifications:**
 
-| Users | CPU | RAM | Redis | Storage |
-|-------|-----|-----|-------|---------|
-| 1-50 | 1 vCPU | 512MB | 256MB | 1GB |
-| 50-200 | 2 vCPU | 1GB | 512MB | 2GB |
-| 200-500 | 4 vCPU | 2GB | 1GB | 5GB |
-| 500+ | 8+ vCPU | 4GB+ | 2GB+ | 10GB+ |
+| Users   | CPU     | RAM   | Redis | Storage |
+| ------- | ------- | ----- | ----- | ------- |
+| 1-50    | 1 vCPU  | 512MB | 256MB | 1GB     |
+| 50-200  | 2 vCPU  | 1GB   | 512MB | 2GB     |
+| 200-500 | 4 vCPU  | 2GB   | 1GB   | 5GB     |
+| 500+    | 8+ vCPU | 4GB+  | 2GB+  | 10GB+   |
 
 ---
 
