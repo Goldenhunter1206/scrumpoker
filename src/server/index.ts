@@ -410,9 +410,12 @@ app.get('/api/stats', (req, res) => {
 
 app.get('/api/session/:roomCode', (req, res) => {
   const session = memoryStore.get(req.params.roomCode.toUpperCase());
+
   if (!session) {
-    return res.status(404).json({ error: 'Session not found' });
+    res.status(404).json({ error: 'Session not found' });
+    return;
   }
+
   res.json(getSessionData(session));
 });
 
