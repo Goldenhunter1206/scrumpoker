@@ -168,7 +168,8 @@ export const socketValidation = {
   'join-session': Joi.object({
     roomCode: schemas.roomCode,
     participantName: schemas.userName,
-    asViewer: schemas.boolean.optional()
+    asViewer: schemas.boolean.optional(),
+    sessionToken: Joi.string().hex().length(64).optional() // 32 bytes = 64 hex chars
   }),
 
   'configure-jira': Joi.object({

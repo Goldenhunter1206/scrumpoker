@@ -85,11 +85,13 @@ export interface ServerToClientEvents {
     success: boolean;
     roomCode: string;
     sessionData: SessionData;
+    sessionToken: string;
   }) => void;
   'join-success': (data: {
     roomCode: string;
     sessionData: SessionData;
     yourVote: Vote | null;
+    sessionToken: string;
   }) => void;
   'join-failed': (data: { message: string }) => void;
   'participant-joined': (data: { participantName: string; sessionData: SessionData }) => void;
@@ -134,7 +136,7 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
   'create-session': (data: { sessionName: string; facilitatorName: string }) => void;
-  'join-session': (data: { roomCode: string; participantName: string; asViewer?: boolean }) => void;
+  'join-session': (data: { roomCode: string; participantName: string; asViewer?: boolean; sessionToken?: string }) => void;
   'configure-jira': (data: {
     roomCode: string;
     domain: string;
@@ -209,6 +211,7 @@ export interface SavedSessionInfo {
   roomCode: string;
   name: string;
   isViewer: boolean;
+  sessionToken?: string;
 }
 
 export interface SavedJiraCredentials {

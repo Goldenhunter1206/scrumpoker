@@ -15,6 +15,7 @@ import {
 } from './utils/jiraApi.js';
 import { getSessionData, recordHistory } from './utils/sessionHelpers.js';
 import { validateSocketEvent, sanitizeString } from './middleware/validation.js';
+import { invalidateParticipantTokens, invalidateRoomTokens } from './utils/sessionTokens.js';
 
 // Internal session interface (matches the one in index.ts)
 interface InternalSessionData {
@@ -576,6 +577,10 @@ export function setupSocketHandlers(
         case 'remove':
           session.participants.delete(targetName);
           session.votes.delete(targetName);
+          
+          // Invalidate all session tokens for this participant
+          invalidateParticipantTokens(targetName, roomCode);
+          
           io.to(roomCode).emit('participant-removed', {
             participantName: targetName,
             sessionData: getSessionData(session),
@@ -734,6 +739,9 @@ export function setupSocketHandlers(
         });
       }
 
+      // Invalidate all session tokens for this room
+      invalidateRoomTokens(roomCode);
+      
       memoryStore.delete(roomCode);
       console.log(`Session ${roomCode} ended by facilitator`);
     } catch (error) {

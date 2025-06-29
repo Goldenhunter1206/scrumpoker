@@ -39,6 +39,7 @@ export class SocketManager {
           roomCode: saved.roomCode,
           participantName: saved.name,
           asViewer: saved.isViewer,
+          sessionToken: saved.sessionToken,
         });
       }
     });
@@ -61,6 +62,7 @@ export class SocketManager {
           roomCode: data.roomCode,
           name: state.myName,
           isViewer: false,
+          sessionToken: data.sessionToken,
         });
 
         this.emit('sessionCreated', data.sessionData);
@@ -88,6 +90,7 @@ export class SocketManager {
         roomCode: data.roomCode,
         name: state.myName,
         isViewer: gameState.getState().isViewer,
+        sessionToken: data.sessionToken,
       });
 
       this.emit('joinSuccess', data.sessionData);

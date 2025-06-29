@@ -31,6 +31,7 @@ import {
 } from './utils/sessionHelpers.js';
 import { setupSocketHandlers } from './socketHandlers.js';
 import { rateLimitConfig } from './middleware/validation.js';
+import { createSessionToken, validateSessionToken, invalidateParticipantTokens, invalidateRoomTokens } from './utils/sessionTokens.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -235,10 +236,14 @@ io.on('connection', socket => {
       memoryStore.set(roomCode, session);
       socket.join(roomCode);
 
+      // Generate session token for the facilitator
+      const sessionToken = createSessionToken(sanitizedFacilitatorName, roomCode);
+
       socket.emit('session-created', {
         success: true,
         roomCode,
         sessionData: getSessionData(session),
+        sessionToken,
       });
 
       console.log(`Session created: ${roomCode} by ${sanitizedFacilitatorName}`);
@@ -247,9 +252,18 @@ io.on('connection', socket => {
     }
   });
 
-  socket.on('join-session', ({ roomCode, participantName, asViewer = false }) => {
+  socket.on('join-session', ({ roomCode, participantName, asViewer = false, sessionToken }) => {
     try {
+      // Basic validation
+      if (!roomCode || !participantName || 
+          typeof roomCode !== 'string' || typeof participantName !== 'string' ||
+          roomCode.length !== 6 || participantName.length > 50) {
+        socket.emit('join-failed', { message: 'Invalid request data' });
+        return;
+      }
+
       const upperCode = roomCode.toUpperCase();
+      const sanitizedParticipantName = participantName.trim().substring(0, 50);
       const session = memoryStore.get(upperCode);
 
       if (!session) {
@@ -257,14 +271,28 @@ io.on('connection', socket => {
         return;
       }
 
-      const existing = session.participants.get(participantName);
+      const existing = session.participants.get(sanitizedParticipantName);
       if (existing) {
         const stillConnected = existing.socketId && io.sockets.sockets.get(existing.socketId);
         if (stillConnected) {
           socket.emit('join-failed', { message: 'Name already taken in this session' });
           return;
         }
-        // Treat as reconnection
+        
+        // Handle reconnection with session token validation
+        if (sessionToken) {
+          const tokenValidation = validateSessionToken(sessionToken, upperCode, sanitizedParticipantName);
+          if (!tokenValidation) {
+            socket.emit('join-failed', { message: 'Invalid or expired session token' });
+            return;
+          }
+        } else {
+          // No token provided for reconnection - this could be session fixation attempt
+          socket.emit('join-failed', { message: 'Session token required for reconnection' });
+          return;
+        }
+        
+        // Valid reconnection
         existing.socketId = socket.id;
         existing.isViewer = asViewer;
         delete existing.disconnectedAt;
@@ -273,23 +301,26 @@ io.on('connection', socket => {
         session.lastActivity = new Date();
 
         io.to(upperCode).emit('participant-joined', {
-          participantName,
+          participantName: sanitizedParticipantName,
           sessionData: getSessionData(session),
         });
 
         socket.emit('join-success', {
           roomCode: upperCode,
           sessionData: getSessionData(session),
-          yourVote: session.votes.get(participantName) || null,
+          yourVote: session.votes.get(sanitizedParticipantName) || null,
+          sessionToken, // Return existing token
         });
 
-        console.log(`${participantName} reconnected to session ${upperCode}`);
+        console.log(`${sanitizedParticipantName} reconnected to session ${upperCode}`);
         return;
       }
 
-      // New participant path
-      session.participants.set(participantName, {
-        name: participantName,
+      // New participant path - generate new session token
+      const newSessionToken = createSessionToken(sanitizedParticipantName, upperCode);
+      
+      session.participants.set(sanitizedParticipantName, {
+        name: sanitizedParticipantName,
         socketId: socket.id,
         isFacilitator: false,
         isViewer: asViewer,
@@ -301,17 +332,18 @@ io.on('connection', socket => {
       socket.join(upperCode);
 
       io.to(upperCode).emit('participant-joined', {
-        participantName,
+        participantName: sanitizedParticipantName,
         sessionData: getSessionData(session),
       });
 
       socket.emit('join-success', {
         roomCode: upperCode,
         sessionData: getSessionData(session),
-        yourVote: session.votes.get(participantName) || null,
+        yourVote: session.votes.get(sanitizedParticipantName) || null,
+        sessionToken: newSessionToken,
       });
 
-      console.log(`${participantName} joined session ${upperCode}`);
+      console.log(`${sanitizedParticipantName} joined session ${upperCode}`);
     } catch (error) {
       socket.emit('error', { message: 'Failed to join session' });
     }
@@ -338,6 +370,9 @@ io.on('connection', socket => {
         });
 
         console.log(`${participant.name} temporarily left session ${roomCode}`);
+        
+        // Note: Don't invalidate tokens on disconnect - allow reconnection
+        // Tokens will be validated on reconnection attempt
       }
     });
   });
@@ -385,6 +420,8 @@ setInterval(
         if (session.countdownTimer) {
           clearInterval(session.countdownTimer);
         }
+        // Invalidate all session tokens for this room
+        invalidateRoomTokens(roomCode);
         memoryStore.delete(roomCode);
         cleaned++;
       }
