@@ -113,7 +113,7 @@ export function invalidateSessionToken(token: string): void {
  * Invalidate all tokens for a participant
  */
 export function invalidateParticipantTokens(participantName: string, roomCode: string): void {
-  for (const [hashedToken, sessionToken] of sessionTokens.entries()) {
+  for (const [, sessionToken] of sessionTokens.entries()) {
     if (sessionToken.participantName === participantName && sessionToken.roomCode === roomCode) {
       sessionToken.isValid = false;
     }
@@ -124,7 +124,7 @@ export function invalidateParticipantTokens(participantName: string, roomCode: s
  * Invalidate all tokens for a room
  */
 export function invalidateRoomTokens(roomCode: string): void {
-  for (const [hashedToken, sessionToken] of sessionTokens.entries()) {
+  for (const [, sessionToken] of sessionTokens.entries()) {
     if (sessionToken.roomCode === roomCode) {
       sessionToken.isValid = false;
     }

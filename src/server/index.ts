@@ -10,31 +10,17 @@ import rateLimit from 'express-rate-limit';
 import {
   ServerToClientEvents,
   ClientToServerEvents,
-  SessionData,
   Participant,
   Vote,
-  VotingResults,
   JiraIssue,
 } from '@shared/types/index.js';
 import { SessionStore } from './utils/sessionStore.js';
-import {
-  getJiraBoards,
-  getJiraBoardIssues,
-  updateJiraIssueStoryPoints,
-  roundToNearestFibonacci,
-} from './utils/jiraApi.js';
-import {
-  generateRoomCode,
-  createSession,
-  getSessionData,
-  recordHistory,
-} from './utils/sessionHelpers.js';
+import { generateRoomCode, getSessionData } from './utils/sessionHelpers.js';
 import { setupSocketHandlers } from './socketHandlers.js';
 import { rateLimitConfig } from './middleware/validation.js';
 import {
   createSessionToken,
   validateSessionToken,
-  invalidateParticipantTokens,
   invalidateRoomTokens,
 } from './utils/sessionTokens.js';
 
@@ -43,13 +29,9 @@ const __dirname = dirname(__filename);
 
 try {
   dotenv.config();
-} catch (e) {
+} catch {
   console.log('dotenv not available, using environment variables directly');
 }
-
-const APP_TITLE = process.env.APP_TITLE || 'Scrum Poker';
-const APP_SUBTITLE =
-  process.env.APP_SUBTITLE || 'Collaborative Story Point Estimation for Your Team';
 
 const app = express();
 const server = createServer(app);
@@ -92,7 +74,6 @@ interface InternalSessionData {
 
 // Rate limiting
 const generalRateLimit = rateLimit(rateLimitConfig.general);
-const sessionCreationRateLimit = rateLimit(rateLimitConfig.sessionCreation);
 
 // Middleware
 app.use(
@@ -258,6 +239,7 @@ io.on('connection', socket => {
 
       console.log(`Session created: ${roomCode} by ${sanitizedFacilitatorName}`);
     } catch (error) {
+      console.error('Failed to create session', error);
       socket.emit('error', { message: 'Failed to create session' });
     }
   });
@@ -364,6 +346,7 @@ io.on('connection', socket => {
 
       console.log(`${sanitizedParticipantName} joined session ${upperCode}`);
     } catch (error) {
+      console.error('Failed to join session', error);
       socket.emit('error', { message: 'Failed to join session' });
     }
   });

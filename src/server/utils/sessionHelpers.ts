@@ -1,20 +1,10 @@
-import {
-  SessionData,
-  Participant,
-  EstimationHistoryEntry,
-  AggregateStats,
-  Vote,
-} from '@shared/types/index.js';
+import { SessionData, Participant, EstimationHistoryEntry } from '@shared/types/index.js';
 
 export function generateRoomCode(): string {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-export function createSession(
-  sessionName: string,
-  facilitatorName: string,
-  facilitatorSocketId: string
-): SessionData {
+export function createSession(sessionName: string, facilitatorName: string): SessionData {
   const roomCode = generateRoomCode();
 
   const facilitator: Participant = {

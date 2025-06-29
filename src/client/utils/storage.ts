@@ -12,7 +12,7 @@ export function saveUserName(name: string): void {
 export function loadUserName(): string {
   try {
     return localStorage.getItem('userName') || '';
-  } catch (e) {
+  } catch {
     return '';
   }
 }
@@ -31,7 +31,7 @@ export function loadActiveSessionInfo(): SavedSessionInfo | null {
     const raw = localStorage.getItem('activeSession');
     if (!raw) return null;
     return JSON.parse(raw);
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -39,7 +39,7 @@ export function loadActiveSessionInfo(): SavedSessionInfo | null {
 export function clearActiveSession(): void {
   try {
     localStorage.removeItem('activeSession');
-  } catch (e) {
+  } catch {
     // Ignore errors
   }
 }
@@ -82,7 +82,7 @@ export function loadJiraCredentials(): SavedJiraCredentials | null {
 export function clearJiraCredentials(): void {
   try {
     localStorage.removeItem('jiraCredentials');
-  } catch (e) {
+  } catch {
     // Ignore errors
   }
 }
@@ -92,7 +92,7 @@ export function loadSoundSetting(): boolean {
   try {
     const val = localStorage.getItem('soundEnabled');
     return val === null ? true : val === 'true';
-  } catch (e) {
+  } catch {
     return true;
   }
 }
@@ -100,7 +100,7 @@ export function loadSoundSetting(): boolean {
 export function saveSoundSetting(enabled: boolean): void {
   try {
     localStorage.setItem('soundEnabled', enabled ? 'true' : 'false');
-  } catch (e) {
+  } catch {
     // Ignore errors
   }
 }

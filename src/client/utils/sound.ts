@@ -6,7 +6,15 @@ let audioContext: AudioContext | null = null;
 // Initialize audio context
 function getAudioContext(): AudioContext | null {
   if (!audioContext && typeof AudioContext !== 'undefined') {
-    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    // Support both standard and prefixed constructors without relying on `any`
+    type AudioCtxConstructor = typeof AudioContext;
+    const AudioConstructor: AudioCtxConstructor | undefined =
+      window.AudioContext ??
+      (window as Window & { webkitAudioContext?: AudioCtxConstructor }).webkitAudioContext;
+
+    if (AudioConstructor) {
+      audioContext = new AudioConstructor();
+    }
   }
   return audioContext;
 }
@@ -35,7 +43,7 @@ function playTone(
     osc.connect(gain).connect(ctx.destination);
     osc.start();
     osc.stop(ctx.currentTime + durationMs / 1000);
-  } catch (e) {
+  } catch {
     // Ignore playback errors (e.g., user has not interacted yet)
   }
 }

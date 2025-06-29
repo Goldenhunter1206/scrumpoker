@@ -134,6 +134,7 @@ export function setupSocketHandlers(
       const issuesResult = await getJiraBoardIssues(session.jiraConfig, boardId);
 
       if (!issuesResult.success) {
+        console.error('Failed to fetch Jira issues', issuesResult.error);
         socket.emit('jira-issues-failed', {
           message: `Failed to fetch issues: ${issuesResult.error}`,
         });
@@ -145,6 +146,7 @@ export function setupSocketHandlers(
         `Loaded ${issuesResult.data?.issues?.length || 0} issues from Jira board ${boardId}`
       );
     } catch (error) {
+      console.error('Failed to fetch Jira issues', error);
       socket.emit('error', { message: 'Failed to fetch Jira issues' });
     }
   });
@@ -184,6 +186,7 @@ export function setupSocketHandlers(
 
       console.log(`Jira issue ${issue.key} set for voting in session ${roomCode}`);
     } catch (error) {
+      console.error('Failed to set Jira issue', error);
       socket.emit('error', { message: 'Failed to set Jira issue' });
     }
   });
@@ -250,6 +253,7 @@ export function setupSocketHandlers(
 
       console.log(`Updated Jira issue ${updatedIssueKey} with ${roundedEstimate} story points`);
     } catch (error) {
+      console.error('Failed to update Jira issue', error);
       socket.emit('error', { message: 'Failed to update Jira issue' });
     }
   });
@@ -288,6 +292,7 @@ export function setupSocketHandlers(
 
       console.log(`Ticket set in session ${roomCode}: ${ticket.substring(0, 50)}...`);
     } catch (error) {
+      console.error('Failed to set ticket', error);
       socket.emit('error', { message: 'Failed to set ticket' });
     }
   });
@@ -380,6 +385,7 @@ export function setupSocketHandlers(
         }
       }
     } catch (error) {
+      console.error('Failed to submit vote', error);
       socket.emit('error', { message: 'Failed to submit vote' });
     }
   });
@@ -437,6 +443,7 @@ export function setupSocketHandlers(
 
       console.log(`Votes revealed in session ${roomCode}`);
     } catch (error) {
+      console.error('Failed to reveal votes', error);
       socket.emit('error', { message: 'Failed to reveal votes' });
     }
   });
@@ -475,6 +482,7 @@ export function setupSocketHandlers(
 
       console.log(`Voting reset in session ${roomCode}`);
     } catch (error) {
+      console.error('Failed to reset voting', error);
       socket.emit('error', { message: 'Failed to reset voting' });
     }
   });
@@ -510,6 +518,7 @@ export function setupSocketHandlers(
         `Facilitator ${facilitatorEntry.name} is now a ${isViewer ? 'viewer' : 'participant'} in session ${roomCode}`
       );
     } catch (error) {
+      console.error('Failed to change viewer status', error);
       socket.emit('error', { message: 'Failed to change viewer status' });
     }
   });
@@ -611,6 +620,7 @@ export function setupSocketHandlers(
 
       session.lastActivity = new Date();
     } catch (error) {
+      console.error('Failed to moderate participant', error);
       socket.emit('error', { message: 'Failed to moderate participant' });
     }
   });
@@ -708,6 +718,7 @@ export function setupSocketHandlers(
 
       console.log(`Countdown started in session ${roomCode} for ${duration} seconds`);
     } catch (error) {
+      console.error('Failed to start countdown', error);
       socket.emit('error', { message: 'Failed to start countdown' });
     }
   });
@@ -751,6 +762,7 @@ export function setupSocketHandlers(
       memoryStore.delete(roomCode);
       console.log(`Session ${roomCode} ended by facilitator`);
     } catch (error) {
+      console.error('Failed to end session', error);
       socket.emit('error', { message: 'Failed to end session' });
     }
   });
@@ -826,7 +838,8 @@ export function setupSocketHandlers(
       const typingUsersList = Array.from(session.typingUsers.keys());
       io.to(roomCode).emit('typingUpdate', typingUsersList);
     } catch (error) {
-      console.error('Typing indicator error:', error);
+      console.error('Failed to update typing indicator', error);
+      socket.emit('error', { message: 'Failed to update typing indicator' });
     }
   });
 }
