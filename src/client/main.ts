@@ -96,6 +96,17 @@ class ScrumPokerApp {
     document.getElementById('remove-participant-btn')?.addEventListener('click', () => this.moderateParticipant('remove'));
     document.getElementById('cancel-moderation-btn')?.addEventListener('click', () => this.closeModerationModal());
 
+    // End session modal
+    document.getElementById('end-session-modal')?.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        this.closeEndSessionModal();
+      }
+    });
+    document.getElementById('confirm-end-session-btn')?.addEventListener('click', () => this.confirmEndSession());
+    document.getElementById('cancel-end-session-btn')?.addEventListener('click', () => this.closeEndSessionModal());
+    document.getElementById('download-history-btn')?.addEventListener('click', () => this.exportHistory());
+    document.getElementById('download-statistics-btn')?.addEventListener('click', () => this.exportStatistics());
+
     // Jira board selection
     document.getElementById('jira-board-select')?.addEventListener('change', (e) => {
       const target = e.target as HTMLSelectElement;
@@ -928,11 +939,7 @@ class ScrumPokerApp {
   }
 
   private endSession(): void {
-    if (confirm('Are you sure you want to end this session? All participants will be disconnected.')) {
-      clearActiveSession();
-      const state = gameState.getState();
-      socketManager.endSession(state.roomCode);
-    }
+    this.openEndSessionModal();
   }
 
   // Moderation methods
@@ -967,6 +974,62 @@ class ScrumPokerApp {
     
     socketManager.moderateParticipant(state.roomCode, state.moderationTarget, action);
     this.closeModerationModal();
+  }
+
+  // End session modal methods
+  private openEndSessionModal(): void {
+    const modal = document.getElementById('end-session-modal');
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+    }
+    
+    // Update download button visibility based on available data
+    this.updateEndSessionDownloadButtons();
+  }
+
+  private updateEndSessionDownloadButtons(): void {
+    const state = gameState.getState();
+    const hasHistory = state.history && state.history.length > 0;
+    const hasParticipants = state.participants && state.participants.length > 0;
+    
+    const historyBtn = document.getElementById('download-history-btn') as HTMLButtonElement;
+    const statsBtn = document.getElementById('download-statistics-btn') as HTMLButtonElement;
+    const downloadsSection = document.getElementById('end-session-downloads');
+    
+    if (historyBtn) {
+      historyBtn.disabled = !hasHistory;
+      historyBtn.style.opacity = hasHistory ? '1' : '0.5';
+    }
+    
+    if (statsBtn) {
+      statsBtn.disabled = !hasParticipants;
+      statsBtn.style.opacity = hasParticipants ? '1' : '0.5';
+    }
+    
+    // Hide entire downloads section if no data available
+    if (downloadsSection) {
+      if (!hasHistory && !hasParticipants) {
+        downloadsSection.style.display = 'none';
+      } else {
+        downloadsSection.style.display = 'block';
+      }
+    }
+  }
+
+  private closeEndSessionModal(): void {
+    const modal = document.getElementById('end-session-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.style.display = 'none';
+    }
+  }
+
+  private confirmEndSession(): void {
+    clearActiveSession();
+    const state = gameState.getState();
+    socketManager.endSession(state.roomCode);
+    this.closeEndSessionModal();
   }
 
   // History and stats methods
