@@ -49,8 +49,9 @@ class ScrumPokerApp {
     this.setupUrlParameters();
     updateSoundIcon();
     this.restoreCardStates();
-    this.setupDragAndDrop();
     this.restoreCardLayout();
+    // Setup drag and drop AFTER restoring layout to ensure event listeners are properly attached
+    this.setupDragAndDrop();
 
     // Initialize export stats button as disabled
     this.updateExportStatsButtonState(false);
@@ -1916,28 +1917,20 @@ class ScrumPokerApp {
         };
 
         const mouseUpHandler = () => {
-          // Only disable dragging if we're not currently dragging
-          if (!this.isDragging) {
-            (card as HTMLElement).draggable = false;
-            setTimeout(() => card.classList.remove('drag-intent'), 100);
-          } else {
-            // If we're dragging, clean up after drag completes
-            setTimeout(() => {
-              if (!this.isDragging) {
-                (card as HTMLElement).draggable = false;
-                card.classList.remove('drag-intent');
-              }
-            }, 200);
-          }
+          // Don't immediately disable dragging on mouseup
+          // Let the drag operation complete naturally via dragend event
+          // Only disable if no drag actually started after a delay
+          setTimeout(() => {
+            if (!this.isDragging && !card.classList.contains('dragging')) {
+              (card as HTMLElement).draggable = false;
+              card.classList.remove('drag-intent');
+            }
+          }, 50);
         };
 
         const mouseLeaveHandler = () => {
-          // Only disable dragging if mouse leaves the drag handle and we're not currently dragging
-          if (!this.isDragging) {
-            (card as HTMLElement).draggable = false;
-            setTimeout(() => card.classList.remove('drag-intent'), 100);
-          }
-          // If we're dragging, let dragend handle cleanup
+          // Don't disable dragging on mouse leave - this was causing the main issue
+          // Let the drag operation complete naturally or be handled by mouseup
         };
 
         (dragHandle as any)._mouseDownHandler = mouseDownHandler;
@@ -1969,48 +1962,53 @@ class ScrumPokerApp {
   private handleDragStart(e: DragEvent): void {
     const target = e.target as HTMLElement;
     this.draggedElement = target.closest('.dashboard-card') as HTMLElement;
+
+    if (!this.draggedElement) {
+      console.log('🚀 No draggable element found');
+      return;
+    }
+
+    // Ensure the element is actually draggable before proceeding
+    if (!(this.draggedElement as HTMLElement).draggable) {
+      console.log('🚀 Element not draggable, cancelling');
+      e.preventDefault();
+      return;
+    }
+
     this.isDragging = true;
     console.log('🚀 Dragged element:', this.draggedElement);
 
-    if (this.draggedElement) {
-      console.log('🚀 Adding dragging class');
-      this.draggedElement.classList.add('dragging');
+    console.log('🚀 Adding dragging class');
+    this.draggedElement.classList.add('dragging');
 
-      // Show all drop zones during dragging
-      document.querySelectorAll('.column-drop-zone').forEach(zone => {
-        zone.classList.add('drag-active');
-      });
-      console.log('🚀 Drop zones:', document.querySelectorAll('.column-drop-zone'));
+    // Show all drop zones during dragging
+    document.querySelectorAll('.column-drop-zone').forEach(zone => {
+      zone.classList.add('drag-active');
+    });
+    console.log('🚀 Drop zones:', document.querySelectorAll('.column-drop-zone'));
 
-      // Some browsers require a dataTransfer payload and explicit effectAllowed to keep the drag session alive
-      try {
-        if (e.dataTransfer) {
-          e.dataTransfer.setData('text/plain', this.draggedElement?.dataset.card || '');
-          e.dataTransfer.effectAllowed = 'move';
-        }
-      } catch {
-        console.log('🚀 Error setting dataTransfer');
-        // Ignore potential security errors when setting dataTransfer during automated tests
+    // Some browsers require a dataTransfer payload and explicit effectAllowed to keep the drag session alive
+    try {
+      if (e.dataTransfer) {
+        e.dataTransfer.setData('text/plain', this.draggedElement?.dataset.card || '');
+        e.dataTransfer.effectAllowed = 'move';
       }
-      console.log('🚀 DataTransfer set');
-      // Note: do not stop propagation here to allow drag events to bubble
-      // e.stopPropagation();
+    } catch {
+      console.log('🚀 Error setting dataTransfer');
+      // Ignore potential security errors when setting dataTransfer during automated tests
     }
+    console.log('🚀 DataTransfer set');
   }
 
-  private handleDragEnd(e: DragEvent): void {
-    const target = e.target as HTMLElement;
-    const card = target.closest('.dashboard-card') as HTMLElement;
+  private handleDragEnd(_e: DragEvent): void {
+    console.log('🚀 Drag end - cleaning up');
 
-    if (card) {
-      console.log('🚀 Removing dragging class');
-      card.classList.remove('dragging');
-      card.classList.remove('drag-intent');
-      // Don't set draggable = false here - let mouse handlers manage it
-      // This prevents interference with the drag operation completion
-    }
+    // Clean up visual indicators immediately
+    document.querySelectorAll('.dragging').forEach(el => {
+      el.classList.remove('dragging');
+      el.classList.remove('drag-intent');
+    });
 
-    // Clean up drag indicators
     document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
     document
       .querySelectorAll('.drop-indicator.active')
@@ -2021,15 +2019,18 @@ class ScrumPokerApp {
       zone.classList.remove('drag-active');
     });
 
+    // Reset drag state
     this.draggedElement = null;
     this.isDragging = false;
 
-    // Delay disabling draggable to ensure drag operation completes properly
-    if (card) {
-      setTimeout(() => {
-        card.draggable = false;
-      }, 100);
-    }
+    // Clean up draggable property with delay to avoid interference
+    setTimeout(() => {
+      document.querySelectorAll('.dashboard-card[draggable="true"]').forEach(card => {
+        if (!card.classList.contains('drag-intent')) {
+          (card as HTMLElement).draggable = false;
+        }
+      });
+    }, 100);
   }
 
   private handleDragOver(e: DragEvent): void {
@@ -2138,7 +2139,12 @@ class ScrumPokerApp {
 
   private restoreCardLayout(): void {
     const savedLayout = localStorage.getItem('cardLayout');
-    if (!savedLayout) return;
+    if (!savedLayout) {
+      // If no saved layout exists, normalize the DOM structure by moving cards to their proper positions
+      // This ensures consistent DOM structure whether or not localStorage exists
+      this.normalizeCardLayout();
+      return;
+    }
 
     try {
       const layout = JSON.parse(savedLayout);
@@ -2154,6 +2160,27 @@ class ScrumPokerApp {
       }
     } catch (error) {
       console.warn('Failed to restore card layout:', error);
+      // Fallback to normalization if parsing fails
+      this.normalizeCardLayout();
+    }
+  }
+
+  private normalizeCardLayout(): void {
+    // Move all cards to their proper DOM positions relative to drop zones
+    // This ensures consistent structure whether localStorage exists or not
+
+    // Get current card order for each column
+    const currentLayout = {
+      sidebar: this.getColumnCardOrder('sidebar'),
+      main: this.getColumnCardOrder('main'),
+    };
+
+    // Re-position cards using the current order
+    if (currentLayout.sidebar.length > 0) {
+      this.restoreColumnOrder('sidebar', currentLayout.sidebar);
+    }
+    if (currentLayout.main.length > 0) {
+      this.restoreColumnOrder('main', currentLayout.main);
     }
   }
 
