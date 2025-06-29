@@ -114,9 +114,9 @@ class LoadTester {
 
     socket.on('votes-revealed', data => {
       this.recordEvent(id, 'votes-revealed', data);
-      this.log(
-        `Votes revealed in session ${client.sessionId}: ${Object.keys(data.votes).length} votes`
-      );
+      const voteCount =
+        data?.results?.totalVotes ?? (data?.votes ? Object.keys(data.votes).length : 0);
+      this.log(`Votes revealed in session ${client.sessionId}: ${voteCount} votes`);
     });
 
     socket.on('voting-reset', data => {
