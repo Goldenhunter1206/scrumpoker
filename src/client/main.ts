@@ -488,6 +488,9 @@ class ScrumPokerApp {
     this.updateHistoryUI();
     this.updateStatsUI();
     this.updateChatUI();
+
+    // Reinitialize drag and drop after UI updates (cards may have become visible/hidden)
+    this.reinitializeDragAndDrop();
   }
 
   // Jira Integration Methods
@@ -1852,21 +1855,54 @@ class ScrumPokerApp {
     this.setupDropZones();
   }
 
+  // Method to reinitialize drag and drop (useful when cards visibility changes)
+  private reinitializeDragAndDrop(): void {
+    this.setupDragAndDrop();
+  }
+
   private setupDragEvents(): void {
     const cards = document.querySelectorAll('.dashboard-card[draggable="true"]');
 
     cards.forEach(card => {
-      card.addEventListener('dragstart', e => this.handleDragStart(e as DragEvent));
-      card.addEventListener('dragend', e => this.handleDragEnd(e as DragEvent));
-      card.addEventListener('dragover', e => this.handleDragOver(e as DragEvent));
-      card.addEventListener('drop', e => this.handleDrop(e as DragEvent));
+      // Remove existing listeners to prevent duplicates
+      const existingDragStart = (card as any)._dragStartHandler;
+      const existingDragEnd = (card as any)._dragEndHandler;
+      const existingDragOver = (card as any)._dragOverHandler;
+      const existingDrop = (card as any)._dropHandler;
+
+      if (existingDragStart) card.removeEventListener('dragstart', existingDragStart);
+      if (existingDragEnd) card.removeEventListener('dragend', existingDragEnd);
+      if (existingDragOver) card.removeEventListener('dragover', existingDragOver);
+      if (existingDrop) card.removeEventListener('drop', existingDrop);
+
+      // Create new bound handlers
+      const dragStartHandler = (e: Event) => this.handleDragStart(e as DragEvent);
+      const dragEndHandler = (e: Event) => this.handleDragEnd(e as DragEvent);
+      const dragOverHandler = (e: Event) => this.handleDragOver(e as DragEvent);
+      const dropHandler = (e: Event) => this.handleDrop(e as DragEvent);
+
+      // Store handlers for later removal
+      (card as any)._dragStartHandler = dragStartHandler;
+      (card as any)._dragEndHandler = dragEndHandler;
+      (card as any)._dragOverHandler = dragOverHandler;
+      (card as any)._dropHandler = dropHandler;
+
+      card.addEventListener('dragstart', dragStartHandler);
+      card.addEventListener('dragend', dragEndHandler);
+      card.addEventListener('dragover', dragOverHandler);
+      card.addEventListener('drop', dropHandler);
 
       // Setup drag handle events
       const dragHandle = card.querySelector('.drag-handle');
       if (dragHandle) {
-        dragHandle.addEventListener('mousedown', e => {
+        const existingMouseDown = (dragHandle as any)._mouseDownHandler;
+        if (existingMouseDown) dragHandle.removeEventListener('mousedown', existingMouseDown);
+
+        const mouseDownHandler = (e: Event) => {
           e.stopPropagation(); // Prevent card toggle
-        });
+        };
+        (dragHandle as any)._mouseDownHandler = mouseDownHandler;
+        dragHandle.addEventListener('mousedown', mouseDownHandler);
       }
     });
   }
