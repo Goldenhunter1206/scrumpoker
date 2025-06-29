@@ -367,6 +367,11 @@
   animation-delay: 300ms;
 }
 
+#chat-messages {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
 #chat-messages::-webkit-scrollbar {
   width: 4px;
 }
