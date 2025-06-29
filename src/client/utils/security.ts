@@ -26,23 +26,25 @@ export function setSafeHtml(element: HTMLElement, html: string): void {
   // Create a temporary element to parse HTML
   const temp = document.createElement('div');
   temp.innerHTML = html;
-  
+
   // Remove all script tags and event handlers
   const scripts = temp.querySelectorAll('script');
   scripts.forEach(script => script.remove());
-  
+
   // Remove dangerous attributes
   const allElements = temp.querySelectorAll('*');
   allElements.forEach(el => {
     const attributes = el.getAttributeNames();
     attributes.forEach(attr => {
-      if (attr.toLowerCase().startsWith('on') || 
-          attr.toLowerCase() === 'href' && el.getAttribute(attr)?.startsWith('javascript:')) {
+      if (
+        attr.toLowerCase().startsWith('on') ||
+        (attr.toLowerCase() === 'href' && el.getAttribute(attr)?.startsWith('javascript:'))
+      ) {
         el.removeAttribute(attr);
       }
     });
   });
-  
+
   element.innerHTML = temp.innerHTML;
 }
 
@@ -56,7 +58,11 @@ export function createTextNode(text: string): Text {
 /**
  * Safely create an element with text content
  */
-export function createElement(tagName: string, textContent?: string, className?: string): HTMLElement {
+export function createElement(
+  tagName: string,
+  textContent?: string,
+  className?: string
+): HTMLElement {
   const element = document.createElement(tagName);
   if (textContent) {
     element.textContent = textContent;
@@ -85,14 +91,14 @@ export function isSafeUrl(url: string): boolean {
 export function createSafeLink(href: string, text: string, target?: string): HTMLAnchorElement {
   const link = document.createElement('a');
   link.textContent = text;
-  
+
   if (isSafeUrl(href)) {
     link.href = href;
   } else {
     link.href = '#';
     console.warn('Unsafe URL blocked:', href);
   }
-  
+
   if (target) {
     link.target = target;
     // Add security attributes for external links
@@ -100,6 +106,6 @@ export function createSafeLink(href: string, text: string, target?: string): HTM
       link.rel = 'noopener noreferrer';
     }
   }
-  
+
   return link;
 }

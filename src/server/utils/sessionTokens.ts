@@ -33,27 +33,24 @@ function hashToken(token: string): string {
 /**
  * Create and store a new session token
  */
-export function createSessionToken(
-  participantName: string,
-  roomCode: string
-): string {
+export function createSessionToken(participantName: string, roomCode: string): string {
   const token = generateSessionToken();
   const hashedToken = hashToken(token);
-  
+
   const sessionToken: SessionToken = {
     token: hashedToken,
     participantName,
     roomCode,
     createdAt: new Date(),
     lastUsed: new Date(),
-    isValid: true
+    isValid: true,
   };
-  
+
   sessionTokens.set(hashedToken, sessionToken);
-  
+
   // Clean up expired tokens periodically
   cleanupExpiredTokens();
-  
+
   return token; // Return unhashed token to client
 }
 
@@ -71,28 +68,30 @@ export function validateSessionToken(
 
   const hashedToken = hashToken(token);
   const sessionToken = sessionTokens.get(hashedToken);
-  
+
   if (!sessionToken) {
     return null;
   }
-  
+
   // Check if token is expired
   const now = new Date();
   if (now.getTime() - sessionToken.createdAt.getTime() > TOKEN_EXPIRATION) {
     sessionTokens.delete(hashedToken);
     return null;
   }
-  
+
   // Check if token is valid and matches the session
-  if (!sessionToken.isValid || 
-      sessionToken.roomCode !== roomCode || 
-      sessionToken.participantName !== participantName) {
+  if (
+    !sessionToken.isValid ||
+    sessionToken.roomCode !== roomCode ||
+    sessionToken.participantName !== participantName
+  ) {
     return null;
   }
-  
+
   // Update last used time
   sessionToken.lastUsed = now;
-  
+
   return sessionToken;
 }
 
@@ -101,10 +100,10 @@ export function validateSessionToken(
  */
 export function invalidateSessionToken(token: string): void {
   if (!token) return;
-  
+
   const hashedToken = hashToken(token);
   const sessionToken = sessionTokens.get(hashedToken);
-  
+
   if (sessionToken) {
     sessionToken.isValid = false;
   }
@@ -113,13 +112,9 @@ export function invalidateSessionToken(token: string): void {
 /**
  * Invalidate all tokens for a participant
  */
-export function invalidateParticipantTokens(
-  participantName: string,
-  roomCode: string
-): void {
+export function invalidateParticipantTokens(participantName: string, roomCode: string): void {
   for (const [hashedToken, sessionToken] of sessionTokens.entries()) {
-    if (sessionToken.participantName === participantName && 
-        sessionToken.roomCode === roomCode) {
+    if (sessionToken.participantName === participantName && sessionToken.roomCode === roomCode) {
       sessionToken.isValid = false;
     }
   }
@@ -142,17 +137,17 @@ export function invalidateRoomTokens(roomCode: string): void {
 export function cleanupExpiredTokens(): void {
   const now = new Date();
   const tokensToDelete: string[] = [];
-  
+
   for (const [hashedToken, sessionToken] of sessionTokens.entries()) {
     const isExpired = now.getTime() - sessionToken.createdAt.getTime() > TOKEN_EXPIRATION;
-    
+
     if (isExpired || !sessionToken.isValid) {
       tokensToDelete.push(hashedToken);
     }
   }
-  
+
   tokensToDelete.forEach(token => sessionTokens.delete(token));
-  
+
   if (tokensToDelete.length > 0) {
     console.log(`Cleaned up ${tokensToDelete.length} expired/invalid session tokens`);
   }
@@ -169,21 +164,21 @@ export function getTokenStats(): {
   const now = new Date();
   let active = 0;
   let expired = 0;
-  
+
   for (const sessionToken of sessionTokens.values()) {
     const isExpired = now.getTime() - sessionToken.createdAt.getTime() > TOKEN_EXPIRATION;
-    
+
     if (isExpired || !sessionToken.isValid) {
       expired++;
     } else {
       active++;
     }
   }
-  
+
   return {
     total: sessionTokens.size,
     active,
-    expired
+    expired,
   };
 }
 

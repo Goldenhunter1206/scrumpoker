@@ -44,10 +44,7 @@ interface InternalSessionData {
 
 // Create validation wrapper that has access to socket
 function createValidationWrapper(socket: Socket<ClientToServerEvents, ServerToClientEvents>) {
-  return function withValidation<T>(
-    eventName: string,
-    handler: (data: T) => void | Promise<void>
-  ) {
+  return function withValidation<T>(eventName: string, handler: (data: T) => void | Promise<void>) {
     return async (data: any) => {
       try {
         const validator = validateSocketEvent<T>(eventName as any);
@@ -71,43 +68,52 @@ export function setupSocketHandlers(
   const withValidation = createValidationWrapper(socket);
 
   // Configure Jira integration
-  socket.on('configure-jira', withValidation('configure-jira', async ({ roomCode, domain, email, token, projectKey }: any) => {
-    const session = memoryStore.get(roomCode);
-    if (!session) return;
+  socket.on(
+    'configure-jira',
+    withValidation(
+      'configure-jira',
+      async ({ roomCode, domain, email, token, projectKey }: any) => {
+        const session = memoryStore.get(roomCode);
+        if (!session) return;
 
-    const facilitator = Array.from(session.participants.values()).find(
-      p => p.socketId === socket.id
-    );
+        const facilitator = Array.from(session.participants.values()).find(
+          p => p.socketId === socket.id
+        );
 
-    if (!facilitator?.isFacilitator) {
-      socket.emit('error', { message: 'Only facilitator can configure Jira' });
-      return;
-    }
+        if (!facilitator?.isFacilitator) {
+          socket.emit('error', { message: 'Only facilitator can configure Jira' });
+          return;
+        }
 
-    // Sanitize inputs
-    const sanitizedDomain = sanitizeString(domain);
-    const sanitizedEmail = sanitizeString(email);
+        // Sanitize inputs
+        const sanitizedDomain = sanitizeString(domain);
+        const sanitizedEmail = sanitizeString(email);
 
-    const config = { domain: sanitizedDomain, email: sanitizedEmail, token, hasToken: true };
-    const boardsResult = await getJiraBoards(config, projectKey || undefined);
+        const config = { domain: sanitizedDomain, email: sanitizedEmail, token, hasToken: true };
+        const boardsResult = await getJiraBoards(config, projectKey || undefined);
 
-    if (!boardsResult.success) {
-      socket.emit('jira-config-failed', {
-        message: 'Failed to connect to Jira. Please check your credentials.',
-      });
-      return;
-    }
+        if (!boardsResult.success) {
+          socket.emit('jira-config-failed', {
+            message: 'Failed to connect to Jira. Please check your credentials.',
+          });
+          return;
+        }
 
-    session.jiraConfig = { ...config, projectKey: projectKey ? sanitizeString(projectKey) : undefined };
-    session.lastActivity = new Date();
+        session.jiraConfig = {
+          ...config,
+          projectKey: projectKey ? sanitizeString(projectKey) : undefined,
+        };
+        session.lastActivity = new Date();
 
-    socket.emit('jira-config-success', {
-      boards: boardsResult.data?.values || [],
-      sessionData: getSessionData(session),
-    });
+        socket.emit('jira-config-success', {
+          boards: boardsResult.data?.values || [],
+          sessionData: getSessionData(session),
+        });
 
-    console.log(`Jira configured for session ${roomCode}`);
-  }));
+        console.log(`Jira configured for session ${roomCode}`);
+      }
+    )
+  );
 
   // Get Jira issues from board
   socket.on('get-jira-issues', async ({ roomCode, boardId }) => {
@@ -577,10 +583,10 @@ export function setupSocketHandlers(
         case 'remove':
           session.participants.delete(targetName);
           session.votes.delete(targetName);
-          
+
           // Invalidate all session tokens for this participant
           invalidateParticipantTokens(targetName, roomCode);
-          
+
           io.to(roomCode).emit('participant-removed', {
             participantName: targetName,
             sessionData: getSessionData(session),
@@ -741,7 +747,7 @@ export function setupSocketHandlers(
 
       // Invalidate all session tokens for this room
       invalidateRoomTokens(roomCode);
-      
+
       memoryStore.delete(roomCode);
       console.log(`Session ${roomCode} ended by facilitator`);
     } catch (error) {
@@ -750,38 +756,41 @@ export function setupSocketHandlers(
   });
 
   // Chat message
-  socket.on('send-chat-message', withValidation('send-chat-message', ({ roomCode, message }: any) => {
-    const session = memoryStore.get(roomCode);
-    if (!session) return;
+  socket.on(
+    'send-chat-message',
+    withValidation('send-chat-message', ({ roomCode, message }: any) => {
+      const session = memoryStore.get(roomCode);
+      if (!session) return;
 
-    const participant = Array.from(session.participants.values()).find(
-      p => p.socketId === socket.id
-    );
+      const participant = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id
+      );
 
-    if (!participant) return;
+      if (!participant) return;
 
-    // Sanitize message content
-    const sanitizedMessage = sanitizeString(message);
+      // Sanitize message content
+      const sanitizedMessage = sanitizeString(message);
 
-    const chatMessage: ChatMessage = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      author: participant.name,
-      content: sanitizedMessage,
-      timestamp: new Date(),
-      type: 'message',
-    };
+      const chatMessage: ChatMessage = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        author: participant.name,
+        content: sanitizedMessage,
+        timestamp: new Date(),
+        type: 'message',
+      };
 
-    session.chatMessages.push(chatMessage);
-    session.lastActivity = new Date();
+      session.chatMessages.push(chatMessage);
+      session.lastActivity = new Date();
 
-    // Limit chat history to prevent memory issues
-    if (session.chatMessages.length > 100) {
-      session.chatMessages = session.chatMessages.slice(-100);
-    }
+      // Limit chat history to prevent memory issues
+      if (session.chatMessages.length > 100) {
+        session.chatMessages = session.chatMessages.slice(-100);
+      }
 
-    // Broadcast to all participants in the session
-    io.to(roomCode).emit('chatMessage', chatMessage);
-  }));
+      // Broadcast to all participants in the session
+      io.to(roomCode).emit('chatMessage', chatMessage);
+    })
+  );
 
   // Typing indicator
   socket.on('typing-indicator', ({ roomCode, userName, isTyping }) => {

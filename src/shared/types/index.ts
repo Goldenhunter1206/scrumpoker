@@ -136,7 +136,12 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
   'create-session': (data: { sessionName: string; facilitatorName: string }) => void;
-  'join-session': (data: { roomCode: string; participantName: string; asViewer?: boolean; sessionToken?: string }) => void;
+  'join-session': (data: {
+    roomCode: string;
+    participantName: string;
+    asViewer?: boolean;
+    sessionToken?: string;
+  }) => void;
   'configure-jira': (data: {
     roomCode: string;
     domain: string;

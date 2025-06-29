@@ -31,7 +31,12 @@ import {
 } from './utils/sessionHelpers.js';
 import { setupSocketHandlers } from './socketHandlers.js';
 import { rateLimitConfig } from './middleware/validation.js';
-import { createSessionToken, validateSessionToken, invalidateParticipantTokens, invalidateRoomTokens } from './utils/sessionTokens.js';
+import {
+  createSessionToken,
+  validateSessionToken,
+  invalidateParticipantTokens,
+  invalidateRoomTokens,
+} from './utils/sessionTokens.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -116,7 +121,7 @@ app.use((req, res, next) => {
   res.setHeader('X-DNS-Prefetch-Control', 'off');
   res.setHeader('X-Download-Options', 'noopen');
   res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
-  
+
   // Content Security Policy
   const cspDirectives = [
     "default-src 'self'",
@@ -127,16 +132,16 @@ app.use((req, res, next) => {
     "connect-src 'self' ws: wss:",
     "frame-ancestors 'none'",
     "base-uri 'self'",
-    "form-action 'self'"
+    "form-action 'self'",
   ].join('; ');
-  
+
   res.setHeader('Content-Security-Policy', cspDirectives);
-  
+
   // Additional security headers for production
   if (NODE_ENV === 'production') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
-  
+
   next();
 });
 
@@ -180,9 +185,14 @@ io.on('connection', socket => {
   socket.on('create-session', ({ sessionName, facilitatorName }) => {
     try {
       // Basic validation
-      if (!sessionName || !facilitatorName || 
-          sessionName.length > 100 || facilitatorName.length > 50 ||
-          typeof sessionName !== 'string' || typeof facilitatorName !== 'string') {
+      if (
+        !sessionName ||
+        !facilitatorName ||
+        sessionName.length > 100 ||
+        facilitatorName.length > 50 ||
+        typeof sessionName !== 'string' ||
+        typeof facilitatorName !== 'string'
+      ) {
         socket.emit('error', { message: 'Invalid session data' });
         return;
       }
@@ -194,7 +204,7 @@ io.on('connection', socket => {
       }
 
       const roomCode = generateRoomCode();
-      
+
       // Sanitize inputs
       const sanitizedSessionName = sessionName.trim().substring(0, 100);
       const sanitizedFacilitatorName = facilitatorName.trim().substring(0, 50);
@@ -255,9 +265,14 @@ io.on('connection', socket => {
   socket.on('join-session', ({ roomCode, participantName, asViewer = false, sessionToken }) => {
     try {
       // Basic validation
-      if (!roomCode || !participantName || 
-          typeof roomCode !== 'string' || typeof participantName !== 'string' ||
-          roomCode.length !== 6 || participantName.length > 50) {
+      if (
+        !roomCode ||
+        !participantName ||
+        typeof roomCode !== 'string' ||
+        typeof participantName !== 'string' ||
+        roomCode.length !== 6 ||
+        participantName.length > 50
+      ) {
         socket.emit('join-failed', { message: 'Invalid request data' });
         return;
       }
@@ -278,10 +293,14 @@ io.on('connection', socket => {
           socket.emit('join-failed', { message: 'Name already taken in this session' });
           return;
         }
-        
+
         // Handle reconnection with session token validation
         if (sessionToken) {
-          const tokenValidation = validateSessionToken(sessionToken, upperCode, sanitizedParticipantName);
+          const tokenValidation = validateSessionToken(
+            sessionToken,
+            upperCode,
+            sanitizedParticipantName
+          );
           if (!tokenValidation) {
             socket.emit('join-failed', { message: 'Invalid or expired session token' });
             return;
@@ -291,7 +310,7 @@ io.on('connection', socket => {
           socket.emit('join-failed', { message: 'Session token required for reconnection' });
           return;
         }
-        
+
         // Valid reconnection
         existing.socketId = socket.id;
         existing.isViewer = asViewer;
@@ -318,7 +337,7 @@ io.on('connection', socket => {
 
       // New participant path - generate new session token
       const newSessionToken = createSessionToken(sanitizedParticipantName, upperCode);
-      
+
       session.participants.set(sanitizedParticipantName, {
         name: sanitizedParticipantName,
         socketId: socket.id,
@@ -370,7 +389,7 @@ io.on('connection', socket => {
         });
 
         console.log(`${participant.name} temporarily left session ${roomCode}`);
-        
+
         // Note: Don't invalidate tokens on disconnect - allow reconnection
         // Tokens will be validated on reconnection attempt
       }

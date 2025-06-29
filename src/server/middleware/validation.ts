@@ -11,9 +11,10 @@ const schemas = {
     .trim()
     .required()
     .messages({
-      'string.pattern.base': 'Name can only contain letters, numbers, spaces, and basic punctuation',
+      'string.pattern.base':
+        'Name can only contain letters, numbers, spaces, and basic punctuation',
       'string.max': 'Name must be 50 characters or less',
-      'string.min': 'Name is required'
+      'string.min': 'Name is required',
     }),
 
   // Session names - more permissive but still safe
@@ -26,7 +27,7 @@ const schemas = {
     .messages({
       'string.pattern.base': 'Session name contains invalid characters',
       'string.max': 'Session name must be 100 characters or less',
-      'string.min': 'Session name is required'
+      'string.min': 'Session name is required',
     }),
 
   // Room codes - exactly 6 alphanumeric characters
@@ -36,7 +37,7 @@ const schemas = {
     .required()
     .messages({
       'string.length': 'Room code must be exactly 6 characters',
-      'string.pattern.base': 'Room code can only contain uppercase letters and numbers'
+      'string.pattern.base': 'Room code can only contain uppercase letters and numbers',
     }),
 
   // Chat messages - limited length, no script tags
@@ -49,19 +50,14 @@ const schemas = {
     .messages({
       'string.max': 'Message must be 500 characters or less',
       'string.min': 'Message cannot be empty',
-      'string.pattern.base': 'Message contains forbidden content'
+      'string.pattern.base': 'Message contains forbidden content',
     }),
 
   // Tickets/descriptions - longer but still limited
-  ticketDescription: Joi.string()
-    .min(1)
-    .max(2000)
-    .trim()
-    .required()
-    .messages({
-      'string.max': 'Ticket description must be 2000 characters or less',
-      'string.min': 'Ticket description is required'
-    }),
+  ticketDescription: Joi.string().min(1).max(2000).trim().required().messages({
+    'string.max': 'Ticket description must be 2000 characters or less',
+    'string.min': 'Ticket description is required',
+  }),
 
   // Jira domain - valid domain format
   jiraDomain: Joi.string()
@@ -71,18 +67,14 @@ const schemas = {
     .required()
     .messages({
       'string.pattern.base': 'Invalid domain format',
-      'string.max': 'Domain name too long'
+      'string.max': 'Domain name too long',
     }),
 
   // Email format for Jira
-  email: Joi.string()
-    .email()
-    .max(255)
-    .required()
-    .messages({
-      'string.email': 'Invalid email format',
-      'string.max': 'Email address too long'
-    }),
+  email: Joi.string().email().max(255).required().messages({
+    'string.email': 'Invalid email format',
+    'string.max': 'Email address too long',
+  }),
 
   // Jira token - base64-like pattern, length limit
   jiraToken: Joi.string()
@@ -92,7 +84,7 @@ const schemas = {
     .required()
     .messages({
       'string.pattern.base': 'Invalid token format',
-      'string.max': 'Token too long'
+      'string.max': 'Token too long',
     }),
 
   // Project key - Jira format
@@ -102,17 +94,15 @@ const schemas = {
     .pattern(/^[A-Z0-9_]{1,50}$/)
     .optional()
     .messages({
-      'string.pattern.base': 'Project key can only contain uppercase letters, numbers, and underscores',
-      'string.max': 'Project key too long'
+      'string.pattern.base':
+        'Project key can only contain uppercase letters, numbers, and underscores',
+      'string.max': 'Project key too long',
     }),
 
   // Board ID - numeric string
-  boardId: Joi.string()
-    .pattern(/^\d+$/)
-    .required()
-    .messages({
-      'string.pattern.base': 'Board ID must be numeric'
-    }),
+  boardId: Joi.string().pattern(/^\d+$/).required().messages({
+    'string.pattern.base': 'Board ID must be numeric',
+  }),
 
   // Vote values - specific allowed values
   vote: Joi.alternatives()
@@ -122,54 +112,45 @@ const schemas = {
     )
     .required()
     .messages({
-      'alternatives.match': 'Invalid vote value'
+      'alternatives.match': 'Invalid vote value',
     }),
 
   // Countdown duration - reasonable limits
-  countdownDuration: Joi.number()
-    .integer()
-    .min(10)
-    .max(300)
-    .required()
-    .messages({
-      'number.min': 'Countdown must be at least 10 seconds',
-      'number.max': 'Countdown cannot exceed 5 minutes'
-    }),
+  countdownDuration: Joi.number().integer().min(10).max(300).required().messages({
+    'number.min': 'Countdown must be at least 10 seconds',
+    'number.max': 'Countdown cannot exceed 5 minutes',
+  }),
 
   // Final estimate - numeric with reasonable bounds
-  finalEstimate: Joi.number()
-    .min(0)
-    .max(999)
-    .required()
-    .messages({
-      'number.min': 'Estimate cannot be negative',
-      'number.max': 'Estimate too large'
-    }),
+  finalEstimate: Joi.number().min(0).max(999).required().messages({
+    'number.min': 'Estimate cannot be negative',
+    'number.max': 'Estimate too large',
+  }),
 
   // Moderation actions - specific allowed values
   moderationAction: Joi.string()
     .valid('make-viewer', 'make-participant', 'make-facilitator', 'remove')
     .required()
     .messages({
-      'any.only': 'Invalid moderation action'
+      'any.only': 'Invalid moderation action',
     }),
 
   // Boolean values
-  boolean: Joi.boolean().required()
+  boolean: Joi.boolean().required(),
 };
 
 // Socket event validation schemas
 export const socketValidation = {
   'create-session': Joi.object({
     sessionName: schemas.sessionName,
-    facilitatorName: schemas.userName
+    facilitatorName: schemas.userName,
   }),
 
   'join-session': Joi.object({
     roomCode: schemas.roomCode,
     participantName: schemas.userName,
     asViewer: schemas.boolean.optional(),
-    sessionToken: Joi.string().hex().length(64).optional() // 32 bytes = 64 hex chars
+    sessionToken: Joi.string().hex().length(64).optional(), // 32 bytes = 64 hex chars
   }),
 
   'configure-jira': Joi.object({
@@ -177,12 +158,12 @@ export const socketValidation = {
     domain: schemas.jiraDomain,
     email: schemas.email,
     token: schemas.jiraToken,
-    projectKey: schemas.projectKey
+    projectKey: schemas.projectKey,
   }),
 
   'get-jira-issues': Joi.object({
     roomCode: schemas.roomCode,
-    boardId: schemas.boardId
+    boardId: schemas.boardId,
   }),
 
   'set-jira-issue': Joi.object({
@@ -195,63 +176,63 @@ export const socketValidation = {
       priority: Joi.string().max(100).required(),
       status: Joi.string().max(100).required(),
       assignee: Joi.string().max(100).required(),
-      currentStoryPoints: Joi.number().allow(null)
-    }).required()
+      currentStoryPoints: Joi.number().allow(null),
+    }).required(),
   }),
 
   'finalize-estimation': Joi.object({
     roomCode: schemas.roomCode,
-    finalEstimate: schemas.finalEstimate
+    finalEstimate: schemas.finalEstimate,
   }),
 
   'set-ticket': Joi.object({
     roomCode: schemas.roomCode,
-    ticket: schemas.ticketDescription
+    ticket: schemas.ticketDescription,
   }),
 
   'submit-vote': Joi.object({
     roomCode: schemas.roomCode,
-    vote: schemas.vote
+    vote: schemas.vote,
   }),
 
   'moderate-participant': Joi.object({
     roomCode: schemas.roomCode,
     targetName: schemas.userName,
-    action: schemas.moderationAction
+    action: schemas.moderationAction,
   }),
 
   'set-facilitator-viewer': Joi.object({
     roomCode: schemas.roomCode,
-    isViewer: schemas.boolean
+    isViewer: schemas.boolean,
   }),
 
   'reveal-votes': Joi.object({
-    roomCode: schemas.roomCode
+    roomCode: schemas.roomCode,
   }),
 
   'reset-voting': Joi.object({
-    roomCode: schemas.roomCode
+    roomCode: schemas.roomCode,
   }),
 
   'start-countdown': Joi.object({
     roomCode: schemas.roomCode,
-    duration: schemas.countdownDuration
+    duration: schemas.countdownDuration,
   }),
 
   'end-session': Joi.object({
-    roomCode: schemas.roomCode
+    roomCode: schemas.roomCode,
   }),
 
   'send-chat-message': Joi.object({
     roomCode: schemas.roomCode,
-    message: schemas.chatMessage
+    message: schemas.chatMessage,
   }),
 
   'typing-indicator': Joi.object({
     roomCode: schemas.roomCode,
     userName: schemas.userName,
-    isTyping: schemas.boolean
-  })
+    isTyping: schemas.boolean,
+  }),
 };
 
 // Middleware factory for socket event validation
@@ -265,7 +246,7 @@ export function validateSocketEvent<T = any>(eventName: keyof typeof socketValid
     const { error, value } = schema.validate(data, {
       abortEarly: false,
       stripUnknown: true,
-      convert: true
+      convert: true,
     });
 
     if (error) {
@@ -283,14 +264,14 @@ export function validateBody(schema: Joi.Schema) {
     const { error, value } = schema.validate(req.body, {
       abortEarly: false,
       stripUnknown: true,
-      convert: true
+      convert: true,
     });
 
     if (error) {
       const errorMessage = error.details.map(detail => detail.message).join(', ');
       return res.status(400).json({
         error: 'Validation failed',
-        details: errorMessage
+        details: errorMessage,
       });
     }
 
@@ -335,5 +316,5 @@ export const rateLimitConfig = {
     message: 'Too many chat messages, please slow down.',
     standardHeaders: true,
     legacyHeaders: false,
-  }
+  },
 };
