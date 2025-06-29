@@ -903,7 +903,7 @@ class ScrumPokerApp {
 
       const moderationButton =
         state.isFacilitator && !participant.isFacilitator
-          ? `<button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px; margin-left: 10px;" onclick="app.openModerationModal('${participant.name}')">⚙️</button>`
+          ? `<button class="btn btn-outline" style="border: 0px; padding: 4px 8px; font-size: 12px; margin-left: 10px;" onclick="app.openModerationModal('${participant.name}')">⚙️</button>`
           : '';
 
       div.innerHTML = `
