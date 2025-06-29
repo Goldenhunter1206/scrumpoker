@@ -1,4 +1,4 @@
-import { GameState, Vote } from '@shared/types/index.js';
+import { GameState, Vote, ChatMessage } from '@shared/types/index.js';
 
 export class GameStateManager {
   private state: GameState;
@@ -23,6 +23,8 @@ export class GameStateManager {
       countdownSeconds: 0,
       history: [],
       aggregate: null,
+      chatMessages: [],
+      typingUsers: [],
     };
   }
 
@@ -51,6 +53,28 @@ export class GameStateManager {
     this.state.moderationTarget = target;
   }
 
+  addChatMessage(message: ChatMessage): void {
+    this.state.chatMessages.push(message);
+  }
+
+  setChatMessages(messages: ChatMessage[]): void {
+    this.state.chatMessages = messages;
+  }
+
+  setTypingUsers(users: string[]): void {
+    this.state.typingUsers = users;
+  }
+
+  addTypingUser(userName: string): void {
+    if (!this.state.typingUsers.includes(userName)) {
+      this.state.typingUsers.push(userName);
+    }
+  }
+
+  removeTypingUser(userName: string): void {
+    this.state.typingUsers = this.state.typingUsers.filter(user => user !== userName);
+  }
+
   reset(): void {
     this.state = {
       roomCode: '',
@@ -71,6 +95,8 @@ export class GameStateManager {
       countdownSeconds: 0,
       history: [],
       aggregate: null,
+      chatMessages: [],
+      typingUsers: [],
     };
   }
 }

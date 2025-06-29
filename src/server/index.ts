@@ -78,6 +78,8 @@ interface InternalSessionData {
   lastActivity: Date;
   history: any[];
   aggregate: any;
+  chatMessages: any[];
+  typingUsers: Map<string, NodeJS.Timeout>;
 }
 
 // Middleware
@@ -165,6 +167,8 @@ io.on('connection', socket => {
         lastActivity: new Date(),
         history: [],
         aggregate: null,
+        chatMessages: [],
+        typingUsers: new Map(),
       };
 
       // Add facilitator as first participant

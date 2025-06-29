@@ -61,6 +61,9 @@ export function playSound(eventName: string): void {
     case 'ticket':
       playTone(650, 150, 0.22, 'square');
       break;
+    case 'chat':
+      playTone(750, 100, 0.15, 'sine');
+      break;
   }
 }
 

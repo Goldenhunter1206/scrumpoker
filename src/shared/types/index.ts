@@ -38,6 +38,7 @@ export interface SessionData {
   totalVotes: number;
   history: EstimationHistoryEntry[];
   aggregate: AggregateStats | null;
+  chatMessages: ChatMessage[];
 }
 
 export interface EstimationHistoryEntry {
@@ -126,6 +127,8 @@ export interface ServerToClientEvents {
   'countdown-tick': (data: { secondsLeft: number; totalDuration: number }) => void;
   'countdown-finished': (data: { sessionData: SessionData }) => void;
   'server-shutdown': (data: { message: string }) => void;
+  chatMessage: (message: ChatMessage) => void;
+  typingUpdate: (typingUsers: string[]) => void;
   error: (data: { message: string }) => void;
 }
 
@@ -150,6 +153,8 @@ export interface ClientToServerEvents {
   'reset-voting': (data: { roomCode: string }) => void;
   'start-countdown': (data: { roomCode: string; duration: number }) => void;
   'end-session': (data: { roomCode: string }) => void;
+  'send-chat-message': (data: { roomCode: string; message: string }) => void;
+  'typing-indicator': (data: { roomCode: string; userName: string; isTyping: boolean }) => void;
 }
 
 export interface JiraBoard {
@@ -176,6 +181,23 @@ export interface GameState {
   countdownSeconds: number;
   history: EstimationHistoryEntry[];
   aggregate: AggregateStats | null;
+  chatMessages: ChatMessage[];
+  typingUsers: string[];
+}
+
+// Chat-related types
+export interface ChatMessage {
+  id: string;
+  author: string;
+  content: string;
+  timestamp: Date;
+  type: 'message' | 'system';
+}
+
+export interface TypingIndicator {
+  roomCode: string;
+  userName: string;
+  isTyping: boolean;
 }
 
 export interface NotificationData {

@@ -22,7 +22,14 @@ import {
   toggleFacilitatorControlsVisibility,
 } from './utils/ui.js';
 import { playSound, toggleSound, updateSoundIcon } from './utils/sound.js';
-import { SessionData, VotingResults, JiraIssue, Vote, JiraBoard } from '@shared/types/index.js';
+import {
+  SessionData,
+  VotingResults,
+  JiraIssue,
+  Vote,
+  JiraBoard,
+  ChatMessage,
+} from '@shared/types/index.js';
 
 class ScrumPokerApp {
   constructor() {
@@ -140,6 +147,19 @@ class ScrumPokerApp {
     document
       .getElementById('download-statistics-btn')
       ?.addEventListener('click', () => this.exportStatistics());
+
+    // Chat functionality
+    document.getElementById('chat-input')?.addEventListener('keypress', e => {
+      if (e.key === 'Enter') {
+        this.sendChatMessage();
+      }
+    });
+    document.getElementById('chat-input')?.addEventListener('input', () => {
+      this.handleTyping();
+    });
+    document
+      .getElementById('send-message-btn')
+      ?.addEventListener('click', () => this.sendChatMessage());
 
     // Jira board selection
     document.getElementById('jira-board-select')?.addEventListener('change', e => {
@@ -289,6 +309,17 @@ class ScrumPokerApp {
       this.hideCountdown();
       this.updateCountdownUI();
     });
+
+    // Chat event handlers
+    socketManager.on('chatMessage', (message: ChatMessage) => {
+      gameState.addChatMessage(message);
+      this.displayChatMessage(message);
+    });
+
+    socketManager.on('typingUpdate', (typingUsers: string[]) => {
+      gameState.setTypingUsers(typingUsers);
+      this.updateTypingIndicator(typingUsers);
+    });
   }
 
   private prefillSavedData(): void {
@@ -380,6 +411,7 @@ class ScrumPokerApp {
       currentTicket: sessionData.currentTicket || '',
       history: sessionData.history || [],
       aggregate: sessionData.aggregate || null,
+      chatMessages: sessionData.chatMessages || [],
     });
 
     // Update user's role status
@@ -447,6 +479,7 @@ class ScrumPokerApp {
     this.updateTicketDisplay();
     this.updateHistoryUI();
     this.updateStatsUI();
+    this.updateChatUI();
   }
 
   // Jira Integration Methods
@@ -1412,6 +1445,194 @@ class ScrumPokerApp {
     showNotification('Statistics exported successfully!', 'success');
   }
 
+  private updateChatUI(): void {
+    const state = gameState.getState();
+    const container = document.getElementById('chat-messages');
+    const emptyMessage = document.getElementById('chat-empty');
+
+    if (!container) return;
+
+    // Show chat section when in session
+    showElement('chat-section');
+
+    // Clear existing messages except empty message
+    const existingMessages = container.querySelectorAll('.chat-message');
+    existingMessages.forEach(msg => msg.remove());
+
+    if (state.chatMessages.length === 0) {
+      if (emptyMessage) {
+        emptyMessage.style.display = 'block';
+      }
+      return;
+    }
+
+    // Hide empty message
+    if (emptyMessage) {
+      emptyMessage.style.display = 'none';
+    }
+
+    // Display all messages
+    state.chatMessages.forEach(message => {
+      this.displayChatMessage(message);
+    });
+  }
+
+  // Chat functionality
+  private sendChatMessage(): void {
+    const input = document.getElementById('chat-input') as HTMLInputElement;
+    const message = input.value.trim();
+
+    if (!message) return;
+
+    const state = gameState.getState();
+    input.value = '';
+    this.updateSendButton();
+
+    socketManager.sendChatMessage(state.roomCode, message);
+  }
+
+  private handleTyping(): void {
+    const input = document.getElementById('chat-input') as HTMLInputElement;
+    const message = input.value.trim();
+
+    this.updateSendButton();
+
+    const state = gameState.getState();
+    const isTyping = message.length > 0;
+
+    // Debounce typing indicator
+    clearTimeout(this.typingTimeout);
+
+    if (isTyping) {
+      if (!this.isTyping) {
+        this.isTyping = true;
+        socketManager.sendTypingIndicator(state.roomCode, state.myName, true);
+      }
+
+      this.typingTimeout = setTimeout(() => {
+        this.isTyping = false;
+        socketManager.sendTypingIndicator(state.roomCode, state.myName, false);
+      }, 2000);
+    } else if (this.isTyping) {
+      this.isTyping = false;
+      socketManager.sendTypingIndicator(state.roomCode, state.myName, false);
+    }
+  }
+
+  private updateSendButton(): void {
+    const input = document.getElementById('chat-input') as HTMLInputElement;
+    const button = document.getElementById('send-message-btn') as HTMLButtonElement;
+
+    if (button) {
+      button.disabled = !input.value.trim();
+    }
+  }
+
+  private displayChatMessage(message: ChatMessage): void {
+    const container = document.getElementById('chat-messages');
+    const emptyMessage = document.getElementById('chat-empty');
+
+    if (!container) return;
+
+    // Hide empty message
+    if (emptyMessage) {
+      emptyMessage.style.display = 'none';
+    }
+
+    const messageDiv = document.createElement('div');
+    const state = gameState.getState();
+    const isOwn = message.author === state.myName;
+    const isSystem = message.type === 'system';
+
+    messageDiv.className = `chat-message ${isSystem ? 'system' : isOwn ? 'own' : 'other'}`;
+
+    if (isSystem) {
+      messageDiv.innerHTML = `
+        <div class="chat-message-content text-center">${message.content}</div>
+      `;
+    } else {
+      const timeStr = new Date(message.timestamp).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      messageDiv.innerHTML = `
+        <div class="chat-message-header">
+          <span class="chat-message-author">${message.author}</span>
+          <span class="chat-message-time">${timeStr}</span>
+        </div>
+        <div class="chat-message-content">${this.escapeHtml(message.content)}</div>
+      `;
+    }
+
+    container.appendChild(messageDiv);
+
+    // Auto-scroll to bottom
+    container.scrollTop = container.scrollHeight;
+
+    // Play sound for new messages (not from self)
+    if (!isOwn && !isSystem) {
+      playSound('chat');
+      this.showUnreadIndicator();
+    }
+  }
+
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  private updateTypingIndicator(typingUsers: string[]): void {
+    const indicator = document.getElementById('typing-indicator');
+    const text = document.getElementById('typing-text');
+
+    if (!indicator || !text) return;
+
+    const state = gameState.getState();
+    const othersTyping = typingUsers.filter(user => user !== state.myName);
+
+    if (othersTyping.length === 0) {
+      indicator.classList.add('hidden');
+      return;
+    }
+
+    indicator.classList.remove('hidden');
+
+    if (othersTyping.length === 1) {
+      text.innerHTML = `${othersTyping[0]} is typing<span class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>`;
+    } else if (othersTyping.length === 2) {
+      text.innerHTML = `${othersTyping[0]} and ${othersTyping[1]} are typing<span class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>`;
+    } else {
+      text.innerHTML = `${othersTyping.length} people are typing<span class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>`;
+    }
+  }
+
+  private showUnreadIndicator(): void {
+    const indicator = document.getElementById('unread-indicator');
+    const count = document.getElementById('unread-count');
+    const chatCard = document.querySelector('[data-card="chat"]');
+
+    if (!indicator || !count || !chatCard) return;
+
+    // Only show if chat is collapsed
+    if (chatCard.classList.contains('collapsed')) {
+      const currentCount = parseInt(count.textContent || '0');
+      count.textContent = String(currentCount + 1);
+      indicator.classList.remove('hidden');
+    }
+  }
+
+  private clearUnreadIndicator(): void {
+    const indicator = document.getElementById('unread-indicator');
+    const count = document.getElementById('unread-count');
+
+    if (indicator && count) {
+      indicator.classList.add('hidden');
+      count.textContent = '0';
+    }
+  }
+
   /**
    * Switch between the Issues and History tabs inside the history-section card
    */
@@ -1487,6 +1708,11 @@ class ScrumPokerApp {
 
     card.classList.toggle('collapsed');
 
+    // Clear unread indicator when chat is opened
+    if (cardId === 'chat' && !card.classList.contains('collapsed')) {
+      this.clearUnreadIndicator();
+    }
+
     // Save state to localStorage
     const collapsedCards = JSON.parse(localStorage.getItem('collapsedCards') || '[]');
     if (card.classList.contains('collapsed')) {
@@ -1552,6 +1778,8 @@ class ScrumPokerApp {
   }
 
   private draggedElement: HTMLElement | null = null;
+  private typingTimeout: number | null = null;
+  private isTyping = false;
 
   private handleDragStart(e: DragEvent): void {
     const target = e.target as HTMLElement;

@@ -11,7 +11,7 @@
 </head>
 <body>
     <div class="connection-status" id="connection-status">Connecting...</div>
-    
+
     <div class="container">
         <div class="header">
             <span id="sound-toggle" class="sound-toggle" title="Toggle sounds">🔊</span>
@@ -29,22 +29,22 @@
                             <label for="facilitator-name">Your Name (Facilitator)</label>
                             <input type="text" id="facilitator-name" placeholder="Enter your name">
                         </div>
-                        
+
                         <div class="input-group">
                             <label for="session-name">Session Name</label>
                             <input type="text" id="session-name" placeholder="Sprint 12 Planning" value="Sprint Planning Session">
                         </div>
-                        
+
                         <button class="btn" id="start-btn">Start Session</button>
                     </div>
-                    
+
                     <div>
                         <h3>Join Existing Session</h3>
                         <div class="input-group">
                             <label for="join-name">Your Name</label>
                             <input type="text" id="join-name" placeholder="Enter your name">
                         </div>
-                        
+
                         <div class="input-group">
                             <label for="room-code-input">Room Code</label>
                             <input type="text" id="room-code-input" placeholder="Enter 6-digit room code" style="text-transform: uppercase;">
@@ -57,7 +57,7 @@
                                 <option value="viewer">Viewer (watch only)</option>
                             </select>
                         </div>
-                        
+
                         <button class="btn btn-secondary" id="join-btn">Join Session</button>
                     </div>
                 </div>
@@ -176,7 +176,7 @@
                                             <button class="btn btn-secondary btn-sm" id="cancel-jira-btn">Cancel</button>
                                         </div>
                                     </div>
-                                    
+
                                     <div id="jira-connected" class="hidden space-y-2">
                                         <div class="flex items-center gap-2 text-sm">
                                             <span class="text-green-600">✅</span>
@@ -191,7 +191,7 @@
                                             <button class="btn btn-sm w-full" id="load-issues-btn" disabled>Load Issues</button>
                                         </div>
                                     </div>
-                                    
+
                                     <div id="jira-not-connected" class="space-y-2">
                                         <p class="text-sm text-muted-foreground">Connect to Jira for automatic ticket import</p>
                                         <button class="btn btn-sm w-full" id="setup-jira-btn">Setup Integration</button>
@@ -274,6 +274,56 @@
                                 <button class="btn btn-outline btn-sm w-full mt-2" id="export-stats-btn">Export Statistics CSV</button>
                             </div>
                         </div>
+
+                        <!-- Chat Card -->
+                        <div id="chat-section" class="dashboard-card group collapsed" data-card="chat" draggable="true">
+                            <div class="dashboard-card-header" onclick="app.toggleCard('chat')">
+                                <h3>
+                                    <span>💬</span>
+                                    <span id="chat-card-title">Chat</span>
+                                    <span id="unread-indicator" class="hidden" style="background: #ef4444; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; display: inline-flex; align-items: center; justify-content: center; margin-left: 8px;">
+                                        <span id="unread-count">0</span>
+                                    </span>
+                                </h3>
+                                <div class="flex items-center gap-2">
+                                    <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
+                                    <span class="dashboard-card-toggle">⌄</span>
+                                </div>
+                            </div>
+                            <div class="dashboard-card-content">
+                                <!-- Chat Messages -->
+                                <div id="chat-messages" class="space-y-2 max-h-64 overflow-y-auto mb-3" style="scroll-behavior: smooth;">
+                                    <div id="chat-empty" class="text-center text-muted-foreground text-sm py-4">
+                                        Start a conversation with your team...
+                                    </div>
+                                </div>
+
+                                <!-- Typing Indicator -->
+                                <div id="typing-indicator" class="hidden text-xs text-muted-foreground mb-2 italic">
+                                    <span id="typing-text"></span>
+                                </div>
+
+                                <!-- Chat Input -->
+                                <div class="flex gap-2">
+                                    <input
+                                        type="text"
+                                        id="chat-input"
+                                        placeholder="Type a message..."
+                                        class="flex-1 h-8 px-2 py-1 text-sm border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                                        maxlength="500"
+                                    />
+                                    <button
+                                        id="send-message-btn"
+                                        class="btn btn-sm px-3"
+                                        disabled
+                                        title="Send message"
+                                    >
+                                        📤
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="column-drop-zone" data-drop-zone="sidebar"></div>
                     </div>
                     </div>
@@ -342,14 +392,14 @@
                                 </div>
                             </div>
                             <div id="vote-breakdown"></div>
-                            
+
                             <!-- Finalize Estimation Section -->
                             <div id="finalize-estimation" class="finalize-section hidden">
                                 <h4>🎯 Finalize Story Points</h4>
                                 <p>Set the final story points for this Jira issue:</p>
                                 <div style="display: flex; align-items: center; gap: 15px; margin: 15px 0;">
                                     <label for="final-estimate" style="font-weight: 600;">Story Points:</label>
-                                    <input type="number" id="final-estimate" min="0" max="100" step="0.5" 
+                                    <input type="number" id="final-estimate" min="0" max="100" step="0.5"
                                            style="width: 100px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 16px;">
                                     <button class="btn" id="finalize-btn">Update Jira Issue</button>
                                 </div>
@@ -380,7 +430,7 @@
                     <div style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%;" onclick="event.stopPropagation()">
                         <h3 style="margin-bottom: 20px;">⚠️ End Session</h3>
                         <p style="margin-bottom: 20px; color: #6b7280;">Are you sure you want to end this session? All participants will be disconnected.</p>
-                        
+
                         <div id="end-session-downloads" style="margin-bottom: 25px; padding: 15px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
                             <p style="margin-bottom: 15px; font-weight: 600; color: #374151;">📊 Before you go, would you like to download your data?</p>
                             <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
@@ -389,7 +439,7 @@
                             </div>
                             <p style="font-size: 12px; color: #6b7280; margin: 0;">Downloads will start immediately and won't affect session closure.</p>
                         </div>
-                        
+
                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                             <button class="btn btn-danger" id="confirm-end-session-btn">End Session</button>
                             <button class="btn btn-secondary" id="cancel-end-session-btn">Cancel</button>

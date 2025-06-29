@@ -37,6 +37,7 @@ export function createSession(
     totalVotes: 0,
     history: [],
     aggregate: null,
+    chatMessages: [],
   };
 
   return session;
@@ -69,6 +70,7 @@ export function getSessionData(session: any): SessionData {
     totalVotes: session.votes.size,
     history: session.history || [],
     aggregate: session.aggregate || null,
+    chatMessages: session.chatMessages || [],
   };
 }
 

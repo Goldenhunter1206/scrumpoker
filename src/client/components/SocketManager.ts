@@ -4,6 +4,7 @@ import {
   ClientToServerEvents,
   JiraIssue,
   Vote,
+  ChatMessage,
 } from '@shared/types/index.js';
 import { gameState } from './GameState.js';
 import { updateConnectionStatus, showNotification, enableButtons } from '../utils/ui.js';
@@ -270,6 +271,18 @@ export class SocketManager {
       showNotification(data.message, 'error');
       enableButtons();
     });
+
+    // Chat handlers
+    this.socket.on('chatMessage', (message: ChatMessage) => {
+      gameState.addChatMessage(message);
+      this.emit('chatMessage', message);
+      playSound('chat');
+    });
+
+    this.socket.on('typingUpdate', (typingUsers: string[]) => {
+      gameState.setTypingUsers(typingUsers);
+      this.emit('typingUpdate', typingUsers);
+    });
   }
 
   // Event system
@@ -358,6 +371,14 @@ export class SocketManager {
 
   endSession(roomCode: string): void {
     this.socket?.emit('end-session', { roomCode });
+  }
+
+  sendChatMessage(roomCode: string, message: string): void {
+    this.socket?.emit('send-chat-message', { roomCode, message });
+  }
+
+  sendTypingIndicator(roomCode: string, userName: string, isTyping: boolean): void {
+    this.socket?.emit('typing-indicator', { roomCode, userName, isTyping });
   }
 }
 

@@ -5,6 +5,7 @@ import {
   Vote,
   VotingResults,
   JiraIssue,
+  ChatMessage,
 } from '@shared/types/index.js';
 import {
   getJiraBoards,
@@ -35,6 +36,8 @@ interface InternalSessionData {
   lastActivity: Date;
   history: any[];
   aggregate: any;
+  chatMessages: ChatMessage[];
+  typingUsers: Map<string, NodeJS.Timeout>;
 }
 
 export function setupSocketHandlers(
@@ -711,6 +714,74 @@ export function setupSocketHandlers(
       console.log(`Session ${roomCode} ended by facilitator`);
     } catch (error) {
       socket.emit('error', { message: 'Failed to end session' });
+    }
+  });
+
+  // Chat message
+  socket.on('send-chat-message', ({ roomCode, message }) => {
+    try {
+      const session = memoryStore.get(roomCode);
+      if (!session) return;
+
+      const participant = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id
+      );
+
+      if (!participant) return;
+
+      const chatMessage: ChatMessage = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        author: participant.name,
+        content: message.trim().substring(0, 500), // Limit message length
+        timestamp: new Date(),
+        type: 'message',
+      };
+
+      session.chatMessages.push(chatMessage);
+      session.lastActivity = new Date();
+
+      // Broadcast to all participants in the session
+      io.to(roomCode).emit('chatMessage', chatMessage);
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to send message' });
+    }
+  });
+
+  // Typing indicator
+  socket.on('typing-indicator', ({ roomCode, userName, isTyping }) => {
+    try {
+      const session = memoryStore.get(roomCode);
+      if (!session) return;
+
+      const participant = Array.from(session.participants.values()).find(
+        p => p.socketId === socket.id && p.name === userName
+      );
+
+      if (!participant) return;
+
+      // Clear existing timeout for this user
+      const existingTimeout = session.typingUsers.get(userName);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+        session.typingUsers.delete(userName);
+      }
+
+      if (isTyping) {
+        // Set user as typing with auto-clear timeout
+        const timeout = setTimeout(() => {
+          session.typingUsers.delete(userName);
+          const typingUsersList = Array.from(session.typingUsers.keys());
+          io.to(roomCode).emit('typingUpdate', typingUsersList);
+        }, 5000); // Auto-clear after 5 seconds
+
+        session.typingUsers.set(userName, timeout);
+      }
+
+      // Broadcast current typing users
+      const typingUsersList = Array.from(session.typingUsers.keys());
+      io.to(roomCode).emit('typingUpdate', typingUsersList);
+    } catch (error) {
+      console.error('Typing indicator error:', error);
     }
   });
 }
