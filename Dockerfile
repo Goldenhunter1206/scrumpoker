@@ -38,6 +38,9 @@ RUN addgroup -g 1001 -S nodejs && adduser -S scrumpoker -u 1001 \
   && chown -R scrumpoker:nodejs /app
 USER scrumpoker
 
+# Ensure production mode so server serves built client
+ENV NODE_ENV=production
+
 # Expose application port
 EXPOSE 3000
 

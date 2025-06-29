@@ -211,7 +211,7 @@
 
 /* Compact Dashboard Cards */
 .dashboard-card {
-  @apply bg-card border rounded-lg shadow-sm;
+  @apply bg-card border rounded-lg shadow-sm mb-4;
 }
 
 .dashboard-card-header {
