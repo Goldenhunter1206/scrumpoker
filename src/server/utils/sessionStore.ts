@@ -48,7 +48,7 @@ export class SessionStore {
         const obj = JSON.parse(raw);
 
         // Re-hydrate Maps and proper data structures
-        const sessionData: SessionData = {
+        const sessionData: any = {
           ...obj,
           // Rebuild Map structures
           participants: new Map(obj.participants || []),
@@ -57,6 +57,10 @@ export class SessionStore {
           aggregate: obj.aggregate || null,
           currentJiraIssue: obj.currentJiraIssue || null,
           jiraConfig: obj.jiraConfig || null,
+          // Ensure new Map-based properties exist to prevent undefined access
+          socketToParticipant: new Map(),
+          participantToSocket: new Map(),
+          typingUsers: new Map(),
         };
 
         this.memory.set(obj.id || fullKey.split(':')[1], sessionData);
