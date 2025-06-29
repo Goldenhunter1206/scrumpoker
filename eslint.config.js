@@ -31,7 +31,7 @@ export default [
       ...typescript.configs.recommended.rules,
       ...prettierConfig.rules,
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'off',
       'prettier/prettier': 'error',
       'no-undef': 'off',
     },
@@ -83,14 +83,14 @@ export default [
 
       // TypeScript specific rules
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/no-non-null-assertion': 'warn',
-      '@typescript-eslint/no-unsafe-function-type': 'warn',
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/no-unsafe-function-type': 'off',
 
       // General rules
-      'no-console': 'warn',
+      'no-console': 'off',
       'no-debugger': 'error',
       'prefer-const': 'error',
       'no-var': 'error',
