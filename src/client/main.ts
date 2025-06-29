@@ -314,7 +314,7 @@ class ScrumPokerApp {
     // Chat event handlers
     socketManager.on('chatMessage', (message: ChatMessage) => {
       gameState.addChatMessage(message);
-      this.displayChatMessage(message);
+      this.displayChatMessage(message, true);
     });
 
     socketManager.on('typingUpdate', (typingUsers: string[]) => {
@@ -1541,8 +1541,12 @@ class ScrumPokerApp {
 
     // Display all messages
     state.chatMessages.forEach(message => {
-      this.displayChatMessage(message);
+      // Render existing messages without affecting unread count
+      this.displayChatMessage(message, false);
     });
+
+    // After initial render, update unread indicator based on current message list
+    this.recalculateUnreadIndicator();
   }
 
   // Chat functionality
@@ -1596,7 +1600,7 @@ class ScrumPokerApp {
     }
   }
 
-  private displayChatMessage(message: ChatMessage): void {
+  private displayChatMessage(message: ChatMessage, isNew: boolean = true): void {
     const container = document.getElementById('chat-messages');
     const emptyMessage = document.getElementById('chat-empty');
 
@@ -1646,7 +1650,7 @@ class ScrumPokerApp {
     container.scrollTop = container.scrollHeight;
 
     // Play sound for new messages (not from self)
-    if (!isOwn && !isSystem) {
+    if (isNew && !isOwn) {
       playSound('chat');
       this.showUnreadIndicator();
     }
@@ -2024,6 +2028,42 @@ class ScrumPokerApp {
         }
       }
     });
+  }
+
+  /**
+   * Calculate and set the unread message indicator based on the current chat history.
+   * Runs mainly after the initial chat history render so pre-existing messages are
+   * counted exactly once. Further increments are handled in real-time by
+   * showUnreadIndicator().
+   */
+  private recalculateUnreadIndicator(): void {
+    const indicator = document.getElementById('unread-indicator');
+    const countEl = document.getElementById('unread-count');
+    const chatCard = document.querySelector('[data-card="chat"]');
+
+    if (!indicator || !countEl || !chatCard) return;
+
+    // Only show indicator when the chat panel is collapsed (i.e., not visible)
+    if (!chatCard.classList.contains('collapsed')) {
+      return;
+    }
+
+    // If the indicator is already showing a non-zero count, keep it as is to
+    // avoid overriding counts gathered in real-time.
+    if (parseInt(countEl.textContent || '0', 10) > 0) {
+      return;
+    }
+
+    const state = gameState.getState();
+
+    // Count messages not authored by the current user. System messages (type
+    // "system") have no author matching any user, so they are included.
+    const unreadCount = state.chatMessages.filter(m => m.author !== state.myName).length;
+
+    if (unreadCount > 0) {
+      countEl.textContent = String(unreadCount);
+      indicator.classList.remove('hidden');
+    }
   }
 }
 

@@ -136,9 +136,14 @@ if (NODE_ENV === 'production') {
   });
 }
 
-// Session storage
-const memoryStore = new Map<string, InternalSessionData>();
-const sessions = new SessionStore(memoryStore as any);
+// Session storage – works both with and without Redis.
+// We create a single `SessionStore` instance and then alias it to `memoryStore`
+// so that all legacy `memoryStore.*` calls continue to function.
+// The alias satisfies the Map interface while still giving us Redis persistence
+// whenever a client is configured.
+const sessions = new SessionStore();
+// Cast to Map so TypeScript accepts it in existing code paths
+const memoryStore = sessions as unknown as Map<string, InternalSessionData>;
 
 // Redis setup
 if (process.env.REDIS_URL) {

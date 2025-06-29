@@ -1,9 +1,10 @@
-import { SessionData } from '@shared/types/index.js';
+import { SessionData } from '../../shared/types/index.js';
 
 export class SessionStore {
   private memory: Map<string, SessionData>;
   private redis: any | null;
   private ttl: number;
+  private autoSaveIntervalId: NodeJS.Timeout | null;
 
   constructor(
     memoryStore = new Map<string, SessionData>(),
@@ -13,6 +14,11 @@ export class SessionStore {
     this.memory = memoryStore;
     this.redis = redisClient;
     this.ttl = ttlSeconds;
+    this.autoSaveIntervalId = null;
+
+    if (this.redis) {
+      this.startAutoPersist();
+    }
   }
 
   async saveToRedis(key: string, session: SessionData): Promise<void> {
@@ -20,10 +26,9 @@ export class SessionStore {
     try {
       const serialisable = {
         ...session,
-        participants: Array.from(session.participants.entries()),
-        votes: session.participants
-          .map(p => [p.name, p.vote])
-          .filter(([, vote]) => vote !== undefined),
+        // Convert Map structures to arrays for JSON storage
+        participants: Array.from((session as any).participants?.entries?.() || []),
+        votes: Array.from((session as any).votes?.entries?.() || []),
       };
       await this.redis.set(`session:${key}`, JSON.stringify(serialisable), {
         EX: this.ttl,
@@ -45,7 +50,9 @@ export class SessionStore {
         // Re-hydrate Maps and proper data structures
         const sessionData: SessionData = {
           ...obj,
-          participants: obj.participants || [],
+          // Rebuild Map structures
+          participants: new Map(obj.participants || []),
+          votes: new Map(obj.votes || []),
           history: obj.history || [],
           aggregate: obj.aggregate || null,
           currentJiraIssue: obj.currentJiraIssue || null,
@@ -100,5 +107,25 @@ export class SessionStore {
 
   setRedisClient(client: any): void {
     this.redis = client;
+
+    this.startAutoPersist();
+  }
+
+  startAutoPersist(intervalMs = 5000): void {
+    if (!this.redis) return;
+    if (this.autoSaveIntervalId) clearInterval(this.autoSaveIntervalId);
+
+    this.autoSaveIntervalId = setInterval(() => {
+      this.memory.forEach((session, key) => {
+        this.saveToRedis(key, session);
+      });
+    }, intervalMs);
+  }
+
+  stopAutoPersist(): void {
+    if (this.autoSaveIntervalId) {
+      clearInterval(this.autoSaveIntervalId);
+      this.autoSaveIntervalId = null;
+    }
   }
 }
