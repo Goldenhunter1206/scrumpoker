@@ -189,10 +189,19 @@ export class SocketManager {
     this.socket.on('jira-updated', data => {
       showNotification(`Updated ${data.issueKey} with ${data.storyPoints} story points`, 'success');
 
+      // Update the cached Jira issues to reflect the new story points
+      const state = gameState.getState();
+      const updatedIssues = state.jiraIssues.map(issue => 
+        issue.key === data.issueKey 
+          ? { ...issue, currentStoryPoints: data.storyPoints }
+          : issue
+      );
+
       gameState.updateState({
         currentTicket: '',
         currentJiraIssue: null,
         votingRevealed: false,
+        jiraIssues: updatedIssues,
       });
       gameState.clearVote();
 
