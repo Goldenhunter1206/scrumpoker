@@ -36,6 +36,7 @@ export interface SessionData {
   participants: Participant[];
   votingRevealed: boolean;
   totalVotes: number;
+  discussionStartTime: Date | null;
   history: EstimationHistoryEntry[];
   aggregate: AggregateStats | null;
   chatMessages: ChatMessage[];
@@ -50,6 +51,7 @@ export interface EstimationHistoryEntry {
   votes?: Record<string, Vote>;
   stats?: VotingStats;
   timestamp: Date;
+  discussionDuration?: number;
 }
 
 export interface AggregateStats {
@@ -128,6 +130,7 @@ export interface ServerToClientEvents {
   'countdown-started': (data: { duration: number }) => void;
   'countdown-tick': (data: { secondsLeft: number; totalDuration: number }) => void;
   'countdown-finished': (data: { sessionData: SessionData }) => void;
+  'discussion-timer-tick': (data: { discussionDuration: number }) => void;
   'server-shutdown': (data: { message: string }) => void;
   chatMessage: (message: ChatMessage) => void;
   typingUpdate: (typingUsers: string[]) => void;

@@ -7,5 +7,9 @@
   "typescript.preferences.importModuleSpecifier": "relative",
   "files.eol": "\n",
   "files.trimTrailingWhitespace": true,
-  "files.insertFinalNewline": true
+  "files.insertFinalNewline": true,
+  "sonarlint.connectedMode.project": {
+    "connectionId": "athenaflow",
+    "projectKey": "Goldenhunter1206_scrumpoker"
+  }
 }

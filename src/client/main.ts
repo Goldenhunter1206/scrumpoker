@@ -326,6 +326,10 @@ class ScrumPokerApp {
       gameState.setTypingUsers(typingUsers);
       this.updateTypingIndicator(typingUsers);
     });
+
+    socketManager.on('discussionTimerTick', (data) => {
+      this.updateDiscussionTimer(data.discussionDuration);
+    });
   }
 
   private prefillSavedData(): void {
@@ -486,6 +490,14 @@ class ScrumPokerApp {
     this.updateHistoryUI();
     this.updateStatsUI();
     this.updateChatUI();
+
+    // Update discussion timer if session has discussion in progress
+    if (sessionData.discussionStartTime && sessionData.currentTicket) {
+      const discussionDuration = Math.floor((new Date().getTime() - new Date(sessionData.discussionStartTime).getTime()) / 1000);
+      this.updateDiscussionTimer(discussionDuration);
+    } else {
+      this.updateDiscussionTimer(0);
+    }
 
     // Reinitialize drag and drop after UI updates (cards may have become visible/hidden)
     this.reinitializeDragAndDrop();
@@ -888,6 +900,28 @@ class ScrumPokerApp {
     }
   }
 
+  private updateDiscussionTimer(discussionDuration: number): void {
+    const timerElement = document.getElementById('discussion-timer');
+    const durationElement = document.getElementById('discussion-duration');
+    
+    if (timerElement && durationElement) {
+      // Convert seconds to minutes:seconds format
+      const minutes = Math.floor(discussionDuration / 60);
+      const seconds = discussionDuration % 60;
+      const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      
+      durationElement.textContent = timeString;
+      
+      // Show timer if there's a current ticket
+      const state = gameState.getState();
+      if (state.currentTicket) {
+        showElement('discussion-timer');
+      } else {
+        hideElement('discussion-timer');
+      }
+    }
+  }
+
   private updateParticipantsList(): void {
     const list = document.getElementById('participants-list');
     const count = document.getElementById('participant-count');
@@ -1252,6 +1286,8 @@ class ScrumPokerApp {
       const timeStr = entry.timestamp
         ? new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         : '';
+      const discussionDurationStr = entry.discussionDuration ? 
+        `${Math.floor(entry.discussionDuration / 60)}:${(entry.discussionDuration % 60).toString().padStart(2, '0')}` : '';
 
       div.innerHTML = `
         <div class="history-item-title">${ticketText}</div>
@@ -1268,6 +1304,14 @@ class ScrumPokerApp {
             <span class="history-item-stat-label">Range:</span>
             <span>${range}</span>
           </div>
+          ${
+            discussionDurationStr
+              ? `<div class="history-item-stat">
+            <span class="history-item-stat-label">Discussion:</span>
+            <span>${discussionDurationStr}</span>
+          </div>`
+              : ''
+          }
           ${
             timeStr
               ? `<div class="history-item-stat">
@@ -1408,7 +1452,7 @@ class ScrumPokerApp {
       return;
     }
 
-    const header = ['Ticket', 'Consensus', 'Average', 'Min', 'Max', 'Timestamp'];
+    const header = ['Ticket', 'Consensus', 'Average', 'Min', 'Max', 'Discussion Duration', 'Timestamp'];
 
     const latest = new Map();
     state.history.forEach(entry => {
@@ -1427,6 +1471,8 @@ class ScrumPokerApp {
       const avg = entry.stats ? entry.stats.average : '';
       const min = entry.stats ? entry.stats.min : '';
       const max = entry.stats ? entry.stats.max : '';
+      const discussionDuration = entry.discussionDuration ? 
+        `${Math.floor(entry.discussionDuration / 60)}:${(entry.discussionDuration % 60).toString().padStart(2, '0')}` : '';
       const timeStr = entry.timestamp ? new Date(entry.timestamp).toISOString() : '';
 
       if (typeof consensus === 'number') {
@@ -1439,7 +1485,7 @@ class ScrumPokerApp {
         }
       }
 
-      rows.push([ticketText, consensus, avg, min, max, timeStr]);
+      rows.push([ticketText, consensus, avg, min, max, discussionDuration, timeStr]);
     });
 
     rows.push([]);

@@ -34,6 +34,8 @@ interface InternalSessionData {
   totalVotes: number;
   countdownActive: boolean;
   countdownTimer: NodeJS.Timeout | null;
+  discussionStartTime: Date | null;
+  discussionTimer: NodeJS.Timeout | null;
   createdAt: Date;
   lastActivity: Date;
   history: any[];
@@ -67,6 +69,49 @@ function createValidationWrapper(socket: Socket<ClientToServerEvents, ServerToCl
 function getParticipantBySocketId(session: InternalSessionData, socketId: string): any | null {
   const participantName = session.socketToParticipant.get(socketId);
   return participantName ? session.participants.get(participantName) : null;
+}
+
+// Start discussion timer to broadcast duration every second
+function startDiscussionTimer(session: InternalSessionData, roomCode: string, io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>) {
+  // Clear any existing discussion timer
+  if (session.discussionTimer) {
+    clearInterval(session.discussionTimer);
+  }
+  
+  session.discussionStartTime = new Date();
+  
+  // Start broadcasting discussion duration every second
+  session.discussionTimer = setInterval(() => {
+    if (!session.discussionStartTime) {
+      // Discussion ended, clear timer
+      clearInterval(session.discussionTimer!);
+      session.discussionTimer = null;
+      return;
+    }
+    
+    const discussionDuration = Math.floor((new Date().getTime() - session.discussionStartTime.getTime()) / 1000);
+    
+    io.to(roomCode).emit('discussion-timer-tick', {
+      discussionDuration: discussionDuration
+    });
+  }, 1000);
+}
+
+// Stop discussion timer
+function stopDiscussionTimer(session: InternalSessionData, roomCode: string, io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>) {
+  if (session.discussionTimer) {
+    clearInterval(session.discussionTimer);
+    session.discussionTimer = null;
+    
+    // Send final duration update
+    if (session.discussionStartTime) {
+      const finalDuration = Math.floor((new Date().getTime() - session.discussionStartTime.getTime()) / 1000);
+      io.to(roomCode).emit('discussion-timer-tick', {
+        discussionDuration: finalDuration
+      });
+    }
+  }
+  // Don't reset discussionStartTime here - keep it until next ticket is set
 }
 
 export function setupSocketHandlers(
@@ -182,6 +227,9 @@ export function setupSocketHandlers(
         session.countdownActive = false;
       }
 
+      // Start discussion timer for the new issue
+      startDiscussionTimer(session, roomCode, io);
+
       io.to(roomCode).emit('jira-issue-set', {
         issue,
         sessionData: getSessionData(session),
@@ -283,6 +331,9 @@ export function setupSocketHandlers(
         session.countdownTimer = null;
         session.countdownActive = false;
       }
+
+      // Start discussion timer for the new ticket
+      startDiscussionTimer(session, roomCode, io);
 
       io.to(roomCode).emit('ticket-set', {
         ticket,
@@ -402,6 +453,9 @@ export function setupSocketHandlers(
 
       session.votingRevealed = true;
       session.lastActivity = new Date();
+
+      // Stop discussion timer when votes are revealed
+      stopDiscussionTimer(session, roomCode, io);
 
       const results = calculateVotingResults(session.votes);
 

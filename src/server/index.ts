@@ -64,6 +64,8 @@ interface InternalSessionData {
   totalVotes: number;
   countdownActive: boolean;
   countdownTimer: NodeJS.Timeout | null;
+  discussionStartTime: Date | null;
+  discussionTimer: NodeJS.Timeout | null;
   createdAt: Date;
   lastActivity: Date;
   history: any[];
@@ -214,6 +216,8 @@ io.on('connection', socket => {
         totalVotes: 0,
         countdownActive: false,
         countdownTimer: null,
+        discussionStartTime: null,
+        discussionTimer: null,
         createdAt: new Date(),
         lastActivity: new Date(),
         history: [],

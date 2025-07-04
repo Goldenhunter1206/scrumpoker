@@ -293,6 +293,10 @@ export class SocketManager {
       gameState.setTypingUsers(typingUsers);
       this.emit('typingUpdate', typingUsers);
     });
+
+    this.socket.on('discussion-timer-tick', (data) => {
+      this.emit('discussionTimerTick', data);
+    });
   }
 
   // Event system

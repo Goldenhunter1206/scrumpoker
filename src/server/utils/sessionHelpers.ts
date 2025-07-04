@@ -25,6 +25,7 @@ export function createSession(sessionName: string, facilitatorName: string): Ses
     participants: [facilitator],
     votingRevealed: false,
     totalVotes: 0,
+    discussionStartTime: null,
     history: [],
     aggregate: null,
     chatMessages: [],
@@ -58,6 +59,7 @@ export function getSessionData(session: any): SessionData {
     })),
     votingRevealed: session.votingRevealed,
     totalVotes: session.votes.size,
+    discussionStartTime: session.discussionStartTime,
     history: session.history || [],
     aggregate: session.aggregate || null,
     chatMessages: session.chatMessages || [],
@@ -77,9 +79,13 @@ export function recordHistory(
     };
   }
 
+  const discussionDuration = session.discussionStartTime ? 
+    Math.floor((new Date().getTime() - session.discussionStartTime.getTime()) / 1000) : undefined;
+
   const stamped: EstimationHistoryEntry = {
     ...entry,
     timestamp: new Date(),
+    discussionDuration,
   };
   session.history.push(stamped);
 

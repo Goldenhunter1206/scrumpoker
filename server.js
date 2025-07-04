@@ -318,6 +318,41 @@ function roundToNearestFibonacci(value) {
     return closest;
 }
 
+// Start discussion timer to broadcast duration every second
+function startDiscussionTimer(session, roomCode) {
+    // Clear any existing discussion timer
+    if (session.discussionTimer) {
+        clearInterval(session.discussionTimer);
+    }
+    
+    session.discussionStartTime = new Date();
+    
+    // Start broadcasting discussion duration every second
+    session.discussionTimer = setInterval(() => {
+        if (!session.discussionStartTime) {
+            // Discussion ended, clear timer
+            clearInterval(session.discussionTimer);
+            session.discussionTimer = null;
+            return;
+        }
+        
+        const discussionDuration = Math.floor((new Date() - session.discussionStartTime) / 1000);
+        
+        io.to(roomCode).emit('discussion-timer-tick', {
+            discussionDuration: discussionDuration
+        });
+    }, 1000);
+}
+
+// Stop discussion timer
+function stopDiscussionTimer(session) {
+    if (session.discussionTimer) {
+        clearInterval(session.discussionTimer);
+        session.discussionTimer = null;
+    }
+    session.discussionStartTime = null;
+}
+
 // NEW: store completed estimations in session history
 function recordHistory(session, entry) {
     if (!session.history) session.history = [];
@@ -329,7 +364,10 @@ function recordHistory(session, entry) {
         };
     }
 
-    const stamped = { ...entry, timestamp: new Date() };
+    const discussionDuration = session.discussionStartTime ? 
+        Math.floor((new Date() - session.discussionStartTime) / 1000) : null;
+    
+    const stamped = { ...entry, timestamp: new Date(), discussionDuration };
     session.history.push(stamped);
 
     // --- Update aggregate metrics ---
@@ -386,6 +424,8 @@ function createSession(sessionName, facilitatorName, facilitatorSocketId) {
         countdownTimer: null,
         createdAt: new Date(),
         lastActivity: new Date(),
+        discussionStartTime: null,
+        discussionTimer: null,
         history: [] // NEW: keep track of completed estimations in this session
     };
     
@@ -424,6 +464,9 @@ function getSessionData(session) {
         })),
         votingRevealed: session.votingRevealed,
         totalVotes: session.votes.size,
+        discussionStartTime: session.discussionStartTime,
+        discussionDuration: session.discussionStartTime ? 
+            Math.floor((new Date() - session.discussionStartTime) / 1000) : null,
         history: session.history || [], // NEW: expose estimation history to clients
         aggregate: session.aggregate || null
     };
@@ -634,6 +677,9 @@ io.on('connection', (socket) => {
                 session.countdownActive = false;
             }
 
+            // Start discussion timer
+            startDiscussionTimer(session, roomCode);
+
             io.to(roomCode).emit('jira-issue-set', {
                 issue,
                 sessionData: getSessionData(session)
@@ -694,6 +740,9 @@ io.on('connection', (socket) => {
             session.votes.clear();
             session.votingRevealed = false;
 
+            // Stop discussion timer
+            stopDiscussionTimer(session);
+
             io.to(roomCode).emit('jira-updated', {
                 issueKey: updatedIssueKey,
                 storyPoints: roundedEstimate,
@@ -734,6 +783,9 @@ io.on('connection', (socket) => {
                 session.countdownTimer = null;
                 session.countdownActive = false;
             }
+
+            // Start discussion timer
+            startDiscussionTimer(session, roomCode);
 
             io.to(roomCode).emit('ticket-set', {
                 ticket,
@@ -1066,6 +1118,8 @@ io.on('connection', (socket) => {
                 session.countdownActive = false;
             }
 
+            // Keep discussion timer running - reset doesn't end discussion
+
             io.to(roomCode).emit('voting-reset', {
                 sessionData: getSessionData(session)
             });
@@ -1220,6 +1274,11 @@ io.on('connection', (socket) => {
                 clearInterval(session.countdownTimer);
             }
 
+            // Clear discussion timer if active
+            if (session.discussionTimer) {
+                clearInterval(session.discussionTimer);
+            }
+
             io.to(roomCode).emit('session-ended', {
                 message: 'Session has been ended by the facilitator'
             });
@@ -1317,6 +1376,10 @@ setInterval(() => {
             // Clear countdown timer if active
             if (session.countdownTimer) {
                 clearInterval(session.countdownTimer);
+            }
+            // Clear discussion timer if active
+            if (session.discussionTimer) {
+                clearInterval(session.discussionTimer);
             }
             sessions.delete(roomCode);
             cleaned++;
