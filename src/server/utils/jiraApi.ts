@@ -16,28 +16,28 @@ const JIRA_STORYPOINT_FIELD = process.env.JIRA_STORYPOINT_FIELD || 'customfield_
 // Helper to extract text from Atlassian Document Format (ADF)
 function extractTextFromADF(adfContent: any): string {
   if (!adfContent || !adfContent.content) return '';
-  
+
   function extractFromNode(node: any): string {
     if (!node) return '';
-    
+
     // If it's a text node, return the text
     if (node.type === 'text') {
       return node.text || '';
     }
-    
+
     // If it has content, recursively extract from children
     if (node.content && Array.isArray(node.content)) {
       return node.content.map(extractFromNode).join('');
     }
-    
+
     // For other node types, try to extract meaningful content
     if (node.type === 'paragraph' || node.type === 'heading') {
       return node.content ? node.content.map(extractFromNode).join('') + '\n' : '';
     }
-    
+
     return '';
   }
-  
+
   return adfContent.content.map(extractFromNode).join('').trim();
 }
 
@@ -229,8 +229,7 @@ export async function getJiraIssueDetails(
     }
 
     const issue = issueResponse.data as any;
-    
-    
+
     // Format the response with the most useful information for split-screen view
     const detailedIssue = {
       key: issue.key,
@@ -250,56 +249,59 @@ export async function getJiraIssueDetails(
       url: `https://${config.domain}/browse/${issue.key}`,
       project: {
         key: issue.fields.project?.key || '',
-        name: issue.fields.project?.name || ''
+        name: issue.fields.project?.name || '',
       },
-      comments: issue.fields.comment?.comments?.slice(0, 10).map((comment: any) => {
-        // Extract text from Atlassian Document Format if needed
-        let bodyText = '';
-        if (comment.renderedBody) {
-          bodyText = comment.renderedBody;
-        } else if (typeof comment.body === 'string') {
-          bodyText = comment.body;
-        } else if (comment.body && comment.body.content) {
-          // Parse Atlassian Document Format
-          bodyText = extractTextFromADF(comment.body);
-        } else {
-          bodyText = '';
-        }
-        
-        return {
-          id: comment.id,
-          author: comment.author?.displayName || '',
-          body: bodyText,
-          created: comment.created,
-          updated: comment.updated
-        };
-      }) || [],
-      attachments: issue.fields.attachment?.slice(0, 10).map((attachment: any) => ({
-        id: attachment.id,
-        filename: attachment.filename,
-        size: attachment.size,
-        mimeType: attachment.mimeType,
-        created: attachment.created,
-        author: attachment.author?.displayName || ''
-      })) || [],
-      worklog: issue.fields.worklog?.worklogs?.slice(0, 5).map((work: any) => ({
-        id: work.id,
-        author: work.author?.displayName || '',
-        timeSpent: work.timeSpent,
-        started: work.started,
-        comment: work.comment || ''
-      })) || []
+      comments:
+        issue.fields.comment?.comments?.slice(0, 10).map((comment: any) => {
+          // Extract text from Atlassian Document Format if needed
+          let bodyText = '';
+          if (comment.renderedBody) {
+            bodyText = comment.renderedBody;
+          } else if (typeof comment.body === 'string') {
+            bodyText = comment.body;
+          } else if (comment.body && comment.body.content) {
+            // Parse Atlassian Document Format
+            bodyText = extractTextFromADF(comment.body);
+          } else {
+            bodyText = '';
+          }
+
+          return {
+            id: comment.id,
+            author: comment.author?.displayName || '',
+            body: bodyText,
+            created: comment.created,
+            updated: comment.updated,
+          };
+        }) || [],
+      attachments:
+        issue.fields.attachment?.slice(0, 10).map((attachment: any) => ({
+          id: attachment.id,
+          filename: attachment.filename,
+          size: attachment.size,
+          mimeType: attachment.mimeType,
+          created: attachment.created,
+          author: attachment.author?.displayName || '',
+        })) || [],
+      worklog:
+        issue.fields.worklog?.worklogs?.slice(0, 5).map((work: any) => ({
+          id: work.id,
+          author: work.author?.displayName || '',
+          timeSpent: work.timeSpent,
+          started: work.started,
+          comment: work.comment || '',
+        })) || [],
     };
 
     return {
       success: true,
-      data: detailedIssue
+      data: detailedIssue,
     };
   } catch (error) {
     console.error('Error fetching Jira issue details:', error);
     return {
       success: false,
-      error: 'Failed to fetch issue details'
+      error: 'Failed to fetch issue details',
     };
   }
 }

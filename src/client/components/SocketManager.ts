@@ -295,15 +295,15 @@ export class SocketManager {
       this.emit('typingUpdate', typingUsers);
     });
 
-    this.socket.on('discussion-timer-tick', (data) => {
+    this.socket.on('discussion-timer-tick', data => {
       this.emit('discussionTimerTick', data);
     });
 
-    this.socket.on('jira-issue-details-loaded', (data) => {
+    this.socket.on('jira-issue-details-loaded', data => {
       this.emit('jiraIssueDetailsLoaded', data);
     });
 
-    this.socket.on('jira-issue-details-failed', (data) => {
+    this.socket.on('jira-issue-details-failed', data => {
       this.emit('jiraIssueDetailsFailed', data);
     });
   }

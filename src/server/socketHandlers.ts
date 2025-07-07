@@ -73,14 +73,18 @@ function getParticipantBySocketId(session: InternalSessionData, socketId: string
 }
 
 // Start discussion timer to broadcast duration every second
-function startDiscussionTimer(session: InternalSessionData, roomCode: string, io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>) {
+function startDiscussionTimer(
+  session: InternalSessionData,
+  roomCode: string,
+  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>
+) {
   // Clear any existing discussion timer
   if (session.discussionTimer) {
     clearInterval(session.discussionTimer);
   }
-  
+
   session.discussionStartTime = new Date();
-  
+
   // Start broadcasting discussion duration every second
   session.discussionTimer = setInterval(() => {
     if (!session.discussionStartTime) {
@@ -89,26 +93,34 @@ function startDiscussionTimer(session: InternalSessionData, roomCode: string, io
       session.discussionTimer = null;
       return;
     }
-    
-    const discussionDuration = Math.floor((new Date().getTime() - session.discussionStartTime.getTime()) / 1000);
-    
+
+    const discussionDuration = Math.floor(
+      (new Date().getTime() - session.discussionStartTime.getTime()) / 1000
+    );
+
     io.to(roomCode).emit('discussion-timer-tick', {
-      discussionDuration: discussionDuration
+      discussionDuration: discussionDuration,
     });
   }, 1000);
 }
 
 // Stop discussion timer
-function stopDiscussionTimer(session: InternalSessionData, roomCode: string, io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>) {
+function stopDiscussionTimer(
+  session: InternalSessionData,
+  roomCode: string,
+  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>
+) {
   if (session.discussionTimer) {
     clearInterval(session.discussionTimer);
     session.discussionTimer = null;
-    
+
     // Send final duration update
     if (session.discussionStartTime) {
-      const finalDuration = Math.floor((new Date().getTime() - session.discussionStartTime.getTime()) / 1000);
+      const finalDuration = Math.floor(
+        (new Date().getTime() - session.discussionStartTime.getTime()) / 1000
+      );
       io.to(roomCode).emit('discussion-timer-tick', {
-        discussionDuration: finalDuration
+        discussionDuration: finalDuration,
       });
     }
   }
@@ -121,7 +133,6 @@ export function setupSocketHandlers(
   memoryStore: Map<string, InternalSessionData>
 ) {
   const withValidation = createValidationWrapper(socket);
-
 
   // Configure Jira integration
   socket.on(
@@ -204,12 +215,12 @@ export function setupSocketHandlers(
   });
 
   // Get detailed Jira issue information for split-screen view
-  socket.on('get-jira-issue-details', async (data) => {
+  socket.on('get-jira-issue-details', async data => {
     console.log('🔥 SERVER: get-jira-issue-details event received!', data);
-    
+
     const { roomCode, issueKey } = data || {};
     console.log(`Received get-jira-issue-details request for ${issueKey} in room ${roomCode}`);
-    
+
     try {
       const session = memoryStore.get(roomCode);
       if (!session) {
@@ -227,7 +238,9 @@ export function setupSocketHandlers(
 
       if (!session.jiraConfig) {
         console.log('Jira not configured for session:', roomCode);
-        socket.emit('jira-issue-details-failed', { message: 'Jira not configured for this session' });
+        socket.emit('jira-issue-details-failed', {
+          message: 'Jira not configured for this session',
+        });
         return;
       }
 

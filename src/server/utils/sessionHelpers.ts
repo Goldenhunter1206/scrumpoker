@@ -79,8 +79,9 @@ export function recordHistory(
     };
   }
 
-  const discussionDuration = session.discussionStartTime ? 
-    Math.floor((new Date().getTime() - session.discussionStartTime.getTime()) / 1000) : undefined;
+  const discussionDuration = session.discussionStartTime
+    ? Math.floor((new Date().getTime() - session.discussionStartTime.getTime()) / 1000)
+    : undefined;
 
   const stamped: EstimationHistoryEntry = {
     ...entry,

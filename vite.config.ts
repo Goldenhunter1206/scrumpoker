@@ -8,7 +8,8 @@ function htmlTemplatePlugin(env: Record<string, string>) {
     name: 'html-template',
     transformIndexHtml(html: string) {
       const appTitle = env.VITE_APP_TITLE || 'Scrum Poker';
-      const appSubtitle = env.VITE_APP_SUBTITLE || 'Collaborative Story Point Estimation for Your Team';
+      const appSubtitle =
+        env.VITE_APP_SUBTITLE || 'Collaborative Story Point Estimation for Your Team';
 
       return html.replace(/{{APP_TITLE}}/g, appTitle).replace(/{{APP_SUBTITLE}}/g, appSubtitle);
     },
@@ -18,7 +19,7 @@ function htmlTemplatePlugin(env: Record<string, string>) {
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory
   const env = loadEnv(mode, process.cwd(), '');
-  
+
   return {
     root: 'src/client',
     plugins: [htmlTemplatePlugin(env), tailwindcss()],

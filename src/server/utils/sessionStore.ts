@@ -25,15 +25,15 @@ export class SessionStore {
     if (!this.redis) return;
     try {
       // Exclude timer objects and other non-serializable data from persistence
-      const { 
-        countdownTimer, 
-        discussionTimer, 
-        typingUsers, 
-        socketToParticipant, 
-        participantToSocket,
-        ...sessionWithoutTimers 
+      const {
+        countdownTimer: _countdownTimer, // eslint-disable-line @typescript-eslint/no-unused-vars
+        discussionTimer: _discussionTimer, // eslint-disable-line @typescript-eslint/no-unused-vars
+        typingUsers: _typingUsers, // eslint-disable-line @typescript-eslint/no-unused-vars
+        socketToParticipant: _socketToParticipant, // eslint-disable-line @typescript-eslint/no-unused-vars
+        participantToSocket: _participantToSocket, // eslint-disable-line @typescript-eslint/no-unused-vars
+        ...sessionWithoutTimers
       } = session as any;
-      
+
       const serialisable = {
         ...sessionWithoutTimers,
         // Convert Map structures to arrays for JSON storage

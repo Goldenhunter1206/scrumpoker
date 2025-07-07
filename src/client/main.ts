@@ -283,10 +283,10 @@ class ScrumPokerApp {
       this.enableJiraButtons();
     });
 
-    socketManager.on('ticketSet', (ticketData) => {
+    socketManager.on('ticketSet', (ticketData: any) => {
       this.updateTicketDisplay();
       this.resetVotingUI();
-      
+
       // Handle split-screen panel based on ticket type
       if (ticketData && typeof ticketData === 'object' && ticketData.key) {
         // This is a Jira issue - update split-screen if it's currently showing
@@ -352,16 +352,16 @@ class ScrumPokerApp {
       this.updateTypingIndicator(typingUsers);
     });
 
-    socketManager.on('discussionTimerTick', data => {
+    socketManager.on('discussionTimerTick', (data: { discussionDuration: number }) => {
       this.updateDiscussionTimer(data.discussionDuration);
     });
 
-    socketManager.on('jiraIssueDetailsLoaded', data => {
+    socketManager.on('jiraIssueDetailsLoaded', (data: { issueDetails: any }) => {
       console.log('✅ CLIENT: Received jira-issue-details-loaded event', data);
       this.displayTicketDetails(data.issueDetails);
     });
 
-    socketManager.on('jiraIssueDetailsFailed', data => {
+    socketManager.on('jiraIssueDetailsFailed', (data: { message: string }) => {
       console.log('❌ CLIENT: Received jira-issue-details-failed event', data);
       this.showTicketDetailsError(data.message);
     });
@@ -594,7 +594,7 @@ class ScrumPokerApp {
   private enableJiraButtons(): void {
     const connectBtn = document.getElementById('connect-jira-btn') as HTMLButtonElement;
     const cancelBtn = document.getElementById('cancel-jira-btn') as HTMLButtonElement;
-    
+
     if (connectBtn) connectBtn.disabled = false;
     if (cancelBtn) cancelBtn.disabled = false;
   }
@@ -640,7 +640,7 @@ class ScrumPokerApp {
 
     const connectBtn = document.getElementById('connect-jira-btn') as HTMLButtonElement;
     const cancelBtn = document.getElementById('cancel-jira-btn') as HTMLButtonElement;
-    
+
     if (connectBtn) connectBtn.disabled = true;
     if (cancelBtn) cancelBtn.disabled = true;
 
@@ -1206,7 +1206,7 @@ class ScrumPokerApp {
       // Split-screen is not currently showing, don't auto-open it
       return;
     }
-    
+
     // Split-screen is showing, update it with the new ticket details
     console.log('🔄 TICKET CHANGE: Updating split-screen for new Jira issue:', jiraIssue.key);
     this.requestTicketDetails(jiraIssue.key);
@@ -1226,7 +1226,7 @@ class ScrumPokerApp {
     // Clear previous content immediately to prevent flickering
     title.textContent = 'Loading Ticket Details...';
     data.innerHTML = '';
-    
+
     // Show loading state
     hideElement('ticket-details-error');
     hideElement('ticket-details-data');

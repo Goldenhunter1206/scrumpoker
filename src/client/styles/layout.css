@@ -226,11 +226,11 @@
   .split-screen-container {
     @apply flex-col;
   }
-  
+
   .ticket-details-panel {
     @apply w-full max-h-96;
   }
-  
+
   .main-session-area {
     @apply order-2;
   }
