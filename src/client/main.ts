@@ -213,7 +213,9 @@ class ScrumPokerApp {
     tabHistory?.addEventListener('click', () => this.switchHistoryTab('history'));
 
     // Split screen close button
-    document.getElementById('close-split-screen')?.addEventListener('click', () => this.hideSplitScreen());
+    document
+      .getElementById('close-split-screen')
+      ?.addEventListener('click', () => this.hideSplitScreen());
   }
 
   private setupSocketEventHandlers(): void {
@@ -330,16 +332,16 @@ class ScrumPokerApp {
       this.updateTypingIndicator(typingUsers);
     });
 
-    socketManager.on('discussionTimerTick', (data) => {
+    socketManager.on('discussionTimerTick', data => {
       this.updateDiscussionTimer(data.discussionDuration);
     });
 
-    socketManager.on('jiraIssueDetailsLoaded', (data) => {
+    socketManager.on('jiraIssueDetailsLoaded', data => {
       console.log('✅ CLIENT: Received jira-issue-details-loaded event', data);
       this.displayTicketDetails(data.issueDetails);
     });
 
-    socketManager.on('jiraIssueDetailsFailed', (data) => {
+    socketManager.on('jiraIssueDetailsFailed', data => {
       console.log('❌ CLIENT: Received jira-issue-details-failed event', data);
       this.showTicketDetailsError(data.message);
     });
@@ -497,6 +499,9 @@ class ScrumPokerApp {
 
     if (isFacilitator) {
       this.updateToggleViewerButton();
+
+      // Auto-reconnect to Jira if saved credentials exist and no Jira config is active
+      this.autoReconnectJira();
     }
 
     this.updateTicketDisplay();
@@ -506,7 +511,9 @@ class ScrumPokerApp {
 
     // Update discussion timer if session has discussion in progress
     if (sessionData.discussionStartTime && sessionData.currentTicket) {
-      const discussionDuration = Math.floor((new Date().getTime() - new Date(sessionData.discussionStartTime).getTime()) / 1000);
+      const discussionDuration = Math.floor(
+        (new Date().getTime() - new Date(sessionData.discussionStartTime).getTime()) / 1000
+      );
       this.updateDiscussionTimer(discussionDuration);
     } else {
       this.updateDiscussionTimer(0);
@@ -514,6 +521,53 @@ class ScrumPokerApp {
 
     // Reinitialize drag and drop after UI updates (cards may have become visible/hidden)
     this.reinitializeDragAndDrop();
+  }
+
+  // Auto-reconnect to Jira if saved credentials exist
+  private autoReconnectJira(): void {
+    const state = gameState.getState();
+
+    console.log('🔄 AUTO-RECONNECT: Checking if we should auto-reconnect to Jira');
+    console.log('🔄 AUTO-RECONNECT: Current jiraConfig:', state.jiraConfig);
+    console.log('🔄 AUTO-RECONNECT: Is facilitator:', state.isFacilitator);
+    console.log('🔄 AUTO-RECONNECT: Room code:', state.roomCode);
+
+    // Only auto-reconnect if:
+    // 1. No Jira is currently configured in the session
+    // 2. We have saved credentials
+    // 3. User is a facilitator
+    if (state.jiraConfig) {
+      console.log(
+        '🔄 AUTO-RECONNECT: Jira already configured, checking if boards need to be reloaded'
+      );
+
+      // Check if the board dropdown is empty but we have Jira configured
+      const boardSelect = document.getElementById('jira-board-select') as HTMLSelectElement;
+      if (boardSelect && boardSelect.options.length <= 1) {
+        console.log('🔄 AUTO-RECONNECT: Board dropdown is empty, re-configuring to load boards');
+        this.configureJira();
+      } else {
+        console.log('🔄 AUTO-RECONNECT: Boards already loaded, skipping');
+      }
+      return;
+    }
+
+    if (!state.isFacilitator) {
+      console.log('🔄 AUTO-RECONNECT: Not a facilitator, skipping');
+      return;
+    }
+
+    const storedCreds = loadJiraCredentials();
+    console.log('🔄 AUTO-RECONNECT: Stored credentials:', storedCreds ? 'Found' : 'Not found');
+
+    if (!storedCreds || !storedCreds.domain || !storedCreds.email || !storedCreds.token) {
+      console.log('🔄 AUTO-RECONNECT: Missing credentials, skipping');
+      return;
+    }
+
+    // Auto-configure Jira with saved credentials
+    console.log('🔄 AUTO-RECONNECT: Starting auto-reconnect to Jira with saved credentials');
+    this.configureJira();
   }
 
   // Jira Integration Methods
@@ -846,7 +900,6 @@ class ScrumPokerApp {
         const issue = state.currentJiraIssue;
         const jiraBaseUrl = state.jiraConfig ? `https://${state.jiraConfig.domain}` : '#';
 
-
         // Clear the element first
         ticketElement.innerHTML = '';
 
@@ -914,25 +967,24 @@ class ScrumPokerApp {
         ticketElement.style.borderRadius = '8px';
         ticketElement.style.transition = 'border-color 0.2s';
         ticketElement.title = 'Click to view detailed ticket information';
-        
+
         // Add hover effect
         ticketElement.addEventListener('mouseenter', () => {
           ticketElement.style.borderColor = '#3b82f6';
           ticketElement.style.backgroundColor = '#eff6ff';
         });
-        
+
         ticketElement.addEventListener('mouseleave', () => {
           ticketElement.style.borderColor = 'transparent';
           ticketElement.style.backgroundColor = 'transparent';
         });
-        
-        ticketElement.addEventListener('click', (event) => {
+
+        ticketElement.addEventListener('click', event => {
           console.log('Ticket clicked!', issue.key);
           event.preventDefault();
           event.stopPropagation();
           this.requestTicketDetails(issue.key);
         });
-        
       } else {
         setTextContent(ticketElement, state.currentTicket);
         // Remove cursor pointer and click handler for non-Jira tickets
@@ -951,15 +1003,15 @@ class ScrumPokerApp {
   private updateDiscussionTimer(discussionDuration: number): void {
     const timerElement = document.getElementById('discussion-timer');
     const durationElement = document.getElementById('discussion-duration');
-    
+
     if (timerElement && durationElement) {
       // Convert seconds to minutes:seconds format
       const minutes = Math.floor(discussionDuration / 60);
       const seconds = discussionDuration % 60;
       const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-      
+
       durationElement.textContent = timeString;
-      
+
       // Show timer if there's a current ticket
       const state = gameState.getState();
       if (state.currentTicket) {
@@ -976,16 +1028,16 @@ class ScrumPokerApp {
     const loading = document.getElementById('ticket-details-loading');
     const error = document.getElementById('ticket-details-error');
     const title = document.getElementById('ticket-details-title');
-    
+
     if (!panel || !content || !loading || !error || !title) return;
 
     // Hide loading and error states
     hideElement('ticket-details-loading');
     hideElement('ticket-details-error');
-    
+
     // Update title and show panel
     title.textContent = `${issueDetails.key}: ${issueDetails.summary}`;
-    
+
     // Build the ticket details HTML
     content.innerHTML = `
       <div class="ticket-meta-grid">
@@ -1006,51 +1058,72 @@ class ScrumPokerApp {
           <div class="ticket-field-value">${issueDetails.assignee || 'Unassigned'}</div>
         </div>
       </div>
-      
-      ${issueDetails.storyPoints ? `
+
+      ${
+        issueDetails.storyPoints
+          ? `
         <div class="ticket-field">
           <div class="ticket-field-label">🎯 Story Points</div>
           <div class="ticket-field-value">${issueDetails.storyPoints}</div>
         </div>
-      ` : ''}
-      
-      ${issueDetails.labels?.length ? `
+      `
+          : ''
+      }
+
+      ${
+        issueDetails.labels?.length
+          ? `
         <div class="ticket-field">
           <div class="ticket-field-label">🏷️ Labels</div>
           <div class="ticket-tags">
             ${issueDetails.labels.map((label: string) => `<span class="ticket-tag">${label}</span>`).join('')}
           </div>
         </div>
-      ` : ''}
-      
-      ${issueDetails.description ? `
+      `
+          : ''
+      }
+
+      ${
+        issueDetails.description
+          ? `
         <div class="ticket-field">
           <div class="ticket-field-label">📝 Description</div>
           <div class="ticket-description">${issueDetails.description}</div>
         </div>
-      ` : ''}
-      
-      ${issueDetails.comments?.length ? `
+      `
+          : ''
+      }
+
+      ${
+        issueDetails.comments?.length
+          ? `
         <div class="ticket-field">
           <div class="ticket-field-label">💬 Recent Comments</div>
           <div class="ticket-comments">
-            ${issueDetails.comments.slice(0, 5).map((comment: any) => `
+            ${issueDetails.comments
+              .slice(0, 5)
+              .map(
+                (comment: any) => `
               <div class="ticket-comment">
                 <div class="ticket-comment-author">${comment.author || 'Unknown'} - ${comment.created ? new Date(comment.created).toLocaleDateString() : 'Unknown date'}</div>
                 <div class="ticket-comment-body">${comment.body || 'No content'}</div>
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
           </div>
         </div>
-      ` : ''}
-      
+      `
+          : ''
+      }
+
       <div class="ticket-action-bar-bottom">
         <a href="${issueDetails.url || '#'}" target="_blank" rel="noopener noreferrer" class="ticket-external-link">
           🔗 Open in Jira
         </a>
       </div>
     `;
-    
+
     // Ensure loading is hidden and content is shown
     hideElement('ticket-details-loading');
     showElement('ticket-details-data');
@@ -1061,17 +1134,17 @@ class ScrumPokerApp {
     const loading = document.getElementById('ticket-details-loading');
     const error = document.getElementById('ticket-details-error');
     const data = document.getElementById('ticket-details-data');
-    
+
     if (!loading || !error || !data) return;
 
     hideElement('ticket-details-loading');
     hideElement('ticket-details-data');
-    
+
     const errorContent = error.querySelector('p');
     if (errorContent) {
       errorContent.textContent = message;
     }
-    
+
     showElement('ticket-details-error');
     this.showSplitScreen();
   }
@@ -1079,51 +1152,38 @@ class ScrumPokerApp {
   private showSplitScreen(): void {
     const container = document.getElementById('split-screen-container');
     const panel = document.getElementById('ticket-details-panel');
-    
+
     if (!container || !panel) return;
-    
+
     container.classList.add('split-active');
     showElement('ticket-details-panel');
-    
-    // Debug alignment
-    setTimeout(() => {
-      const containerRect = container.getBoundingClientRect();
-      const panelRect = panel.getBoundingClientRect();
-      const firstCard = document.querySelector('.dashboard-card')?.getBoundingClientRect();
-      
-      console.log('🎯 ALIGNMENT DEBUG:');
-      console.log('Container top:', containerRect.top);
-      console.log('Panel top:', panelRect.top);
-      console.log('First card top:', firstCard?.top);
-      console.log('Panel classes:', panel.className);
-    }, 100);
   }
 
   private hideSplitScreen(): void {
     const container = document.getElementById('split-screen-container');
     const panel = document.getElementById('ticket-details-panel');
-    
+
     if (!container || !panel) return;
-    
+
     container.classList.remove('split-active');
     hideElement('ticket-details-panel');
   }
 
   private requestTicketDetails(issueKey: string): void {
     console.log('🚀 REQUEST: requestTicketDetails called with issueKey:', issueKey);
-    
+
     const state = gameState.getState();
     if (!state.roomCode) {
       console.log('❌ REQUEST: No room code available');
       return;
     }
-    
+
     console.log('🚀 REQUEST: Room code:', state.roomCode);
 
     const loading = document.getElementById('ticket-details-loading');
     const error = document.getElementById('ticket-details-error');
     const data = document.getElementById('ticket-details-data');
-    
+
     if (!loading || !error || !data) {
       console.log('❌ REQUEST: Missing UI elements');
       return;
@@ -1133,9 +1193,9 @@ class ScrumPokerApp {
     hideElement('ticket-details-error');
     hideElement('ticket-details-data');
     showElement('ticket-details-loading');
-    
+
     this.showSplitScreen();
-    
+
     console.log('🚀 REQUEST: About to call socketManager.getJiraIssueDetails');
     socketManager.getJiraIssueDetails(state.roomCode, issueKey);
     console.log('🚀 REQUEST: socketManager.getJiraIssueDetails called');
@@ -1513,8 +1573,9 @@ class ScrumPokerApp {
       const timeStr = entry.timestamp
         ? new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         : '';
-      const discussionDurationStr = entry.discussionDuration ? 
-        `${Math.floor(entry.discussionDuration / 60)}:${(entry.discussionDuration % 60).toString().padStart(2, '0')}` : '';
+      const discussionDurationStr = entry.discussionDuration
+        ? `${Math.floor(entry.discussionDuration / 60)}:${(entry.discussionDuration % 60).toString().padStart(2, '0')}`
+        : '';
 
       div.innerHTML = `
         <div class="history-item-title">${ticketText}</div>
@@ -1679,7 +1740,15 @@ class ScrumPokerApp {
       return;
     }
 
-    const header = ['Ticket', 'Consensus', 'Average', 'Min', 'Max', 'Discussion Duration', 'Timestamp'];
+    const header = [
+      'Ticket',
+      'Consensus',
+      'Average',
+      'Min',
+      'Max',
+      'Discussion Duration',
+      'Timestamp',
+    ];
 
     const latest = new Map();
     state.history.forEach(entry => {
@@ -1698,8 +1767,9 @@ class ScrumPokerApp {
       const avg = entry.stats ? entry.stats.average : '';
       const min = entry.stats ? entry.stats.min : '';
       const max = entry.stats ? entry.stats.max : '';
-      const discussionDuration = entry.discussionDuration ? 
-        `${Math.floor(entry.discussionDuration / 60)}:${(entry.discussionDuration % 60).toString().padStart(2, '0')}` : '';
+      const discussionDuration = entry.discussionDuration
+        ? `${Math.floor(entry.discussionDuration / 60)}:${(entry.discussionDuration % 60).toString().padStart(2, '0')}`
+        : '';
       const timeStr = entry.timestamp ? new Date(entry.timestamp).toISOString() : '';
 
       if (typeof consensus === 'number') {
