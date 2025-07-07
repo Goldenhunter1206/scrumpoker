@@ -24,8 +24,18 @@ export class SessionStore {
   async saveToRedis(key: string, session: SessionData): Promise<void> {
     if (!this.redis) return;
     try {
+      // Exclude timer objects and other non-serializable data from persistence
+      const { 
+        countdownTimer, 
+        discussionTimer, 
+        typingUsers, 
+        socketToParticipant, 
+        participantToSocket,
+        ...sessionWithoutTimers 
+      } = session as any;
+      
       const serialisable = {
-        ...session,
+        ...sessionWithoutTimers,
         // Convert Map structures to arrays for JSON storage
         participants: Array.from((session as any).participants?.entries?.() || []),
         votes: Array.from((session as any).votes?.entries?.() || []),
@@ -61,6 +71,10 @@ export class SessionStore {
           socketToParticipant: new Map(),
           participantToSocket: new Map(),
           typingUsers: new Map(),
+          // Initialize timer fields (they will be recreated when needed)
+          countdownTimer: null,
+          discussionTimer: null,
+          discussionStartTime: obj.discussionStartTime ? new Date(obj.discussionStartTime) : null,
         };
 
         this.memory.set(obj.id || fullKey.split(':')[1], sessionData);

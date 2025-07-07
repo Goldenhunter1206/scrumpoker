@@ -114,6 +114,8 @@ export interface ServerToClientEvents {
   'jira-config-failed': (data: { message: string }) => void;
   'jira-issues-loaded': (data: { issues: JiraIssue[] }) => void;
   'jira-issues-failed': (data: { message: string }) => void;
+  'jira-issue-details-loaded': (data: { issueDetails: any }) => void;
+  'jira-issue-details-failed': (data: { message: string }) => void;
   'jira-issue-set': (data: { issue: JiraIssue; sessionData: SessionData }) => void;
   'jira-updated': (data: {
     issueKey: string;
@@ -153,6 +155,7 @@ export interface ClientToServerEvents {
     projectKey?: string;
   }) => void;
   'get-jira-issues': (data: { roomCode: string; boardId: string }) => void;
+  'get-jira-issue-details': (data: { roomCode: string; issueKey: string }) => void;
   'set-jira-issue': (data: { roomCode: string; issue: JiraIssue }) => void;
   'finalize-estimation': (data: { roomCode: string; finalEstimate: number }) => void;
   'set-ticket': (data: { roomCode: string; ticket: string }) => void;

@@ -95,6 +95,147 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
+/* Split Screen Layout */
+.split-screen-container {
+  @apply flex gap-6 h-full items-start;
+}
+
+.main-session-area {
+  @apply flex-1 min-w-0;
+}
+
+.split-screen-container.split-active .main-session-area {
+  @apply flex-1;
+}
+
+.ticket-details-panel {
+  @apply w-96 bg-card border border-border rounded-lg shadow-sm flex flex-col self-start;
+  min-height: 600px;
+  max-height: 80vh;
+  margin-top: 16px;
+}
+
+.ticket-details-panel.hidden {
+  display: none !important;
+}
+
+.ticket-details-header {
+  @apply flex items-center justify-between p-4 border-b border-border bg-muted/50 rounded-t-lg;
+}
+
+.ticket-details-header h3 {
+  @apply text-lg font-semibold m-0;
+}
+
+.close-split-screen {
+  @apply w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 border-0 cursor-pointer flex items-center justify-center text-gray-600 hover:text-gray-800 transition-colors;
+}
+
+.ticket-details-content {
+  @apply flex-1 p-4 overflow-y-auto;
+}
+
+.ticket-details-loading {
+  @apply flex flex-col items-center justify-center py-8 text-muted-foreground;
+}
+
+.ticket-details-loading.hidden {
+  display: none !important;
+}
+
+.loading-spinner {
+  @apply w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-4;
+}
+
+.ticket-details-error {
+  @apply text-center py-8 text-red-600;
+}
+
+.ticket-details-error.hidden {
+  display: none !important;
+}
+
+.ticket-details-data {
+  @apply space-y-4;
+}
+
+.ticket-details-data.hidden {
+  display: none !important;
+}
+
+.ticket-field {
+  @apply space-y-1;
+}
+
+.ticket-field-label {
+  @apply text-xs font-medium text-muted-foreground uppercase tracking-wider;
+}
+
+.ticket-field-value {
+  @apply text-sm text-foreground;
+}
+
+.ticket-description {
+  @apply text-sm leading-relaxed max-w-none;
+}
+
+.ticket-comments {
+  @apply space-y-3 max-h-60 overflow-y-auto;
+}
+
+.ticket-comment {
+  @apply p-3 bg-muted/30 rounded-lg border border-border;
+}
+
+.ticket-comment-author {
+  @apply text-xs font-medium text-muted-foreground mb-1;
+}
+
+.ticket-comment-body {
+  @apply text-sm text-foreground;
+}
+
+.ticket-meta-grid {
+  @apply grid grid-cols-2 gap-4;
+}
+
+.ticket-tags {
+  @apply flex flex-wrap gap-1;
+}
+
+.ticket-tag {
+  @apply px-2 py-1 bg-primary/10 text-primary rounded text-xs;
+}
+
+.ticket-action-bar-bottom {
+  @apply flex justify-center mt-6 pt-4 border-t border-border;
+}
+
+.ticket-external-link {
+  @apply inline-flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm font-medium no-underline transition-colors w-full justify-center;
+}
+
+/* Responsive split screen */
+@media (max-width: 1200px) {
+  .ticket-details-panel {
+    @apply w-80;
+  }
+}
+
+@media (max-width: 768px) {
+  .split-screen-container {
+    @apply flex-col;
+  }
+  
+  .ticket-details-panel {
+    @apply w-full max-h-96;
+  }
+  
+  .main-session-area {
+    @apply order-2;
+  }
+}
+
 /* Floating Controls Toggle */
 #toggle-controls-btn {
   @apply fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center text-2xl text-white border-0 cursor-pointer bg-gradient-to-br from-emerald-600 to-emerald-700 shadow-2xl z-50 transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl;

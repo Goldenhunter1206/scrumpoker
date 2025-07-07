@@ -297,6 +297,14 @@ export class SocketManager {
     this.socket.on('discussion-timer-tick', (data) => {
       this.emit('discussionTimerTick', data);
     });
+
+    this.socket.on('jira-issue-details-loaded', (data) => {
+      this.emit('jiraIssueDetailsLoaded', data);
+    });
+
+    this.socket.on('jira-issue-details-failed', (data) => {
+      this.emit('jiraIssueDetailsFailed', data);
+    });
   }
 
   // Event system
@@ -345,6 +353,13 @@ export class SocketManager {
 
   getJiraIssues(roomCode: string, boardId: string): void {
     this.socket?.emit('get-jira-issues', { roomCode, boardId });
+  }
+
+  getJiraIssueDetails(roomCode: string, issueKey: string): void {
+    console.log('SocketManager: Emitting get-jira-issue-details', { roomCode, issueKey });
+    console.log('Socket connected:', this.socket?.connected);
+    this.socket?.emit('get-jira-issue-details', { roomCode, issueKey });
+    console.log('SocketManager: Event emitted');
   }
 
   setJiraIssue(roomCode: string, issue: JiraIssue): void {

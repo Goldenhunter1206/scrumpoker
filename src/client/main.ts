@@ -211,6 +211,9 @@ class ScrumPokerApp {
     const tabHistory = document.getElementById('history-tab-history');
     tabIssues?.addEventListener('click', () => this.switchHistoryTab('issues'));
     tabHistory?.addEventListener('click', () => this.switchHistoryTab('history'));
+
+    // Split screen close button
+    document.getElementById('close-split-screen')?.addEventListener('click', () => this.hideSplitScreen());
   }
 
   private setupSocketEventHandlers(): void {
@@ -329,6 +332,16 @@ class ScrumPokerApp {
 
     socketManager.on('discussionTimerTick', (data) => {
       this.updateDiscussionTimer(data.discussionDuration);
+    });
+
+    socketManager.on('jiraIssueDetailsLoaded', (data) => {
+      console.log('✅ CLIENT: Received jira-issue-details-loaded event', data);
+      this.displayTicketDetails(data.issueDetails);
+    });
+
+    socketManager.on('jiraIssueDetailsFailed', (data) => {
+      console.log('❌ CLIENT: Received jira-issue-details-failed event', data);
+      this.showTicketDetailsError(data.message);
     });
   }
 
@@ -822,6 +835,9 @@ class ScrumPokerApp {
   private updateTicketDisplay(): void {
     const state = gameState.getState();
 
+    // Hide split screen when updating ticket display (it will be shown again if needed)
+    this.hideSplitScreen();
+
     if (state.currentTicket) {
       const ticketElement = document.getElementById('ticket-description');
       if (!ticketElement) return;
@@ -829,6 +845,7 @@ class ScrumPokerApp {
       if (state.currentJiraIssue) {
         const issue = state.currentJiraIssue;
         const jiraBaseUrl = state.jiraConfig ? `https://${state.jiraConfig.domain}` : '#';
+
 
         // Clear the element first
         ticketElement.innerHTML = '';
@@ -890,13 +907,44 @@ class ScrumPokerApp {
           setTextContent(descDiv, finalDesc);
           ticketElement.appendChild(descDiv);
         }
+
+        // Add click handler to show split screen with ticket details
+        ticketElement.style.cursor = 'pointer';
+        ticketElement.style.border = '2px solid transparent';
+        ticketElement.style.borderRadius = '8px';
+        ticketElement.style.transition = 'border-color 0.2s';
+        ticketElement.title = 'Click to view detailed ticket information';
+        
+        // Add hover effect
+        ticketElement.addEventListener('mouseenter', () => {
+          ticketElement.style.borderColor = '#3b82f6';
+          ticketElement.style.backgroundColor = '#eff6ff';
+        });
+        
+        ticketElement.addEventListener('mouseleave', () => {
+          ticketElement.style.borderColor = 'transparent';
+          ticketElement.style.backgroundColor = 'transparent';
+        });
+        
+        ticketElement.addEventListener('click', (event) => {
+          console.log('Ticket clicked!', issue.key);
+          event.preventDefault();
+          event.stopPropagation();
+          this.requestTicketDetails(issue.key);
+        });
+        
       } else {
         setTextContent(ticketElement, state.currentTicket);
+        // Remove cursor pointer and click handler for non-Jira tickets
+        ticketElement.style.cursor = 'default';
+        ticketElement.title = '';
       }
 
       showElement('current-ticket');
     } else {
       hideElement('current-ticket');
+      // Hide split screen when no ticket is selected
+      this.hideSplitScreen();
     }
   }
 
@@ -920,6 +968,185 @@ class ScrumPokerApp {
         hideElement('discussion-timer');
       }
     }
+  }
+
+  private displayTicketDetails(issueDetails: any): void {
+    const panel = document.getElementById('ticket-details-panel');
+    const content = document.getElementById('ticket-details-data');
+    const loading = document.getElementById('ticket-details-loading');
+    const error = document.getElementById('ticket-details-error');
+    const title = document.getElementById('ticket-details-title');
+    
+    if (!panel || !content || !loading || !error || !title) return;
+
+    // Hide loading and error states
+    hideElement('ticket-details-loading');
+    hideElement('ticket-details-error');
+    
+    // Update title and show panel
+    title.textContent = `${issueDetails.key}: ${issueDetails.summary}`;
+    
+    // Build the ticket details HTML
+    content.innerHTML = `
+      <div class="ticket-meta-grid">
+        <div class="ticket-field">
+          <div class="ticket-field-label">📋 Issue Type</div>
+          <div class="ticket-field-value">${issueDetails.issueType || 'Unknown'}</div>
+        </div>
+        <div class="ticket-field">
+          <div class="ticket-field-label">⚡ Priority</div>
+          <div class="ticket-field-value">${issueDetails.priority || 'None'}</div>
+        </div>
+        <div class="ticket-field">
+          <div class="ticket-field-label">📊 Status</div>
+          <div class="ticket-field-value">${issueDetails.status || 'Unknown'}</div>
+        </div>
+        <div class="ticket-field">
+          <div class="ticket-field-label">👤 Assignee</div>
+          <div class="ticket-field-value">${issueDetails.assignee || 'Unassigned'}</div>
+        </div>
+      </div>
+      
+      ${issueDetails.storyPoints ? `
+        <div class="ticket-field">
+          <div class="ticket-field-label">🎯 Story Points</div>
+          <div class="ticket-field-value">${issueDetails.storyPoints}</div>
+        </div>
+      ` : ''}
+      
+      ${issueDetails.labels?.length ? `
+        <div class="ticket-field">
+          <div class="ticket-field-label">🏷️ Labels</div>
+          <div class="ticket-tags">
+            ${issueDetails.labels.map((label: string) => `<span class="ticket-tag">${label}</span>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+      
+      ${issueDetails.description ? `
+        <div class="ticket-field">
+          <div class="ticket-field-label">📝 Description</div>
+          <div class="ticket-description">${issueDetails.description}</div>
+        </div>
+      ` : ''}
+      
+      ${issueDetails.comments?.length ? `
+        <div class="ticket-field">
+          <div class="ticket-field-label">💬 Recent Comments</div>
+          <div class="ticket-comments">
+            ${issueDetails.comments.slice(0, 5).map((comment: any) => `
+              <div class="ticket-comment">
+                <div class="ticket-comment-author">${comment.author || 'Unknown'} - ${comment.created ? new Date(comment.created).toLocaleDateString() : 'Unknown date'}</div>
+                <div class="ticket-comment-body">${comment.body || 'No content'}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+      
+      <div class="ticket-action-bar-bottom">
+        <a href="${issueDetails.url || '#'}" target="_blank" rel="noopener noreferrer" class="ticket-external-link">
+          🔗 Open in Jira
+        </a>
+      </div>
+    `;
+    
+    // Ensure loading is hidden and content is shown
+    hideElement('ticket-details-loading');
+    showElement('ticket-details-data');
+    this.showSplitScreen();
+  }
+
+  private showTicketDetailsError(message: string): void {
+    const loading = document.getElementById('ticket-details-loading');
+    const error = document.getElementById('ticket-details-error');
+    const data = document.getElementById('ticket-details-data');
+    
+    if (!loading || !error || !data) return;
+
+    hideElement('ticket-details-loading');
+    hideElement('ticket-details-data');
+    
+    const errorContent = error.querySelector('p');
+    if (errorContent) {
+      errorContent.textContent = message;
+    }
+    
+    showElement('ticket-details-error');
+    this.showSplitScreen();
+  }
+
+  private showSplitScreen(): void {
+    const container = document.getElementById('split-screen-container');
+    const panel = document.getElementById('ticket-details-panel');
+    
+    if (!container || !panel) return;
+    
+    container.classList.add('split-active');
+    showElement('ticket-details-panel');
+    
+    // Debug alignment
+    setTimeout(() => {
+      const containerRect = container.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      const firstCard = document.querySelector('.dashboard-card')?.getBoundingClientRect();
+      
+      console.log('🎯 ALIGNMENT DEBUG:');
+      console.log('Container top:', containerRect.top);
+      console.log('Panel top:', panelRect.top);
+      console.log('First card top:', firstCard?.top);
+      console.log('Panel classes:', panel.className);
+    }, 100);
+  }
+
+  private hideSplitScreen(): void {
+    const container = document.getElementById('split-screen-container');
+    const panel = document.getElementById('ticket-details-panel');
+    
+    if (!container || !panel) return;
+    
+    container.classList.remove('split-active');
+    hideElement('ticket-details-panel');
+  }
+
+  private requestTicketDetails(issueKey: string): void {
+    console.log('🚀 REQUEST: requestTicketDetails called with issueKey:', issueKey);
+    
+    const state = gameState.getState();
+    if (!state.roomCode) {
+      console.log('❌ REQUEST: No room code available');
+      return;
+    }
+    
+    console.log('🚀 REQUEST: Room code:', state.roomCode);
+
+    const loading = document.getElementById('ticket-details-loading');
+    const error = document.getElementById('ticket-details-error');
+    const data = document.getElementById('ticket-details-data');
+    
+    if (!loading || !error || !data) {
+      console.log('❌ REQUEST: Missing UI elements');
+      return;
+    }
+
+    // Show loading state
+    hideElement('ticket-details-error');
+    hideElement('ticket-details-data');
+    showElement('ticket-details-loading');
+    
+    this.showSplitScreen();
+    
+    console.log('🚀 REQUEST: About to call socketManager.getJiraIssueDetails');
+    socketManager.getJiraIssueDetails(state.roomCode, issueKey);
+    console.log('🚀 REQUEST: socketManager.getJiraIssueDetails called');
+
+    // Add timeout to show error if no response within 10 seconds
+    setTimeout(() => {
+      const currentLoading = document.getElementById('ticket-details-loading');
+      if (currentLoading && !currentLoading.classList.contains('hidden')) {
+        this.showTicketDetailsError('Request timed out - please try again');
+      }
+    }, 10000);
   }
 
   private updateParticipantsList(): void {

@@ -65,8 +65,12 @@
 
             <!-- Session Section -->
             <div id="session-section" class="hidden">
-                <!-- Two Column Layout -->
-                <div class="two-column-layout">
+                <!-- Split Screen Container -->
+                <div id="split-screen-container" class="split-screen-container">
+                    <!-- Main Session Area -->
+                    <div id="main-session-area" class="main-session-area">
+                        <!-- Two Column Layout -->
+                        <div class="two-column-layout">
                     <!-- Sidebar: All Controls -->
                     <div class="sidebar-column" data-column="sidebar">
                         <div class="column-drop-zone" data-drop-zone="sidebar"></div>
@@ -416,6 +420,28 @@
                                 <p style="font-size: 14px; color: #6b7280; margin-top: 10px;">
                                     💡 The value will be automatically rounded to the nearest Fibonacci number (0, 0.5, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89)
                                 </p>
+                            </div>
+                        </div>
+                        </div>
+                    </div>
+                    </div>
+
+                    <!-- Ticket Details Panel -->
+                    <div id="ticket-details-panel" class="ticket-details-panel hidden">
+                        <div class="ticket-details-header">
+                            <h3 id="ticket-details-title">Ticket Details</h3>
+                            <button id="close-split-screen" class="close-split-screen" title="Close split view">✕</button>
+                        </div>
+                        <div class="ticket-details-content" id="ticket-details-content">
+                            <div class="ticket-details-loading hidden" id="ticket-details-loading">
+                                <div class="loading-spinner"></div>
+                                <p>Loading ticket details...</p>
+                            </div>
+                            <div class="ticket-details-error hidden" id="ticket-details-error">
+                                <p>Failed to load ticket details</p>
+                            </div>
+                            <div class="ticket-details-data hidden" id="ticket-details-data">
+                                <!-- Ticket details will be populated here -->
                             </div>
                         </div>
                     </div>

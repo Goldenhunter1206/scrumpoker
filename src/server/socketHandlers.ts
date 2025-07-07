@@ -12,6 +12,7 @@ import {
   getJiraBoardIssues,
   updateJiraIssueStoryPoints,
   roundToNearestFibonacci,
+  getJiraIssueDetails,
 } from './utils/jiraApi.js';
 import { getSessionData, recordHistory } from './utils/sessionHelpers.js';
 import { validateSocketEvent, sanitizeString } from './middleware/validation.js';
@@ -121,6 +122,7 @@ export function setupSocketHandlers(
 ) {
   const withValidation = createValidationWrapper(socket);
 
+
   // Configure Jira integration
   socket.on(
     'configure-jira',
@@ -198,6 +200,61 @@ export function setupSocketHandlers(
     } catch (error) {
       console.error('Failed to fetch Jira issues', error);
       socket.emit('error', { message: 'Failed to fetch Jira issues' });
+    }
+  });
+
+  // Get detailed Jira issue information for split-screen view
+  socket.on('get-jira-issue-details', async (data) => {
+    console.log('🔥 SERVER: get-jira-issue-details event received!', data);
+    
+    const { roomCode, issueKey } = data || {};
+    console.log(`Received get-jira-issue-details request for ${issueKey} in room ${roomCode}`);
+    
+    try {
+      const session = memoryStore.get(roomCode);
+      if (!session) {
+        console.log('Session not found:', roomCode);
+        socket.emit('jira-issue-details-failed', { message: 'Session not found' });
+        return;
+      }
+
+      const participant = getParticipantBySocketId(session, socket.id);
+      if (!participant) {
+        console.log('Participant not found for socket:', socket.id);
+        socket.emit('jira-issue-details-failed', { message: 'Participant not found' });
+        return;
+      }
+
+      if (!session.jiraConfig) {
+        console.log('Jira not configured for session:', roomCode);
+        socket.emit('jira-issue-details-failed', { message: 'Jira not configured for this session' });
+        return;
+      }
+
+      const config = {
+        ...session.jiraConfig,
+        email: session.jiraConfig.email,
+        token: session.jiraConfig.token,
+      };
+
+      console.log('Making Jira API call for issue:', issueKey);
+      const result = await getJiraIssueDetails(config, issueKey);
+      console.log('Jira API result:', result.success ? 'Success' : 'Failed', result.error);
+
+      if (result.success) {
+        console.log('Sending jira-issue-details-loaded event');
+        socket.emit('jira-issue-details-loaded', {
+          issueDetails: result.data,
+        });
+      } else {
+        console.log('Sending jira-issue-details-failed event:', result.error);
+        socket.emit('jira-issue-details-failed', {
+          message: result.error || 'Failed to fetch issue details',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch Jira issue details', error);
+      socket.emit('jira-issue-details-failed', { message: 'Server error occurred' });
     }
   });
 
