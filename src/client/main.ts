@@ -835,8 +835,8 @@ class ScrumPokerApp {
   private updateTicketDisplay(): void {
     const state = gameState.getState();
 
-    // Hide split screen when updating ticket display (it will be shown again if needed)
-    this.hideSplitScreen();
+    // Only hide split screen if there's no current ticket, not on every update
+    // This prevents hiding the split screen during voting updates
 
     if (state.currentTicket) {
       const ticketElement = document.getElementById('ticket-description');
