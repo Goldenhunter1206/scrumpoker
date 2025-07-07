@@ -160,6 +160,7 @@ export class SocketManager {
     this.socket.on('jira-config-failed', data => {
       showNotification(data.message, 'error');
       enableButtons();
+      this.emit('jiraConfigFailed', data);
     });
 
     this.socket.on('jira-issues-loaded', data => {

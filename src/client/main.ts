@@ -72,6 +72,11 @@ class ScrumPokerApp {
     document
       .getElementById('connect-jira-btn')
       ?.addEventListener('click', () => this.configureJira());
+
+    // Re-enable Jira buttons when user modifies fields after a failed connection
+    ['jira-domain', 'jira-email', 'jira-token', 'jira-project-key'].forEach(fieldId => {
+      document.getElementById(fieldId)?.addEventListener('input', () => this.enableJiraButtons());
+    });
     document
       .getElementById('load-issues-btn')
       ?.addEventListener('click', () => this.loadJiraIssues());
@@ -265,6 +270,7 @@ class ScrumPokerApp {
       (data: { boards: JiraBoard[]; sessionData: SessionData }) => {
         this.updateJiraUI();
         this.populateJiraBoards(data.boards);
+        this.enableJiraButtons();
       }
     );
 
@@ -272,9 +278,23 @@ class ScrumPokerApp {
       this.displayJiraIssues();
     });
 
-    socketManager.on('ticketSet', () => {
+    // Handle Jira configuration failures
+    socketManager.on('jiraConfigFailed', () => {
+      this.enableJiraButtons();
+    });
+
+    socketManager.on('ticketSet', (ticketData) => {
       this.updateTicketDisplay();
       this.resetVotingUI();
+      
+      // Handle split-screen panel based on ticket type
+      if (ticketData && typeof ticketData === 'object' && ticketData.key) {
+        // This is a Jira issue - update split-screen if it's currently showing
+        this.handleJiraTicketChange(ticketData);
+      } else {
+        // This is a manual ticket - hide split-screen
+        this.hideSplitScreen();
+      }
     });
 
     socketManager.on('jiraUpdated', () => {
@@ -571,6 +591,14 @@ class ScrumPokerApp {
   }
 
   // Jira Integration Methods
+  private enableJiraButtons(): void {
+    const connectBtn = document.getElementById('connect-jira-btn') as HTMLButtonElement;
+    const cancelBtn = document.getElementById('cancel-jira-btn') as HTMLButtonElement;
+    
+    if (connectBtn) connectBtn.disabled = false;
+    if (cancelBtn) cancelBtn.disabled = false;
+  }
+
   private toggleJiraSetup(): void {
     const setupDiv = document.getElementById('jira-setup');
     const notConnectedDiv = document.getElementById('jira-not-connected');
@@ -611,7 +639,10 @@ class ScrumPokerApp {
     }
 
     const connectBtn = document.getElementById('connect-jira-btn') as HTMLButtonElement;
+    const cancelBtn = document.getElementById('cancel-jira-btn') as HTMLButtonElement;
+    
     if (connectBtn) connectBtn.disabled = true;
+    if (cancelBtn) cancelBtn.disabled = true;
 
     const state = gameState.getState();
     socketManager.configureJira(state.roomCode, cleanDomain, email, token, projectKey || undefined);
@@ -1169,26 +1200,33 @@ class ScrumPokerApp {
     hideElement('ticket-details-panel');
   }
 
-  private requestTicketDetails(issueKey: string): void {
-    console.log('🚀 REQUEST: requestTicketDetails called with issueKey:', issueKey);
-
-    const state = gameState.getState();
-    if (!state.roomCode) {
-      console.log('❌ REQUEST: No room code available');
+  private handleJiraTicketChange(jiraIssue: any): void {
+    const panel = document.getElementById('ticket-details-panel');
+    if (!panel || panel.classList.contains('hidden')) {
+      // Split-screen is not currently showing, don't auto-open it
       return;
     }
+    
+    // Split-screen is showing, update it with the new ticket details
+    console.log('🔄 TICKET CHANGE: Updating split-screen for new Jira issue:', jiraIssue.key);
+    this.requestTicketDetails(jiraIssue.key);
+  }
 
-    console.log('🚀 REQUEST: Room code:', state.roomCode);
+  private requestTicketDetails(issueKey: string): void {
+    const state = gameState.getState();
+    if (!state.roomCode) return;
 
     const loading = document.getElementById('ticket-details-loading');
     const error = document.getElementById('ticket-details-error');
     const data = document.getElementById('ticket-details-data');
+    const title = document.getElementById('ticket-details-title');
 
-    if (!loading || !error || !data) {
-      console.log('❌ REQUEST: Missing UI elements');
-      return;
-    }
+    if (!loading || !error || !data || !title) return;
 
+    // Clear previous content immediately to prevent flickering
+    title.textContent = 'Loading Ticket Details...';
+    data.innerHTML = '';
+    
     // Show loading state
     hideElement('ticket-details-error');
     hideElement('ticket-details-data');
@@ -1196,9 +1234,7 @@ class ScrumPokerApp {
 
     this.showSplitScreen();
 
-    console.log('🚀 REQUEST: About to call socketManager.getJiraIssueDetails');
     socketManager.getJiraIssueDetails(state.roomCode, issueKey);
-    console.log('🚀 REQUEST: socketManager.getJiraIssueDetails called');
 
     // Add timeout to show error if no response within 10 seconds
     setTimeout(() => {
