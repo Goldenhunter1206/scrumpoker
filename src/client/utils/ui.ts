@@ -108,7 +108,7 @@ export function adaptFacilitatorControlsForViewport(): void {
 
   const width = window.innerWidth;
   console.log(`📱 Viewport: ${width}px (threshold: 767px)`);
-  
+
   if (width <= 767) {
     console.log('📱 Mobile mode - showing cog wheel, collapsing controls');
     toggle.classList.remove('hidden');
@@ -128,7 +128,7 @@ export function toggleFacilitatorControlsVisibility(): void {
   const controls = document.getElementById('facilitator-controls');
   if (controls) {
     const wasCollapsed = controls.classList.contains('collapsed');
-    
+
     if (wasCollapsed) {
       // Expanding: remove collapsed class and restore display
       controls.classList.remove('collapsed');
@@ -138,7 +138,7 @@ export function toggleFacilitatorControlsVisibility(): void {
       controls.style.removeProperty('display');
       controls.classList.add('collapsed');
     }
-    
+
     console.log(`📋 Facilitator controls ${wasCollapsed ? 'expanded' : 'collapsed'}`);
   }
 }

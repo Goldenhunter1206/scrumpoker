@@ -301,6 +301,7 @@ export const rateLimitConfig = {
     message: 'Too many requests from this IP, please try again later.',
     standardHeaders: true,
     legacyHeaders: false,
+    store: undefined as any,
   },
 
   // Stricter limit for session creation
@@ -310,6 +311,7 @@ export const rateLimitConfig = {
     message: 'Too many session creation attempts, please try again later.',
     standardHeaders: true,
     legacyHeaders: false,
+    store: undefined as any,
   },
 
   // Chat message rate limiting
@@ -319,6 +321,7 @@ export const rateLimitConfig = {
     message: 'Too many chat messages, please slow down.',
     standardHeaders: true,
     legacyHeaders: false,
+    store: undefined as any,
   },
 };
 
@@ -330,14 +333,14 @@ if (process.env.REDIS_URL) {
     const redisClient = createClient({
       url: process.env.REDIS_URL,
     });
-    
-    redisClient.on('error', (err) => {
+
+    redisClient.on('error', err => {
       console.warn('Redis rate limiting disabled due to connection error:', err.message);
       redisStore = undefined;
     });
-    
+
     redisStore = new RedisStore({
-      client: redisClient,
+      sendCommand: (...args: string[]) => redisClient.sendCommand(args),
       prefix: 'rl:',
     });
   } catch (error) {
@@ -360,13 +363,13 @@ export const createSocketEventRateLimiter = (config: {
   message: string;
 }) => {
   const store = new Map<string, { count: number; resetTime: number }>();
-  
+
   return (socket: any, handler: Function) => {
     return (...args: any[]) => {
       const clientIp = socket.handshake.address || socket.conn.remoteAddress;
       const now = Date.now();
       const key = `${clientIp}:${socket.id}`;
-      
+
       // Clean up expired entries
       if (store.has(key)) {
         const entry = store.get(key)!;
@@ -374,20 +377,20 @@ export const createSocketEventRateLimiter = (config: {
           store.delete(key);
         }
       }
-      
+
       // Get or create entry
       let entry = store.get(key);
       if (!entry) {
         entry = { count: 0, resetTime: now + config.windowMs };
         store.set(key, entry);
       }
-      
+
       // Check rate limit
       if (entry.count >= config.max) {
         socket.emit('error', { message: config.message });
         return;
       }
-      
+
       // Increment counter and call handler
       entry.count++;
       handler(...args);

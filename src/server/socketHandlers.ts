@@ -15,7 +15,11 @@ import {
   getJiraIssueDetails,
 } from './utils/jiraApi.js';
 import { getSessionData, recordHistory } from './utils/sessionHelpers.js';
-import { validateSocketEvent, sanitizeString, socketEventRateLimiters } from './middleware/validation.js';
+import {
+  validateSocketEvent,
+  sanitizeString,
+  socketEventRateLimiters,
+} from './middleware/validation.js';
 import { invalidateParticipantTokens, invalidateRoomTokens } from './utils/sessionTokens.js';
 
 // Internal session interface (matches the one in index.ts)
@@ -883,36 +887,39 @@ export function setupSocketHandlers(
   // Chat message
   socket.on(
     'send-chat-message',
-    socketEventRateLimiters.chatMessages(socket, withValidation('send-chat-message', ({ roomCode, message }: any) => {
-      const session = memoryStore.get(roomCode);
-      if (!session) return;
+    socketEventRateLimiters.chatMessages(
+      socket,
+      withValidation('send-chat-message', ({ roomCode, message }: any) => {
+        const session = memoryStore.get(roomCode);
+        if (!session) return;
 
-      const participant = getParticipantBySocketId(session, socket.id);
+        const participant = getParticipantBySocketId(session, socket.id);
 
-      if (!participant) return;
+        if (!participant) return;
 
-      // Sanitize message content
-      const sanitizedMessage = sanitizeString(message);
+        // Sanitize message content
+        const sanitizedMessage = sanitizeString(message);
 
-      const chatMessage: ChatMessage = {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        author: participant.name,
-        content: sanitizedMessage,
-        timestamp: new Date(),
-        type: 'message',
-      };
+        const chatMessage: ChatMessage = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          author: participant.name,
+          content: sanitizedMessage,
+          timestamp: new Date(),
+          type: 'message',
+        };
 
-      session.chatMessages.push(chatMessage);
-      session.lastActivity = new Date();
+        session.chatMessages.push(chatMessage);
+        session.lastActivity = new Date();
 
-      // Limit chat history to prevent memory issues
-      if (session.chatMessages.length > 100) {
-        session.chatMessages = session.chatMessages.slice(-100);
-      }
+        // Limit chat history to prevent memory issues
+        if (session.chatMessages.length > 100) {
+          session.chatMessages = session.chatMessages.slice(-100);
+        }
 
-      // Broadcast to all participants in the session
-      io.to(roomCode).emit('chatMessage', chatMessage);
-    }))
+        // Broadcast to all participants in the session
+        io.to(roomCode).emit('chatMessage', chatMessage);
+      })
+    )
   );
 
   // Typing indicator

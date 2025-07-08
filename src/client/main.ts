@@ -82,6 +82,13 @@ class ScrumPokerApp {
     document
       .getElementById('load-issues-btn')
       ?.addEventListener('click', () => this.loadJiraIssues());
+
+    // Jira issues search
+    document.getElementById('jira-issues-search')?.addEventListener('input', e => {
+      const searchTerm = (e.target as HTMLInputElement).value;
+      this.displayJiraIssues(searchTerm);
+    });
+
     document
       .getElementById('set-ticket-btn')
       ?.addEventListener('click', () => this.setCurrentTicket());
@@ -278,6 +285,9 @@ class ScrumPokerApp {
     );
 
     socketManager.on('jiraIssuesLoaded', () => {
+      // Clear search field when new issues are loaded
+      const searchInput = document.getElementById('jira-issues-search') as HTMLInputElement;
+      if (searchInput) searchInput.value = '';
       this.displayJiraIssues();
     });
 
@@ -303,6 +313,9 @@ class ScrumPokerApp {
     socketManager.on('jiraUpdated', () => {
       this.updateTicketDisplay();
       this.resetVotingUI();
+      // Clear search field when issues are updated
+      const searchInput = document.getElementById('jira-issues-search') as HTMLInputElement;
+      if (searchInput) searchInput.value = '';
       this.displayJiraIssues();
       const finalizeBtn = document.getElementById('finalize-btn') as HTMLButtonElement;
       if (finalizeBtn) finalizeBtn.disabled = false;
@@ -697,7 +710,7 @@ class ScrumPokerApp {
     socketManager.getJiraIssues(state.roomCode, boardId);
   }
 
-  private displayJiraIssues(): void {
+  private displayJiraIssues(searchTerm: string = ''): void {
     const container = document.getElementById('jira-issues-list');
     const section = document.getElementById('jira-issues-section');
     const state = gameState.getState();
@@ -713,8 +726,31 @@ class ScrumPokerApp {
       return;
     }
 
-    const unestimatedIssues = state.jiraIssues.filter(issue => !issue.currentStoryPoints);
-    const estimatedIssues = state.jiraIssues.filter(issue => issue.currentStoryPoints);
+    // Filter issues based on search term
+    let filteredIssues = state.jiraIssues;
+    if (searchTerm) {
+      const lowerSearchTerm = searchTerm.toLowerCase();
+      filteredIssues = state.jiraIssues.filter(
+        issue =>
+          issue.key.toLowerCase().includes(lowerSearchTerm) ||
+          issue.summary.toLowerCase().includes(lowerSearchTerm) ||
+          (issue.description && issue.description.toLowerCase().includes(lowerSearchTerm)) ||
+          (issue.issueType && issue.issueType.toLowerCase().includes(lowerSearchTerm)) ||
+          (issue.priority && issue.priority.toLowerCase().includes(lowerSearchTerm)) ||
+          (issue.status && issue.status.toLowerCase().includes(lowerSearchTerm)) ||
+          (issue.assignee && issue.assignee.toLowerCase().includes(lowerSearchTerm))
+      );
+    }
+
+    if (filteredIssues.length === 0) {
+      container.innerHTML =
+        '<p style="text-align: center; color: #6b7280;">No issues match your search criteria.</p>';
+      showElement('jira-issues-section');
+      return;
+    }
+
+    const unestimatedIssues = filteredIssues.filter(issue => !issue.currentStoryPoints);
+    const estimatedIssues = filteredIssues.filter(issue => issue.currentStoryPoints);
 
     if (unestimatedIssues.length > 0) {
       const header = document.createElement('div');
