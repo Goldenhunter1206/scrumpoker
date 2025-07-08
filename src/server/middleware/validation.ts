@@ -1,6 +1,8 @@
 /* eslint-disable no-useless-escape */
 import Joi from 'joi';
 import { Request, Response, NextFunction } from 'express';
+import { RedisStore } from 'rate-limit-redis';
+import { createClient } from 'redis';
 
 // Common validation schemas
 const schemas = {
@@ -294,8 +296,8 @@ export function sanitizeString(input: string): string {
 export const rateLimitConfig = {
   // General API rate limit
   general: {
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW || '900000'), // 15 minutes default
+    max: parseInt(process.env.RATE_LIMIT_MAX || '100'), // 100 requests default
     message: 'Too many requests from this IP, please try again later.',
     standardHeaders: true,
     legacyHeaders: false,
@@ -303,8 +305,8 @@ export const rateLimitConfig = {
 
   // Stricter limit for session creation
   sessionCreation: {
-    windowMs: 60 * 1000, // 1 minute
-    max: 5, // limit each IP to 5 session creations per minute
+    windowMs: parseInt(process.env.RATE_LIMIT_SESSION_WINDOW || '60000'), // 1 minute default
+    max: parseInt(process.env.RATE_LIMIT_SESSION_MAX || '5'), // 5 session creations default
     message: 'Too many session creation attempts, please try again later.',
     standardHeaders: true,
     legacyHeaders: false,
@@ -312,10 +314,89 @@ export const rateLimitConfig = {
 
   // Chat message rate limiting
   chatMessages: {
-    windowMs: 60 * 1000, // 1 minute
-    max: 30, // 30 messages per minute
+    windowMs: parseInt(process.env.RATE_LIMIT_CHAT_WINDOW || '60000'), // 1 minute default
+    max: parseInt(process.env.RATE_LIMIT_CHAT_MAX || '30'), // 30 messages default
     message: 'Too many chat messages, please slow down.',
     standardHeaders: true,
     legacyHeaders: false,
   },
+};
+
+// Redis store for rate limiting (if configured)
+let redisStore: RedisStore | undefined;
+
+if (process.env.REDIS_URL) {
+  try {
+    const redisClient = createClient({
+      url: process.env.REDIS_URL,
+    });
+    
+    redisClient.on('error', (err) => {
+      console.warn('Redis rate limiting disabled due to connection error:', err.message);
+      redisStore = undefined;
+    });
+    
+    redisStore = new RedisStore({
+      client: redisClient,
+      prefix: 'rl:',
+    });
+  } catch (error) {
+    console.warn('Failed to initialize Redis store for rate limiting:', error);
+    redisStore = undefined;
+  }
+}
+
+// Apply Redis store to rate limit configs if available
+if (redisStore) {
+  rateLimitConfig.general.store = redisStore;
+  rateLimitConfig.sessionCreation.store = redisStore;
+  rateLimitConfig.chatMessages.store = redisStore;
+}
+
+// Socket.IO rate limiting for specific events
+export const createSocketEventRateLimiter = (config: {
+  windowMs: number;
+  max: number;
+  message: string;
+}) => {
+  const store = new Map<string, { count: number; resetTime: number }>();
+  
+  return (socket: any, handler: Function) => {
+    return (...args: any[]) => {
+      const clientIp = socket.handshake.address || socket.conn.remoteAddress;
+      const now = Date.now();
+      const key = `${clientIp}:${socket.id}`;
+      
+      // Clean up expired entries
+      if (store.has(key)) {
+        const entry = store.get(key)!;
+        if (now >= entry.resetTime) {
+          store.delete(key);
+        }
+      }
+      
+      // Get or create entry
+      let entry = store.get(key);
+      if (!entry) {
+        entry = { count: 0, resetTime: now + config.windowMs };
+        store.set(key, entry);
+      }
+      
+      // Check rate limit
+      if (entry.count >= config.max) {
+        socket.emit('error', { message: config.message });
+        return;
+      }
+      
+      // Increment counter and call handler
+      entry.count++;
+      handler(...args);
+    };
+  };
+};
+
+// Socket.IO rate limiters for specific events
+export const socketEventRateLimiters = {
+  sessionCreation: createSocketEventRateLimiter(rateLimitConfig.sessionCreation),
+  chatMessages: createSocketEventRateLimiter(rateLimitConfig.chatMessages),
 };

@@ -17,7 +17,7 @@ import {
 import { SessionStore } from './utils/sessionStore.js';
 import { generateRoomCode, getSessionData } from './utils/sessionHelpers.js';
 import { setupSocketHandlers } from './socketHandlers.js';
-import { rateLimitConfig } from './middleware/validation.js';
+import { rateLimitConfig, socketEventRateLimiters } from './middleware/validation.js';
 import {
   createSessionToken,
   validateSessionToken,
@@ -173,7 +173,7 @@ if (process.env.REDIS_URL) {
 io.on('connection', socket => {
   console.log(`User connected: ${socket.id}`);
 
-  socket.on('create-session', ({ sessionName, facilitatorName }) => {
+  socket.on('create-session', socketEventRateLimiters.sessionCreation(socket, ({ sessionName, facilitatorName }) => {
     try {
       // Basic validation
       if (
@@ -261,9 +261,9 @@ io.on('connection', socket => {
       console.error('Failed to create session', error);
       socket.emit('error', { message: 'Failed to create session' });
     }
-  });
+  }));
 
-  socket.on('join-session', ({ roomCode, participantName, asViewer = false, sessionToken }) => {
+  socket.on('join-session', socketEventRateLimiters.sessionCreation(socket, ({ roomCode, participantName, asViewer = false, sessionToken }) => {
     try {
       // Basic validation
       if (
@@ -376,7 +376,7 @@ io.on('connection', socket => {
       console.error('Failed to join session', error);
       socket.emit('error', { message: 'Failed to join session' });
     }
-  });
+  }));
 
   // Setup all other socket handlers
   setupSocketHandlers(socket, io, memoryStore);

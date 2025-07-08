@@ -15,7 +15,7 @@ import {
   getJiraIssueDetails,
 } from './utils/jiraApi.js';
 import { getSessionData, recordHistory } from './utils/sessionHelpers.js';
-import { validateSocketEvent, sanitizeString } from './middleware/validation.js';
+import { validateSocketEvent, sanitizeString, socketEventRateLimiters } from './middleware/validation.js';
 import { invalidateParticipantTokens, invalidateRoomTokens } from './utils/sessionTokens.js';
 
 // Internal session interface (matches the one in index.ts)
@@ -883,7 +883,7 @@ export function setupSocketHandlers(
   // Chat message
   socket.on(
     'send-chat-message',
-    withValidation('send-chat-message', ({ roomCode, message }: any) => {
+    socketEventRateLimiters.chatMessages(socket, withValidation('send-chat-message', ({ roomCode, message }: any) => {
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
@@ -912,7 +912,7 @@ export function setupSocketHandlers(
 
       // Broadcast to all participants in the session
       io.to(roomCode).emit('chatMessage', chatMessage);
-    })
+    }))
   );
 
   // Typing indicator

@@ -39,11 +39,13 @@ class ScrumPokerApp {
   private eventListenerIds: string[] = [];
 
   constructor() {
-    this.setupEventListeners();
     this.setupSocketEventHandlers();
   }
 
   init(): void {
+    // Setup DOM event listeners first, now that DOM is ready
+    this.setupEventListeners();
+
     socketManager.connect();
     this.prefillSavedData();
     this.setupUrlParameters();
@@ -259,6 +261,7 @@ class ScrumPokerApp {
           facilitatorControls.style.display = 'none';
           facilitatorControls.classList.add('hidden');
         }
+        adaptFacilitatorControlsForViewport();
         if (newRole === 'participant') {
           this.updateToggleViewerButton();
         }
@@ -510,6 +513,7 @@ class ScrumPokerApp {
           card.classList.add('hidden');
         }
       });
+      adaptFacilitatorControlsForViewport();
     }
 
     // Update UI components

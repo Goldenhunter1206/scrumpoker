@@ -291,6 +291,11 @@
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
+/* Facilitator controls collapsed state - works on all screen sizes */
+#facilitator-controls.collapsed {
+  display: none !important;
+}
+
 /* Responsive Design */
 @media (max-width: 767px) {
   .voting-cards {
@@ -299,10 +304,6 @@
 
   .join-section {
     @apply flex-col gap-3;
-  }
-
-  #facilitator-controls.collapsed {
-    display: none;
   }
 
   .two-column-layout {

@@ -106,20 +106,39 @@ export function adaptFacilitatorControlsForViewport(): void {
   const toggle = document.getElementById('toggle-controls-btn');
   if (!controls || !toggle) return;
 
-  if (window.innerWidth <= 768) {
+  const width = window.innerWidth;
+  console.log(`📱 Viewport: ${width}px (threshold: 767px)`);
+  
+  if (width <= 767) {
+    console.log('📱 Mobile mode - showing cog wheel, collapsing controls');
     toggle.classList.remove('hidden');
     if (!controls.classList.contains('collapsed')) {
       controls.classList.add('collapsed');
+      console.log('📋 Added collapsed class to controls');
     }
   } else {
+    console.log('🖥️ Desktop mode - hiding cog wheel, expanding controls');
     toggle.classList.add('hidden');
     controls.classList.remove('collapsed');
+    console.log('📋 Removed collapsed class from controls');
   }
 }
 
 export function toggleFacilitatorControlsVisibility(): void {
   const controls = document.getElementById('facilitator-controls');
   if (controls) {
-    controls.classList.toggle('collapsed');
+    const wasCollapsed = controls.classList.contains('collapsed');
+    
+    if (wasCollapsed) {
+      // Expanding: remove collapsed class and restore display
+      controls.classList.remove('collapsed');
+      controls.style.display = 'block';
+    } else {
+      // Collapsing: remove inline style first, then add collapsed class
+      controls.style.removeProperty('display');
+      controls.classList.add('collapsed');
+    }
+    
+    console.log(`📋 Facilitator controls ${wasCollapsed ? 'expanded' : 'collapsed'}`);
   }
 }
