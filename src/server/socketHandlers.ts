@@ -467,6 +467,9 @@ export function setupSocketHandlers(
           session.votingRevealed = true;
           session.lastActivity = new Date();
 
+          // Stop discussion timer when votes are automatically revealed
+          stopDiscussionTimer(session, roomCode, io);
+
           const results = calculateVotingResults(session.votes);
 
           if (session.currentJiraIssue) {
@@ -794,6 +797,9 @@ export function setupSocketHandlers(
           session.votingRevealed = true;
           session.lastActivity = new Date();
 
+          // Stop discussion timer when countdown expires and votes are automatically revealed
+          stopDiscussionTimer(session, roomCode, io);
+
           const results = calculateVotingResults(session.votes);
 
           // Record history
@@ -858,6 +864,9 @@ export function setupSocketHandlers(
       if (session.countdownTimer) {
         clearInterval(session.countdownTimer);
       }
+
+      // Stop discussion timer when session ends
+      stopDiscussionTimer(session, roomCode, io);
 
       io.to(roomCode).emit('session-ended', {
         message: 'Session has been ended by the facilitator',

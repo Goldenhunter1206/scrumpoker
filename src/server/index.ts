@@ -466,6 +466,9 @@ setInterval(
         if (session.countdownTimer) {
           clearInterval(session.countdownTimer);
         }
+        if (session.discussionTimer) {
+          clearInterval(session.discussionTimer);
+        }
         // Invalidate all session tokens for this room
         invalidateRoomTokens(roomCode);
         memoryStore.delete(roomCode);
