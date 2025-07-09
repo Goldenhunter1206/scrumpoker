@@ -127,18 +127,45 @@ export function adaptFacilitatorControlsForViewport(): void {
 export function toggleFacilitatorControlsVisibility(): void {
   const controls = document.getElementById('facilitator-controls');
   if (controls) {
-    const wasCollapsed = controls.classList.contains('collapsed');
+    // Get the individual facilitator cards
+    const facilitatorCards = [
+      document.querySelector('[data-card="session-controls"]'),
+      document.querySelector('[data-card="jira-integration"]'),
+      document.querySelector('[data-card="manual-ticket"]'),
+    ];
 
-    if (wasCollapsed) {
-      // Expanding: remove collapsed class and restore display
-      controls.classList.remove('collapsed');
+    // Check if controls are currently hidden (either by 'hidden' or 'collapsed' class)
+    const isHidden =
+      controls.classList.contains('hidden') || controls.classList.contains('collapsed');
+
+    if (isHidden) {
+      // Expanding: remove both hidden and collapsed classes and restore display
+      controls.classList.remove('hidden', 'collapsed');
       controls.style.display = 'block';
+
+      // Also show the individual cards
+      facilitatorCards.forEach(card => {
+        if (card) {
+          (card as HTMLElement).style.display = 'block';
+          card.classList.remove('hidden');
+        }
+      });
+
+      console.log('📋 Facilitator controls expanded');
     } else {
-      // Collapsing: remove inline style first, then add collapsed class
+      // Collapsing: remove inline style and add collapsed class
       controls.style.removeProperty('display');
       controls.classList.add('collapsed');
-    }
 
-    console.log(`📋 Facilitator controls ${wasCollapsed ? 'expanded' : 'collapsed'}`);
+      // Also hide the individual cards
+      facilitatorCards.forEach(card => {
+        if (card) {
+          (card as HTMLElement).style.setProperty('display', 'none', 'important');
+          card.classList.add('hidden');
+        }
+      });
+
+      console.log('📋 Facilitator controls collapsed');
+    }
   }
 }
