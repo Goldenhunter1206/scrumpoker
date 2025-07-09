@@ -37,6 +37,29 @@ import { mutateDOM } from './utils/domBatcher.js';
 
 class ScrumPokerApp {
   private eventListenerIds: string[] = [];
+  
+  // Store ticket event handlers to allow proper cleanup
+  private ticketHoverHandler: (event: Event) => void = (event) => {
+    const ticketElement = event.currentTarget as HTMLElement;
+    ticketElement.style.borderColor = '#3b82f6';
+    ticketElement.style.backgroundColor = '#eff6ff';
+  };
+  
+  private ticketLeaveHandler: (event: Event) => void = (event) => {
+    const ticketElement = event.currentTarget as HTMLElement;
+    ticketElement.style.borderColor = 'transparent';
+    ticketElement.style.backgroundColor = 'transparent';
+  };
+  
+  private ticketClickHandler: (event: Event) => void = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const state = gameState.getState();
+    if (state.currentJiraIssue) {
+      console.log('Ticket clicked!', state.currentJiraIssue.key);
+      this.requestTicketDetails(state.currentJiraIssue.key);
+    }
+  };
 
   constructor() {
     this.setupSocketEventHandlers();
@@ -973,6 +996,11 @@ class ScrumPokerApp {
 
         // Clear the element first
         ticketElement.innerHTML = '';
+        
+        // Reset event listeners by removing existing ones
+        ticketElement.removeEventListener('mouseenter', this.ticketHoverHandler);
+        ticketElement.removeEventListener('mouseleave', this.ticketLeaveHandler);
+        ticketElement.removeEventListener('click', this.ticketClickHandler);
 
         // Create main container
         const mainContainer = createElement('div');
@@ -1040,27 +1068,18 @@ class ScrumPokerApp {
         ticketElement.title = 'Click to view detailed ticket information';
 
         // Add hover effect
-        ticketElement.addEventListener('mouseenter', () => {
-          ticketElement.style.borderColor = '#3b82f6';
-          ticketElement.style.backgroundColor = '#eff6ff';
-        });
-
-        ticketElement.addEventListener('mouseleave', () => {
-          ticketElement.style.borderColor = 'transparent';
-          ticketElement.style.backgroundColor = 'transparent';
-        });
-
-        ticketElement.addEventListener('click', event => {
-          console.log('Ticket clicked!', issue.key);
-          event.preventDefault();
-          event.stopPropagation();
-          this.requestTicketDetails(issue.key);
-        });
+        ticketElement.addEventListener('mouseenter', this.ticketHoverHandler);
+        ticketElement.addEventListener('mouseleave', this.ticketLeaveHandler);
+        ticketElement.addEventListener('click', this.ticketClickHandler);
       } else {
         setTextContent(ticketElement, state.currentTicket);
         // Remove cursor pointer and click handler for non-Jira tickets
         ticketElement.style.cursor = 'default';
         ticketElement.title = '';
+        // Clean up event listeners for non-Jira tickets
+        ticketElement.removeEventListener('mouseenter', this.ticketHoverHandler);
+        ticketElement.removeEventListener('mouseleave', this.ticketLeaveHandler);
+        ticketElement.removeEventListener('click', this.ticketClickHandler);
       }
 
       showElement('current-ticket');
