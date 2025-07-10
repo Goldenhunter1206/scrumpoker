@@ -37,21 +37,21 @@ import { mutateDOM } from './utils/domBatcher.js';
 
 class ScrumPokerApp {
   private eventListenerIds: string[] = [];
-  
+
   // Store ticket event handlers to allow proper cleanup
-  private ticketHoverHandler: (event: Event) => void = (event) => {
+  private ticketHoverHandler: (event: Event) => void = event => {
     const ticketElement = event.currentTarget as HTMLElement;
     ticketElement.style.borderColor = '#3b82f6';
     ticketElement.style.backgroundColor = '#eff6ff';
   };
-  
-  private ticketLeaveHandler: (event: Event) => void = (event) => {
+
+  private ticketLeaveHandler: (event: Event) => void = event => {
     const ticketElement = event.currentTarget as HTMLElement;
     ticketElement.style.borderColor = 'transparent';
     ticketElement.style.backgroundColor = 'transparent';
   };
-  
-  private ticketClickHandler: (event: Event) => void = (event) => {
+
+  private ticketClickHandler: (event: Event) => void = event => {
     event.preventDefault();
     event.stopPropagation();
     const state = gameState.getState();
@@ -996,7 +996,7 @@ class ScrumPokerApp {
 
         // Clear the element first
         ticketElement.innerHTML = '';
-        
+
         // Reset event listeners by removing existing ones
         ticketElement.removeEventListener('mouseenter', this.ticketHoverHandler);
         ticketElement.removeEventListener('mouseleave', this.ticketLeaveHandler);
@@ -2496,31 +2496,34 @@ class ScrumPokerApp {
     const target = e.target as HTMLElement;
     const targetCard = target.closest('.dashboard-card') as HTMLElement;
 
-    if (targetCard && this.draggedElement && targetCard !== this.draggedElement) {
-      const targetParent = targetCard.parentElement;
+    // If we're dropping on a card, always stop propagation to prevent column handler from firing
+    if (targetCard && this.draggedElement) {
+      e.stopPropagation();
 
-      if (targetParent) {
-        // Determine if we should insert before or after based on mouse position
-        const rect = targetCard.getBoundingClientRect();
-        const mouseY = e.clientY;
-        const cardMiddle = rect.top + rect.height / 2;
+      // Only proceed if it's a different card
+      if (targetCard !== this.draggedElement) {
+        const targetParent = targetCard.parentElement;
 
-        if (mouseY < cardMiddle) {
-          // Mouse is in top half - insert before
-          targetParent.insertBefore(this.draggedElement, targetCard);
-        } else {
-          // Mouse is in bottom half - insert after
-          const nextSibling = targetCard.nextElementSibling;
-          if (nextSibling) {
-            targetParent.insertBefore(this.draggedElement, nextSibling);
+        if (targetParent) {
+          // Determine if we should insert before or after based on mouse position
+          const rect = targetCard.getBoundingClientRect();
+          const mouseY = e.clientY;
+          const cardMiddle = rect.top + rect.height / 2;
+
+          if (mouseY < cardMiddle) {
+            // Mouse is in top half - insert before
+            targetParent.insertBefore(this.draggedElement, targetCard);
           } else {
-            targetParent.appendChild(this.draggedElement);
+            // Mouse is in bottom half - insert after
+            const nextSibling = targetCard.nextElementSibling;
+            if (nextSibling) {
+              targetParent.insertBefore(this.draggedElement, nextSibling);
+            } else {
+              targetParent.appendChild(this.draggedElement);
+            }
           }
+          this.saveCardLayout();
         }
-        this.saveCardLayout();
-
-        // Stop propagation to prevent column drop handler from firing
-        e.stopPropagation();
       }
     }
 
@@ -2558,12 +2561,54 @@ class ScrumPokerApp {
         const columnElement = column || document.querySelector(`[data-column="${targetColumn}"]`);
 
         if (columnElement) {
-          // Append to the column (before the drop zone)
-          const dropZoneInColumn = columnElement.querySelector('.column-drop-zone');
-          if (dropZoneInColumn) {
-            columnElement.insertBefore(this.draggedElement, dropZoneInColumn);
+          // Check if we're dropping between cards by finding the best insertion point
+          const cards = Array.from(columnElement.querySelectorAll('.dashboard-card')).filter(
+            card => card !== this.draggedElement
+          );
+          let insertionPoint = null;
+
+          if (cards.length > 0) {
+            // Find the best insertion point based on mouse position
+            const mouseY = e.clientY;
+            let bestCard = null;
+            let bestDistance = Infinity;
+
+            for (const card of cards) {
+              const rect = card.getBoundingClientRect();
+              const cardCenter = rect.top + rect.height / 2;
+              const distance = Math.abs(mouseY - cardCenter);
+
+              if (distance < bestDistance) {
+                bestDistance = distance;
+                bestCard = card;
+              }
+            }
+
+            if (bestCard) {
+              const rect = bestCard.getBoundingClientRect();
+              const cardCenter = rect.top + rect.height / 2;
+
+              if (mouseY < cardCenter) {
+                // Insert before the closest card
+                insertionPoint = bestCard;
+              } else {
+                // Insert after the closest card
+                insertionPoint = bestCard.nextElementSibling;
+              }
+            }
+          }
+
+          // Insert at the determined position
+          if (insertionPoint) {
+            columnElement.insertBefore(this.draggedElement, insertionPoint);
           } else {
-            columnElement.appendChild(this.draggedElement);
+            // Append to the column (before the drop zone)
+            const dropZoneInColumn = columnElement.querySelector('.column-drop-zone');
+            if (dropZoneInColumn) {
+              columnElement.insertBefore(this.draggedElement, dropZoneInColumn);
+            } else {
+              columnElement.appendChild(this.draggedElement);
+            }
           }
 
           this.saveCardLayout();

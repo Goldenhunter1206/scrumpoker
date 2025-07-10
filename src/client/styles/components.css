@@ -281,11 +281,37 @@
 .dashboard-card.drag-over-top {
   @apply border-t-primary border-t-4 border-primary/30 border-2 bg-primary/5;
   box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.dashboard-card.drag-over-top::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: theme('colors.primary.DEFAULT');
+  border-radius: 2px;
+  box-shadow: 0 0 4px theme('colors.primary.DEFAULT');
 }
 
 .dashboard-card.drag-over-bottom {
   @apply border-b-primary border-b-4 border-primary/30 border-2 bg-primary/5;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.dashboard-card.drag-over-bottom::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: theme('colors.primary.DEFAULT');
+  border-radius: 2px;
+  box-shadow: 0 0 4px theme('colors.primary.DEFAULT');
 }
 
 .column-drop-zone {
