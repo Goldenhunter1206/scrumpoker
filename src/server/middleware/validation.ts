@@ -340,22 +340,28 @@ if (process.env.REDIS_URL) {
     });
 
     // Connect to Redis before creating the store
-    redisClient.connect().then(() => {
-      redisStore = new RedisStore({
-        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-        prefix: 'rl:',
+    redisClient
+      .connect()
+      .then(() => {
+        redisStore = new RedisStore({
+          sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+          prefix: 'rl:',
+        });
+
+        // Apply Redis store to rate limit configs after connection
+        if (redisStore) {
+          rateLimitConfig.general.store = redisStore;
+          rateLimitConfig.sessionCreation.store = redisStore;
+          rateLimitConfig.chatMessages.store = redisStore;
+        }
+      })
+      .catch(err => {
+        console.warn(
+          'Failed to connect to Redis, rate limiting will use memory store:',
+          err.message
+        );
+        redisStore = undefined;
       });
-      
-      // Apply Redis store to rate limit configs after connection
-      if (redisStore) {
-        rateLimitConfig.general.store = redisStore;
-        rateLimitConfig.sessionCreation.store = redisStore;
-        rateLimitConfig.chatMessages.store = redisStore;
-      }
-    }).catch(err => {
-      console.warn('Failed to connect to Redis, rate limiting will use memory store:', err.message);
-      redisStore = undefined;
-    });
   } catch (error) {
     console.warn('Failed to initialize Redis store for rate limiting:', error);
     redisStore = undefined;

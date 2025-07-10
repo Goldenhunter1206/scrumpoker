@@ -22,7 +22,12 @@ import {
   toggleFacilitatorControlsVisibility,
 } from './utils/ui.js';
 import { playSound, toggleSound, updateSoundIcon } from './utils/sound.js';
-import { setTextContent, createElement, createSafeLink, processChatMessage } from './utils/security.js';
+import {
+  setTextContent,
+  createElement,
+  createSafeLink,
+  processChatMessage,
+} from './utils/security.js';
 import { eventManager, addTrackedEventListener } from './utils/eventManager.js';
 import { updateListIncrementally } from './utils/listRenderer.js';
 import {
