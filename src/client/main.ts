@@ -22,7 +22,7 @@ import {
   toggleFacilitatorControlsVisibility,
 } from './utils/ui.js';
 import { playSound, toggleSound, updateSoundIcon } from './utils/sound.js';
-import { setTextContent, createElement, createSafeLink } from './utils/security.js';
+import { setTextContent, createElement, createSafeLink, processChatMessage } from './utils/security.js';
 import { eventManager, addTrackedEventListener } from './utils/eventManager.js';
 import { updateListIncrementally } from './utils/listRenderer.js';
 import {
@@ -2090,7 +2090,9 @@ class ScrumPokerApp {
     messageDiv.className = `chat-message ${isSystem ? 'system' : isOwn ? 'own' : 'other'}`;
 
     if (isSystem) {
-      const contentDiv = createElement('div', message.content, 'chat-message-content text-center');
+      const contentDiv = createElement('div');
+      contentDiv.className = 'chat-message-content text-center';
+      contentDiv.appendChild(processChatMessage(message.content));
       messageDiv.appendChild(contentDiv);
     } else {
       const timeStr = new Date(message.timestamp).toLocaleTimeString([], {
@@ -2108,8 +2110,10 @@ class ScrumPokerApp {
       headerDiv.appendChild(authorSpan);
       headerDiv.appendChild(timeSpan);
 
-      // Create content
-      const contentDiv = createElement('div', message.content, 'chat-message-content');
+      // Create content with link processing
+      const contentDiv = createElement('div');
+      contentDiv.className = 'chat-message-content';
+      contentDiv.appendChild(processChatMessage(message.content));
 
       messageDiv.appendChild(headerDiv);
       messageDiv.appendChild(contentDiv);

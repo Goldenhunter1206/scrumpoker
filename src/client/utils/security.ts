@@ -109,3 +109,174 @@ export function createSafeLink(href: string, text: string, target?: string): HTM
 
   return link;
 }
+
+/**
+ * Common emoji shortcodes and text emoticons mapping
+ */
+const emojiMap: Record<string, string> = {
+  // Text emoticons (order matters - longer patterns first)
+  ':-)': '😊',
+  ':)': '😊',
+  ';-)': '😉',
+  ';)': '😉',
+  ':-(': '😢',
+  ':(': '😢',
+  ':-D': '😃',
+  ':D': '😃',
+  ':-P': '😛',
+  ':P': '😛',
+  ':-p': '😛',
+  ':p': '😛',
+  ':-o': '😮',
+  ':o': '😮',
+  ':-O': '😮',
+  ':O': '😮',
+  ':|': '😐',
+  ':-|': '😐',
+  // Heart alternatives (since < is stripped by security)
+  ':heart': '❤️',
+  ':love': '❤️',
+  ':broken_heart': '💔',
+  ':love:': '❤️',
+  ':broken_heart:': '💔',
+
+  // Shortcodes with and without closing colons
+  ':fire:': '🔥',
+  ':fire': '🔥',
+  ':smile:': '😊',
+  ':smile': '😊',
+  ':laughing:': '😆',
+  ':laughing': '😆',
+  ':grin:': '😀',
+  ':grin': '😀',
+  ':wink:': '😉',
+  ':wink': '😉',
+  ':heart:': '❤️',
+  ':thumbsup:': '👍',
+  ':thumbsup': '👍',
+  ':thumbsdown:': '👎',
+  ':thumbsdown': '👎',
+  ':clap:': '👏',
+  ':clap': '👏',
+  ':rocket:': '🚀',
+  ':rocket': '🚀',
+  ':tada:': '🎉',
+  ':tada': '🎉',
+  ':eyes:': '👀',
+  ':eyes': '👀',
+  ':thinking:': '🤔',
+  ':thinking': '🤔',
+  ':facepalm:': '🤦',
+  ':facepalm': '🤦',
+  ':shrug:': '🤷',
+  ':shrug': '🤷',
+  ':coffee:': '☕',
+  ':coffee': '☕',
+  ':pizza:': '🍕',
+  ':pizza': '🍕',
+  ':beer:': '🍺',
+  ':beer': '🍺',
+  ':warning:': '⚠️',
+  ':warning': '⚠️',
+  ':check:': '✅',
+  ':check': '✅',
+  ':x:': '❌',
+  ':x': '❌',
+  ':question:': '❓',
+  ':question': '❓',
+  ':exclamation:': '❗',
+  ':exclamation': '❗',
+  ':+1:': '👍',
+  ':+1': '👍',
+  ':-1:': '👎',
+  ':-1': '👎',
+  ':ok:': '👌',
+  ':ok': '👌',
+  ':wave:': '👋',
+  ':wave': '👋',
+  ':pray:': '🙏',
+  ':pray': '🙏',
+  ':muscle:': '💪',
+  ':muscle': '💪',
+  ':point_right:': '👉',
+  ':point_right': '👉',
+  ':point_left:': '👈',
+  ':point_left': '👈',
+  ':point_up:': '👆',
+  ':point_up': '👆',
+  ':point_down:': '👇',
+  ':point_down': '👇',
+};
+
+/**
+ * Process text for emoji shortcodes and emoticons
+ */
+function processEmojis(text: string): string {
+  let processed = text;
+
+  // Sort emoji patterns by length (longest first) to handle overlapping patterns correctly
+  const sortedEmojis = Object.entries(emojiMap).sort((a, b) => b[0].length - a[0].length);
+
+  for (const [pattern, emoji] of sortedEmojis) {
+    // Simple global replacement with escaped pattern
+    const escapedPattern = escapeRegex(pattern);
+    const regex = new RegExp(escapedPattern, 'g');
+    processed = processed.replace(regex, emoji);
+  }
+  return processed;
+}
+
+/**
+ * Escape special regex characters
+ */
+function escapeRegex(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Process chat message text to convert URLs to clickable links and support emojis
+ */
+export function processChatMessage(text: string): DocumentFragment {
+  const fragment = document.createDocumentFragment();
+
+  // URL regex pattern that matches http(s) URLs
+  const urlRegex = /(https?:\/\/[^\s<>"]+)/gi;
+
+  let lastIndex = 0;
+  let match;
+  let hasUrls = false;
+
+  while ((match = urlRegex.exec(text)) !== null) {
+    hasUrls = true;
+
+    // Add text before the URL (with emoji processing)
+    if (match.index > lastIndex) {
+      const textBefore = text.slice(lastIndex, match.index);
+      const processedTextBefore = processEmojis(textBefore);
+      fragment.appendChild(createTextNode(processedTextBefore));
+    }
+
+    // Create clickable link
+    const url = match[0];
+    const link = createSafeLink(url, url, '_blank');
+    link.className = 'chat-link';
+    fragment.appendChild(link);
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (hasUrls) {
+    // Add remaining text after the last URL (with emoji processing)
+    if (lastIndex < text.length) {
+      const remainingText = text.slice(lastIndex);
+      const processedRemainingText = processEmojis(remainingText);
+      fragment.appendChild(createTextNode(processedRemainingText));
+    }
+  } else {
+    // No URLs found, just process emojis and add the text
+    const processedText = processEmojis(text);
+    fragment.appendChild(createTextNode(processedText));
+  }
+
+  return fragment;
+}

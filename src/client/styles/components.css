@@ -381,6 +381,14 @@
   @apply text-sm text-foreground break-words;
 }
 
+.chat-link {
+  @apply text-blue-600 underline decoration-blue-600/40 transition-colors duration-200;
+}
+
+.chat-link:hover {
+  @apply text-blue-700 decoration-blue-700/60;
+}
+
 .typing-indicator {
   @apply flex items-center gap-1;
 }
