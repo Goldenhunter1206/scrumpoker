@@ -781,15 +781,43 @@ class ScrumPokerApp {
     const estimatedIssues = filteredIssues.filter(issue => issue.currentStoryPoints);
 
     if (unestimatedIssues.length > 0) {
-      const header = document.createElement('div');
-      header.innerHTML =
-        '<h4 style="margin: 15px 0 10px 0; color: #374151;">📋 Ready for Estimation</h4>';
-      container.appendChild(header);
+      // Group unestimated by sprint (active first, then future, then backlog)
+      const sprintOrder: Record<string, number> = { active: 0, future: 1 };
+      const grouped = new Map<string, JiraIssue[]>();
 
-      unestimatedIssues.forEach(issue => {
-        const div = this.createJiraIssueElement(issue, true);
-        container.appendChild(div);
-      });
+      for (const issue of unestimatedIssues) {
+        const key = issue.sprintName
+          ? `${sprintOrder[issue.sprintState ?? ''] ?? 2}|${issue.sprintName}`
+          : '3|Backlog';
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key)!.push(issue);
+      }
+
+      // Sort groups: active sprints, future sprints, backlog
+      const sortedGroups = Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b));
+
+      for (const [groupKey, issues] of sortedGroups) {
+        const isBacklog = groupKey.startsWith('3|');
+        const sprintName = groupKey.split('|').slice(1).join('|');
+        const sprintState = issues[0]?.sprintState;
+
+        const header = document.createElement('div');
+        let label: string;
+        if (isBacklog) {
+          label = '📋 Backlog – Ready for Estimation';
+        } else if (sprintState === 'active') {
+          label = `🏃 Active Sprint: ${sprintName}`;
+        } else {
+          label = `🔜 Future Sprint: ${sprintName}`;
+        }
+        header.innerHTML = `<h4 style="margin: 15px 0 10px 0; color: #374151;">${label}</h4>`;
+        container.appendChild(header);
+
+        issues.forEach(issue => {
+          const div = this.createJiraIssueElement(issue, true);
+          container.appendChild(div);
+        });
+      }
     }
 
     if (estimatedIssues.length > 0) {
@@ -874,6 +902,15 @@ class ScrumPokerApp {
       const span = createElement('span', item);
       metaDiv.appendChild(span);
     });
+
+    // Add sprint badge if present
+    if (issue.sprintName) {
+      const sprintEmoji = issue.sprintState === 'active' ? '🏃' : '🔜';
+      const sprintSpan = createElement('span', `${sprintEmoji} ${issue.sprintName}`);
+      sprintSpan.style.cssText =
+        'background:#ede9fe;color:#6d28d9;padding:2px 6px;border-radius:4px;font-size:11px;';
+      metaDiv.appendChild(sprintSpan);
+    }
 
     // Add all elements to div
     div.appendChild(keyDiv);
@@ -969,6 +1006,7 @@ class ScrumPokerApp {
     this.updateVotingCards();
     hideElement('results');
     hideElement('finalize-estimation');
+    hideElement('discussion-prompts');
     this.hideCountdown();
     this.updateCountdownUI();
   }
@@ -1487,6 +1525,30 @@ class ScrumPokerApp {
           </div>
         `;
       });
+    }
+
+    // Discussion prompts for lowest / highest voter
+    const discussionPromptsEl = document.getElementById('discussion-prompts');
+    const lowestPromptEl = document.getElementById('lowest-voter-prompt');
+    const highestPromptEl = document.getElementById('highest-voter-prompt');
+    if (discussionPromptsEl && lowestPromptEl && highestPromptEl) {
+      if (results.lowestVoter && results.highestVoter) {
+        setTextContent(
+          lowestPromptEl,
+          `⬇️ ${results.lowestVoter}, you voted ${results.min} — why do you think it's that low?`
+        );
+        setTextContent(
+          highestPromptEl,
+          `⬆️ ${results.highestVoter}, you voted ${results.max} — why do you think it's that high?`
+        );
+        lowestPromptEl.classList.remove('hidden');
+        highestPromptEl.classList.remove('hidden');
+        discussionPromptsEl.classList.remove('hidden');
+      } else {
+        discussionPromptsEl.classList.add('hidden');
+        lowestPromptEl.classList.add('hidden');
+        highestPromptEl.classList.add('hidden');
+      }
     }
 
     const state = gameState.getState();

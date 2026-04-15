@@ -180,6 +180,9 @@ export const socketValidation = {
       status: Joi.string().max(100).required(),
       assignee: Joi.string().max(100).required(),
       currentStoryPoints: Joi.number().allow(null),
+      sprintId: Joi.number().optional(),
+      sprintName: Joi.string().max(200).optional(),
+      sprintState: Joi.string().valid('active', 'future', 'closed').optional(),
     }).required(),
   }),
 
