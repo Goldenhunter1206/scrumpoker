@@ -24,6 +24,9 @@ export interface JiraIssue {
   status: string;
   assignee: string;
   currentStoryPoints: number | null;
+  sprintId?: number;
+  sprintName?: string;
+  sprintState?: string;
 }
 
 export interface SessionData {
@@ -77,6 +80,8 @@ export interface VotingStats {
 export interface VotingResults extends VotingStats {
   voteCounts: Record<string, number>;
   totalVotes: number;
+  lowestVoter?: string;
+  highestVoter?: string;
 }
 
 export type Vote = number | '?' | '☕';

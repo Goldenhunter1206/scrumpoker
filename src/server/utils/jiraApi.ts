@@ -12,6 +12,7 @@ interface JiraRequestOptions {
 }
 
 const JIRA_STORYPOINT_FIELD = process.env.JIRA_STORYPOINT_FIELD || 'customfield_10016';
+const JIRA_SPRINT_FIELD = process.env.JIRA_SPRINT_FIELD || 'customfield_10020';
 
 // Helper to extract text from Atlassian Document Format (ADF)
 function extractTextFromADF(adfContent: any): string {
@@ -101,78 +102,132 @@ export async function getJiraBoards(
   return await makeJiraRequest(config, endpoint);
 }
 
+function extractSprintInfo(sprintField: any): {
+  sprintId?: number;
+  sprintName?: string;
+  sprintState?: string;
+} {
+  if (!sprintField) return {};
+
+  // Jira returns sprint as an array; pick the most recent active/future sprint
+  const sprints = Array.isArray(sprintField) ? sprintField : [sprintField];
+  const preferred = sprints.find((s: any) => s.state === 'active') ||
+    sprints.find((s: any) => s.state === 'future') ||
+    sprints[sprints.length - 1];
+
+  if (!preferred) return {};
+
+  return {
+    sprintId: preferred.id,
+    sprintName: preferred.name,
+    sprintState: preferred.state,
+  };
+}
+
+function transformIssue(issue: any): JiraIssue {
+  const sprintInfo = extractSprintInfo(issue.fields[JIRA_SPRINT_FIELD]);
+  return {
+    key: issue.key,
+    summary: issue.fields.summary,
+    description: issue.fields.description || '',
+    issueType: issue.fields.issuetype?.name || 'Story',
+    priority: issue.fields.priority?.name || 'Medium',
+    status: issue.fields.status?.name || 'To Do',
+    assignee: issue.fields.assignee?.displayName || 'Unassigned',
+    currentStoryPoints: issue.fields[JIRA_STORYPOINT_FIELD] || null,
+    ...sprintInfo,
+  };
+}
+
+async function fetchAllPaginatedIssues(
+  config: JiraConfig & { email: string; token: string },
+  base: string,
+  fields: string
+): Promise<any[] | null> {
+  const maxResults = 100;
+  let allIssues: any[] = [];
+
+  const firstResult = await makeJiraRequest(
+    config,
+    `${base}?fields=${fields}&startAt=0&maxResults=${maxResults}`
+  );
+  if (!firstResult.success) return null;
+
+  const firstData = firstResult.data as any;
+  allIssues = allIssues.concat(firstData.issues || []);
+  const total = firstData.total || 0;
+
+  if (total > maxResults) {
+    const batchSize = 3;
+    const remaining: Promise<any>[] = [];
+
+    for (let start = maxResults; start < total; start += maxResults) {
+      remaining.push(
+        makeJiraRequest(config, `${base}?fields=${fields}&startAt=${start}&maxResults=${maxResults}`)
+      );
+
+      if (remaining.length >= batchSize || start + maxResults >= total) {
+        const batchResults = await Promise.all(remaining);
+        for (const r of batchResults) {
+          if (r.success) allIssues = allIssues.concat((r.data as any).issues || []);
+        }
+        remaining.length = 0;
+        if (start + maxResults < total) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+    }
+  }
+
+  return allIssues;
+}
+
 export async function getJiraBoardIssues(
   config: JiraConfig & { email: string; token: string },
   boardId: string
 ): Promise<JiraApiResponse<{ issues: JiraIssue[] }>> {
-  const base = `agile/1.0/board/${boardId}/backlog`;
-  const fields = `key,summary,description,issuetype,priority,status,assignee,${JIRA_STORYPOINT_FIELD}`;
+  const fields = `key,summary,description,issuetype,priority,status,assignee,${JIRA_STORYPOINT_FIELD},${JIRA_SPRINT_FIELD}`;
 
-  const maxResults = 100;
-  let allIssues: any[] = [];
-
-  // Optimize pagination with parallel requests for better performance
   try {
-    // First request to get total count
-    const endpoint = `${base}?fields=${fields}&startAt=0&maxResults=${maxResults}`;
-    const firstPageResult = await makeJiraRequest(config, endpoint);
+    // Fetch backlog and active/future sprint issues in parallel
+    const [backlogIssues, sprintsResult] = await Promise.all([
+      fetchAllPaginatedIssues(config, `agile/1.0/board/${boardId}/backlog`, fields),
+      makeJiraRequest<{ values: Array<{ id: number; name: string; state: string }> }>(
+        config,
+        `agile/1.0/board/${boardId}/sprint?state=active,future`
+      ),
+    ]);
 
-    if (!firstPageResult.success) {
-      return firstPageResult as JiraApiResponse<{ issues: JiraIssue[] }>;
+    if (backlogIssues === null) {
+      return { success: false, error: 'Failed to fetch backlog issues' };
     }
 
-    const firstData = firstPageResult.data as any;
-    allIssues = allIssues.concat(firstData.issues || []);
+    // Fetch sprint issues for all active/future sprints
+    const sprints = sprintsResult.success ? (sprintsResult.data?.values ?? []) : [];
+    const sprintIssueArrays = await Promise.all(
+      sprints.map(sprint =>
+        fetchAllPaginatedIssues(config, `agile/1.0/sprint/${sprint.id}/issue`, fields)
+      )
+    );
 
-    const total = firstData.total || 0;
-
-    // If we have more data, fetch remaining pages in parallel batches
-    if (total > maxResults) {
-      const remainingPages: Promise<any>[] = [];
-      const batchSize = 3; // Process 3 requests at a time to avoid overwhelming Jira
-
-      for (let currentStart = maxResults; currentStart < total; currentStart += maxResults) {
-        const pageEndpoint = `${base}?fields=${fields}&startAt=${currentStart}&maxResults=${maxResults}`;
-        remainingPages.push(makeJiraRequest(config, pageEndpoint));
-
-        // Process in batches to avoid overwhelming the API
-        if (remainingPages.length >= batchSize || currentStart + maxResults >= total) {
-          const batchResults = await Promise.all(remainingPages);
-
-          for (const pageResult of batchResults) {
-            if (!pageResult.success) {
-              console.warn('Failed to fetch Jira page:', pageResult.error);
-              continue; // Continue with other pages
-            }
-
-            const pageData = pageResult.data as any;
-            allIssues = allIssues.concat(pageData.issues || []);
-          }
-
-          remainingPages.length = 0; // Clear the batch
-
-          // Add small delay between batches to be API-friendly
-          if (currentStart + maxResults < total) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
+    // Merge all issues, deduplicating by key (sprint issues take precedence for sprint info)
+    const issueMap = new Map<string, any>();
+    for (const issue of backlogIssues) {
+      issueMap.set(issue.key, issue);
+    }
+    for (const issueArray of sprintIssueArrays) {
+      if (issueArray) {
+        for (const issue of issueArray) {
+          issueMap.set(issue.key, issue); // overwrite with sprint version
         }
       }
     }
 
-    const transformedIssues: JiraIssue[] = allIssues.map(issue => ({
-      key: issue.key,
-      summary: issue.fields.summary,
-      description: issue.fields.description || '',
-      issueType: issue.fields.issuetype?.name || 'Story',
-      priority: issue.fields.priority?.name || 'Medium',
-      status: issue.fields.status?.name || 'To Do',
-      assignee: issue.fields.assignee?.displayName || 'Unassigned',
-      currentStoryPoints: issue.fields[JIRA_STORYPOINT_FIELD] || null,
-    }));
+    const transformedIssues: JiraIssue[] = Array.from(issueMap.values()).map(transformIssue);
 
     return { success: true, data: { issues: transformedIssues } };
   } catch (error) {
-    console.error('Error in optimized Jira pagination:', error);
+    console.error('Error fetching Jira issues:', error);
     return {
       success: false,
       error: 'Failed to fetch issues due to pagination error',

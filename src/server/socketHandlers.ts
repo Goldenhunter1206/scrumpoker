@@ -968,10 +968,17 @@ export function setupSocketHandlers(
   });
 }
 
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 function calculateVotingResults(votes: Map<string, Vote>): VotingResults {
   const numericVotes = Array.from(votes.values()).filter(
     vote => typeof vote === 'number'
   ) as number[];
+
+  const minVal = numericVotes.length > 0 ? Math.min(...numericVotes) : null;
+  const maxVal = numericVotes.length > 0 ? Math.max(...numericVotes) : null;
 
   const results: VotingResults = {
     average:
@@ -980,8 +987,8 @@ function calculateVotingResults(votes: Map<string, Vote>): VotingResults {
         : 0,
     voteCounts: {},
     totalVotes: votes.size,
-    min: numericVotes.length > 0 ? Math.min(...numericVotes) : null,
-    max: numericVotes.length > 0 ? Math.max(...numericVotes) : null,
+    min: minVal,
+    max: maxVal,
     consensus: '?' as Vote,
   };
 
@@ -1001,6 +1008,19 @@ function calculateVotingResults(votes: Map<string, Vote>): VotingResults {
     results.consensus = isNaN(Number(consensusKey)) ? (consensusKey as Vote) : Number(consensusKey);
   } else {
     results.consensus = '-' as Vote;
+  }
+
+  // Select discussion candidates when voting is not unanimous
+  if (minVal !== null && maxVal !== null && minVal !== maxVal) {
+    const lowestVoters = Array.from(votes.entries())
+      .filter(([, v]) => v === minVal)
+      .map(([name]) => name);
+    const highestVoters = Array.from(votes.entries())
+      .filter(([, v]) => v === maxVal)
+      .map(([name]) => name);
+
+    results.lowestVoter = pickRandom(lowestVoters);
+    results.highestVoter = pickRandom(highestVoters);
   }
 
   return results;
