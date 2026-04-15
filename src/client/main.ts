@@ -133,6 +133,12 @@ class ScrumPokerApp {
       .getElementById('finalize-btn')
       ?.addEventListener('click', () => this.finalizeEstimation());
     document
+      .getElementById('finalize-and-sprint-btn')
+      ?.addEventListener('click', () => this.finalizeEstimationWithSprint());
+    document
+      .getElementById('inline-reset-btn')
+      ?.addEventListener('click', () => this.resetVoting());
+    document
       .getElementById('export-history-btn')
       ?.addEventListener('click', () => this.exportHistory());
     document
@@ -1007,6 +1013,7 @@ class ScrumPokerApp {
     hideElement('results');
     hideElement('finalize-estimation');
     hideElement('discussion-prompts');
+    document.getElementById('inline-revote')?.classList.add('hidden');
     this.hideCountdown();
     this.updateCountdownUI();
   }
@@ -1419,7 +1426,7 @@ class ScrumPokerApp {
       const countdownBtn = document.getElementById('countdown-btn') as HTMLButtonElement;
 
       if (revealBtn)
-        revealBtn.disabled = !hasVotes || state.votingRevealed || state.countdownActive;
+        revealBtn.disabled = !hasVotes || state.votingRevealed;
       if (resetBtn) resetBtn.disabled = !state.currentTicket;
       if (countdownBtn)
         countdownBtn.disabled =
@@ -1490,9 +1497,16 @@ class ScrumPokerApp {
       }
     }
 
-    if (revealBtn && !state.countdownActive) {
-      this.updateFacilitatorControls();
+    // Update reveal button text to reflect countdown state
+    if (revealBtn) {
+      if (state.countdownActive) {
+        revealBtn.textContent = 'End & Reveal';
+      } else if (!state.votingRevealed) {
+        revealBtn.textContent = 'Reveal';
+      }
     }
+
+    this.updateFacilitatorControls();
   }
 
   private showResults(results: VotingResults): void {
@@ -1552,6 +1566,17 @@ class ScrumPokerApp {
     }
 
     const state = gameState.getState();
+
+    // Inline re-vote button: show for facilitator when vote is non-unanimous
+    const inlineRevote = document.getElementById('inline-revote');
+    if (inlineRevote) {
+      if (state.isFacilitator && results.min !== null && results.min !== results.max) {
+        inlineRevote.classList.remove('hidden');
+      } else {
+        inlineRevote.classList.add('hidden');
+      }
+    }
+
     const finalizeSection = document.getElementById('finalize-estimation');
     if (finalizeSection && state.isFacilitator && state.currentJiraIssue && state.jiraConfig) {
       showElement('finalize-estimation');
@@ -1559,6 +1584,13 @@ class ScrumPokerApp {
         ? Number(results.consensus)
         : results.average;
       setInputValue('final-estimate', suggestedValue.toFixed(1));
+
+      // Show sprint button only when boardId is available
+      const sprintBtn = document.getElementById('finalize-and-sprint-btn') as HTMLButtonElement | null;
+      if (sprintBtn) {
+        sprintBtn.style.display = state.jiraConfig.boardId ? '' : 'none';
+        sprintBtn.disabled = false;
+      }
     } else if (finalizeSection) {
       hideElement('finalize-estimation');
     }
@@ -1586,9 +1618,33 @@ class ScrumPokerApp {
     }
 
     const finalizeBtn = document.getElementById('finalize-btn') as HTMLButtonElement;
+    const sprintBtn = document.getElementById('finalize-and-sprint-btn') as HTMLButtonElement;
     if (finalizeBtn) finalizeBtn.disabled = true;
+    if (sprintBtn) sprintBtn.disabled = true;
 
     socketManager.finalizeEstimation(state.roomCode, finalEstimate);
+  }
+
+  private finalizeEstimationWithSprint(): void {
+    const finalEstimate = parseFloat(getInputValue('final-estimate'));
+    const state = gameState.getState();
+
+    if (isNaN(finalEstimate) || finalEstimate < 0) {
+      showNotification('Please enter a valid story point value', 'error');
+      return;
+    }
+
+    if (!state.currentJiraIssue) {
+      showNotification('No Jira issue selected', 'error');
+      return;
+    }
+
+    const finalizeBtn = document.getElementById('finalize-btn') as HTMLButtonElement;
+    const sprintBtn = document.getElementById('finalize-and-sprint-btn') as HTMLButtonElement;
+    if (finalizeBtn) finalizeBtn.disabled = true;
+    if (sprintBtn) sprintBtn.disabled = true;
+
+    socketManager.finalizeEstimation(state.roomCode, finalEstimate, true);
   }
 
   private toggleFacilitatorViewer(): void {
