@@ -250,6 +250,50 @@ export async function updateJiraIssueStoryPoints(
   return await makeJiraRequest(config, endpoint, { method: 'PUT', data });
 }
 
+export async function moveIssueToCurrentSprint(
+  config: JiraConfig & { email: string; token: string },
+  issueKey: string,
+  boardId: string
+): Promise<JiraApiResponse<{ sprintName: string }>> {
+  // Fetch active and future sprints — future sprints may have dates that already cover today
+  const sprintResult = await makeJiraRequest<{
+    values: Array<{ id: number; name: string; state: string; startDate?: string; endDate?: string }>;
+  }>(config, `agile/1.0/board/${boardId}/sprint?state=active,future`);
+
+  if (!sprintResult.success || !sprintResult.data?.values?.length) {
+    return { success: false, error: 'No current sprint found for this board' };
+  }
+
+  const sprints = sprintResult.data.values;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Primary: find a sprint whose date range covers today (regardless of Jira state)
+  const dateMatchingSprint = sprints.find(s => {
+    if (!s.startDate || !s.endDate) return false;
+    const start = new Date(s.startDate);
+    const end = new Date(s.endDate);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    return today >= start && today <= end;
+  });
+
+  // Fallback: first sprint marked active in Jira
+  const chosenSprint = dateMatchingSprint ?? sprints.find(s => s.state === 'active');
+
+  if (!chosenSprint) {
+    return { success: false, error: 'No sprint found covering the current date' };
+  }
+
+  const moveResult = await makeJiraRequest(config, `agile/1.0/sprint/${chosenSprint.id}/issue`, {
+    method: 'POST',
+    data: { issues: [issueKey] },
+  });
+
+  if (!moveResult.success) return moveResult as JiraApiResponse<{ sprintName: string }>;
+  return { success: true, data: { sprintName: chosenSprint.name } };
+}
+
 export function roundToNearestFibonacci(value: number): number | null {
   const fibonacci = [0, 0.5, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
   if (typeof value !== 'number' || isNaN(value)) return null;

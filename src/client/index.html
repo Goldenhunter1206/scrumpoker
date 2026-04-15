@@ -426,15 +426,21 @@
                                 <div id="highest-voter-prompt" class="hidden" style="margin: 6px 0; padding: 8px 12px; background: #dcfce7; border-radius: 6px; color: #166534; font-size: 14px;"></div>
                             </div>
 
+                            <!-- Inline re-vote (shown by JS for facilitator on non-unanimous result) -->
+                            <div id="inline-revote" class="hidden" style="margin-top: 12px; text-align: right;">
+                                <button class="btn btn-secondary btn-sm" id="inline-reset-btn">Re-vote on this ticket</button>
+                            </div>
+
                             <!-- Finalize Estimation Section -->
                             <div id="finalize-estimation" class="finalize-section hidden">
                                 <h4>🎯 Finalize Story Points</h4>
                                 <p>Set the final story points for this Jira issue:</p>
-                                <div style="display: flex; align-items: center; gap: 15px; margin: 15px 0;">
+                                <div style="display: flex; align-items: center; gap: 15px; margin: 15px 0; flex-wrap: wrap;">
                                     <label for="final-estimate" style="font-weight: 600;">Story Points:</label>
                                     <input type="number" id="final-estimate" min="0" max="100" step="0.5"
                                            style="width: 100px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 16px;">
                                     <button class="btn" id="finalize-btn">Update Jira Issue</button>
+                                    <button class="btn btn-secondary" id="finalize-and-sprint-btn" style="display:none">Update &amp; Move to Sprint</button>
                                 </div>
                                 <p style="font-size: 14px; color: #6b7280; margin-top: 10px;">
                                     💡 The value will be automatically rounded to the nearest Fibonacci number (0, 0.5, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89)

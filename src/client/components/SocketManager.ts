@@ -188,7 +188,12 @@ export class SocketManager {
     });
 
     this.socket.on('jira-updated', data => {
-      showNotification(`Updated ${data.issueKey} with ${data.storyPoints} story points`, 'success');
+      const sprintMsg =
+        data.movedToSprint && data.sprintName ? ` and moved to ${data.sprintName}` : '';
+      showNotification(
+        `Updated ${data.issueKey} with ${data.storyPoints} story points${sprintMsg}`,
+        'success'
+      );
 
       // Update the cached Jira issues to reflect the new story points
       const state = gameState.getState();
@@ -367,8 +372,8 @@ export class SocketManager {
     this.socket?.emit('set-jira-issue', { roomCode, issue });
   }
 
-  finalizeEstimation(roomCode: string, finalEstimate: number): void {
-    this.socket?.emit('finalize-estimation', { roomCode, finalEstimate });
+  finalizeEstimation(roomCode: string, finalEstimate: number, moveToSprint = false): void {
+    this.socket?.emit('finalize-estimation', { roomCode, finalEstimate, moveToSprint });
   }
 
   setTicket(roomCode: string, ticket: string): void {

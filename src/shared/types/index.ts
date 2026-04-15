@@ -126,6 +126,8 @@ export interface ServerToClientEvents {
     issueKey: string;
     storyPoints: number;
     originalEstimate: number;
+    movedToSprint?: boolean;
+    sprintName?: string;
     sessionData: SessionData;
   }) => void;
   'jira-update-failed': (data: { message: string }) => void;
@@ -162,7 +164,7 @@ export interface ClientToServerEvents {
   'get-jira-issues': (data: { roomCode: string; boardId: string }) => void;
   'get-jira-issue-details': (data: { roomCode: string; issueKey: string }) => void;
   'set-jira-issue': (data: { roomCode: string; issue: JiraIssue }) => void;
-  'finalize-estimation': (data: { roomCode: string; finalEstimate: number }) => void;
+  'finalize-estimation': (data: { roomCode: string; finalEstimate: number; moveToSprint?: boolean }) => void;
   'set-ticket': (data: { roomCode: string; ticket: string }) => void;
   'submit-vote': (data: { roomCode: string; vote: Vote }) => void;
   'moderate-participant': (data: { roomCode: string; targetName: string; action: string }) => void;

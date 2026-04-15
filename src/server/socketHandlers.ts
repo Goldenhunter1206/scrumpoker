@@ -11,6 +11,7 @@ import {
   getJiraBoards,
   getJiraBoardIssues,
   updateJiraIssueStoryPoints,
+  moveIssueToCurrentSprint,
   roundToNearestFibonacci,
   getJiraIssueDetails,
 } from './utils/jiraApi.js';
@@ -317,7 +318,7 @@ export function setupSocketHandlers(
   });
 
   // Finalize estimation and write back to Jira
-  socket.on('finalize-estimation', async ({ roomCode, finalEstimate }) => {
+  socket.on('finalize-estimation', async ({ roomCode, finalEstimate, moveToSprint }) => {
     try {
       const session = memoryStore.get(roomCode);
       if (!session || !session.currentJiraIssue || !session.jiraConfig) return;
@@ -353,6 +354,22 @@ export function setupSocketHandlers(
 
       const updatedIssueKey = session.currentJiraIssue.key;
 
+      // Optionally move the issue to the current sprint
+      let movedToSprint = false;
+      let sprintName: string | undefined;
+      if (moveToSprint && session.jiraConfig.boardId) {
+        const sprintResult = await moveIssueToCurrentSprint(
+          session.jiraConfig,
+          updatedIssueKey,
+          session.jiraConfig.boardId
+        );
+        movedToSprint = sprintResult.success;
+        sprintName = sprintResult.data?.sprintName;
+        if (!sprintResult.success) {
+          console.error(`Failed to move issue to sprint: ${sprintResult.error}`);
+        }
+      }
+
       // Store completed estimation in session history
       recordHistory(session, {
         issueKey: updatedIssueKey,
@@ -371,6 +388,8 @@ export function setupSocketHandlers(
         issueKey: updatedIssueKey,
         storyPoints: roundedEstimate,
         originalEstimate: finalEstimate,
+        movedToSprint,
+        sprintName,
         sessionData: getSessionData(session),
       });
 
@@ -526,6 +545,13 @@ export function setupSocketHandlers(
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can reveal votes' });
         return;
+      }
+
+      // If a countdown is running, stop it before revealing
+      if (session.countdownTimer) {
+        clearInterval(session.countdownTimer);
+        session.countdownTimer = null;
+        session.countdownActive = false;
       }
 
       session.votingRevealed = true;
