@@ -46,8 +46,8 @@ class ScrumPokerApp {
   // Store ticket event handlers to allow proper cleanup
   private ticketHoverHandler: (event: Event) => void = event => {
     const ticketElement = event.currentTarget as HTMLElement;
-    ticketElement.style.borderColor = '#3b82f6';
-    ticketElement.style.backgroundColor = '#eff6ff';
+    ticketElement.style.borderColor = 'rgba(123, 240, 186, 0.32)';
+    ticketElement.style.backgroundColor = 'rgba(123, 240, 186, 0.08)';
   };
 
   private ticketLeaveHandler: (event: Event) => void = event => {
@@ -755,7 +755,7 @@ class ScrumPokerApp {
 
     if (state.jiraIssues.length === 0) {
       container.innerHTML =
-        '<p style="text-align: center; color: #6b7280;">No issues found in the selected board backlog.</p>';
+        '<p class="empty-state">No issues found in the selected board backlog.</p>';
       showElement('jira-issues-section');
       return;
     }
@@ -777,8 +777,7 @@ class ScrumPokerApp {
     }
 
     if (filteredIssues.length === 0) {
-      container.innerHTML =
-        '<p style="text-align: center; color: #6b7280;">No issues match your search criteria.</p>';
+      container.innerHTML = '<p class="empty-state">No issues match your search criteria.</p>';
       showElement('jira-issues-section');
       return;
     }
@@ -816,7 +815,7 @@ class ScrumPokerApp {
         } else {
           label = `🔜 Future Sprint: ${sprintName}`;
         }
-        header.innerHTML = `<h4 style="margin: 15px 0 10px 0; color: #374151;">${label}</h4>`;
+        header.innerHTML = `<h4 class="jira-section-label">${label}</h4>`;
         container.appendChild(header);
 
         issues.forEach(issue => {
@@ -828,8 +827,7 @@ class ScrumPokerApp {
 
     if (estimatedIssues.length > 0) {
       const header = document.createElement('div');
-      header.innerHTML =
-        '<h4 style="margin: 25px 0 10px 0; color: #374151;">✅ Already Estimated</h4>';
+      header.innerHTML = '<h4 class="jira-section-label">Already estimated</h4>';
       container.appendChild(header);
 
       estimatedIssues.forEach(issue => {
@@ -868,9 +866,7 @@ class ScrumPokerApp {
     if (clickable) {
       div.addEventListener('click', () => this.selectJiraIssue(issue));
     } else {
-      div.style.opacity = '0.7';
-      div.style.cursor = 'default';
-      div.style.background = '#f9fafb';
+      div.classList.add('jira-issue-passive');
     }
 
     // Create key container
@@ -913,8 +909,7 @@ class ScrumPokerApp {
     if (issue.sprintName) {
       const sprintEmoji = issue.sprintState === 'active' ? '🏃' : '🔜';
       const sprintSpan = createElement('span', `${sprintEmoji} ${issue.sprintName}`);
-      sprintSpan.style.cssText =
-        'background:#ede9fe;color:#6d28d9;padding:2px 6px;border-radius:4px;font-size:11px;';
+      sprintSpan.className = 'jira-sprint-badge';
       metaDiv.appendChild(sprintSpan);
     }
 
@@ -1054,32 +1049,28 @@ class ScrumPokerApp {
 
         // Create main container
         const mainContainer = createElement('div');
-        mainContainer.style.cssText =
-          'display: flex; align-items: center; margin-bottom: 10px; gap: 10px;';
+        mainContainer.className = 'ticket-inline-header';
 
         // Create safe link to Jira
         const jiraUrl = `${jiraBaseUrl}/browse/${encodeURIComponent(issue.key)}`;
         const jiraLink = createSafeLink(jiraUrl, issue.key, '_blank');
-        jiraLink.style.cssText =
-          'color: #059669; font-size: 16px; font-weight: bold; text-decoration: underline;';
+        jiraLink.className = 'ticket-link';
         mainContainer.appendChild(jiraLink);
 
         // Add current points if they exist
         if (issue.currentStoryPoints) {
           const pointsSpan = createElement('span', `Current: ${issue.currentStoryPoints} SP`);
-          pointsSpan.style.cssText =
-            'background: #fbbf24; color: #92400e; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-left: 10px;';
+          pointsSpan.className = 'ticket-badge';
           mainContainer.appendChild(pointsSpan);
         }
 
         // Create summary element
         const summaryDiv = createElement('div', issue.summary);
-        summaryDiv.style.cssText = 'font-weight: 600; margin-bottom: 8px;';
+        summaryDiv.className = 'ticket-summary';
 
         // Create metadata container
         const metaDiv = createElement('div');
-        metaDiv.style.cssText =
-          'font-size: 14px; color: #6b7280; display: flex; gap: 15px; flex-wrap: wrap;';
+        metaDiv.className = 'ticket-meta';
 
         // Add metadata spans with escaped content
         const metaItems = [
@@ -1102,8 +1093,7 @@ class ScrumPokerApp {
         // Add description if it exists
         if (issue.description) {
           const descDiv = createElement('div');
-          descDiv.style.cssText =
-            'margin-top: 10px; padding: 10px; background: #f9fafb; border-radius: 6px; font-size: 14px;';
+          descDiv.className = 'ticket-description-preview';
           const truncatedDesc = issue.description.substring(0, 200);
           const finalDesc = issue.description.length > 200 ? truncatedDesc + '...' : truncatedDesc;
           setTextContent(descDiv, finalDesc);
@@ -1112,9 +1102,9 @@ class ScrumPokerApp {
 
         // Add click handler to show split screen with ticket details
         ticketElement.style.cursor = 'pointer';
-        ticketElement.style.border = '2px solid transparent';
-        ticketElement.style.borderRadius = '8px';
-        ticketElement.style.transition = 'border-color 0.2s';
+        ticketElement.style.border = '1px solid transparent';
+        ticketElement.style.borderRadius = '18px';
+        ticketElement.style.transition = 'border-color 0.2s, background-color 0.2s';
         ticketElement.title = 'Click to view detailed ticket information';
 
         // Add hover effect
@@ -1125,6 +1115,8 @@ class ScrumPokerApp {
         setTextContent(ticketElement, state.currentTicket);
         // Remove cursor pointer and click handler for non-Jira tickets
         ticketElement.style.cursor = 'default';
+        ticketElement.style.borderColor = 'transparent';
+        ticketElement.style.backgroundColor = 'transparent';
         ticketElement.title = '';
         // Clean up event listeners for non-Jira tickets
         ticketElement.removeEventListener('mouseenter', this.ticketHoverHandler);
@@ -1387,14 +1379,14 @@ class ScrumPokerApp {
 
           const moderationButton =
             state.isFacilitator && !participant.isFacilitator
-              ? `<button class="btn btn-outline" style="border: 0px; padding: 4px 8px; font-size: 12px; margin-left: 10px;" onclick="app.openModerationModal('${participant.name}')">⚙️</button>`
+              ? `<button class="btn btn-outline participant-action" onclick="app.openModerationModal('${participant.name}')">⚙️</button>`
               : '';
 
           div.innerHTML = `
             <span class="participant-name">
               ${participant.name} ${participant.isFacilitator ? '👑' : ''}
             </span>
-            <div style="display: flex; align-items: center;">
+            <div class="participant-meta">
               ${statusHtml}
               ${moderationButton}
             </div>
@@ -1425,8 +1417,7 @@ class ScrumPokerApp {
       const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
       const countdownBtn = document.getElementById('countdown-btn') as HTMLButtonElement;
 
-      if (revealBtn)
-        revealBtn.disabled = !hasVotes || state.votingRevealed;
+      if (revealBtn) revealBtn.disabled = !hasVotes || state.votingRevealed;
       if (resetBtn) resetBtn.disabled = !state.currentTicket;
       if (countdownBtn)
         countdownBtn.disabled =
@@ -1521,23 +1512,19 @@ class ScrumPokerApp {
 
     const breakdown = document.getElementById('vote-breakdown');
     if (breakdown) {
-      breakdown.innerHTML = '<h4>Vote Distribution:</h4>';
+      breakdown.innerHTML = '<h4>Vote distribution</h4>';
 
       Object.entries(results.voteCounts).forEach(([vote, count]) => {
         const percentage = ((count / results.totalVotes) * 100).toFixed(0);
         const barWidth = (count / results.totalVotes) * 100;
-        breakdown.innerHTML += `
-          <div style="
-            margin: 5px 0;
-            padding: 8px;
-            background: linear-gradient(to right, #dcfce7 ${barWidth}%, white ${barWidth}%);
-            border-radius: 4px;
-            border: 1px solid #e5e7eb;
-            position: relative;
-          ">
-            <strong>${vote}</strong>: ${count} vote${count > 1 ? 's' : ''} (${percentage}%)
-          </div>
+        const row = document.createElement('div');
+        row.className = 'vote-distribution-row';
+        row.style.setProperty('--vote-share', `${barWidth}%`);
+        row.innerHTML = `
+          <span class="vote-distribution-value">${vote}</span>
+          <span class="vote-distribution-meta">${count} vote${count > 1 ? 's' : ''} (${percentage}%)</span>
         `;
+        breakdown.appendChild(row);
       });
     }
 
@@ -1586,7 +1573,9 @@ class ScrumPokerApp {
       setInputValue('final-estimate', suggestedValue.toFixed(1));
 
       // Show sprint button only when boardId is available
-      const sprintBtn = document.getElementById('finalize-and-sprint-btn') as HTMLButtonElement | null;
+      const sprintBtn = document.getElementById(
+        'finalize-and-sprint-btn'
+      ) as HTMLButtonElement | null;
       if (sprintBtn) {
         sprintBtn.style.display = state.jiraConfig.boardId ? '' : 'none';
         sprintBtn.disabled = false;

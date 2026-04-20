@@ -1,326 +1,277 @@
-@reference "./main.css";
-
-/* Connection Status */
-.connection-status {
-  @apply fixed top-5 right-5 px-4 py-2 rounded-full text-sm font-medium z-50;
-}
-
-.connected {
-  @apply bg-green-100 text-green-800;
-}
-
-.disconnected {
-  @apply bg-red-100 text-red-800;
-}
-
-/* Notifications */
-.notification {
-  @apply fixed top-16 right-5 px-5 py-3 rounded-lg font-medium z-50 max-w-xs animate-slide-in;
-}
-
-.notification.success {
-  @apply bg-green-100 text-green-800;
-}
-
-.notification.error {
-  @apply bg-red-100 text-red-800;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-/* Sound Toggle */
-.sound-toggle {
-  @apply absolute top-4 left-5 text-2xl cursor-pointer select-none;
-}
-
-/* Countdown Timer */
-.countdown-timer {
-  @apply bg-gradient-to-br from-amber-500 to-amber-600 text-white p-8 rounded-3xl my-8 text-center shadow-2xl animate-pulse;
-}
-
-.countdown-content h3 {
-  @apply mb-5 text-2xl;
-}
-
-.countdown-circle {
-  @apply w-32 h-32 border-4 border-white/30 rounded-full flex items-center justify-center my-5 mx-auto relative bg-white/10;
-}
-
-.countdown-number {
-  @apply text-5xl font-bold;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.countdown-progress {
-  @apply w-full h-2 bg-white/30 rounded-sm mt-5 overflow-hidden;
-}
-
-.countdown-progress-bar {
-  @apply h-full bg-white rounded-sm w-full;
-  transition: width 1s linear;
-}
-
-.countdown-urgent {
-  @apply bg-gradient-to-br from-red-600 to-red-700 animate-bounce;
-}
-
-/* Discussion Timer */
-.discussion-timer {
-  @apply bg-gradient-to-br from-blue-500 to-blue-600 text-white p-3 rounded-xl mt-3 text-center shadow-lg;
-}
-
-.timer-content {
-  @apply flex items-center justify-center gap-2 text-sm;
-}
-
-.timer-icon {
-  @apply text-lg;
-}
-
-.timer-label {
-  @apply font-medium;
-}
-
-.timer-duration {
-  @apply font-mono font-bold text-lg;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-/* Split Screen Layout */
 .split-screen-container {
-  @apply flex gap-6 h-full items-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+
+.split-screen-container.split-active {
+  grid-template-columns: minmax(0, 1fr) 380px;
 }
 
 .main-session-area {
-  @apply flex-1 min-w-0;
+  min-width: 0;
 }
 
-.split-screen-container.split-active .main-session-area {
-  @apply flex-1;
-}
-
-.ticket-details-panel {
-  @apply w-96 bg-card border border-border rounded-lg shadow-sm flex flex-col self-start;
-  min-height: 600px;
-  max-height: 80vh;
-  margin-top: 16px;
-}
-
-.ticket-details-panel.hidden {
-  display: none !important;
-}
-
-.ticket-details-header {
-  @apply flex items-center justify-between p-4 border-b border-border bg-muted/50 rounded-t-lg;
-}
-
-.ticket-details-header h3 {
-  @apply text-lg font-semibold m-0;
-}
-
-.close-split-screen {
-  @apply w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 border-0 cursor-pointer flex items-center justify-center text-gray-600 hover:text-gray-800 transition-colors;
-}
-
-.ticket-details-content {
-  @apply flex-1 p-4 overflow-y-auto;
-}
-
-.ticket-details-loading {
-  @apply flex flex-col items-center justify-center py-8 text-muted-foreground;
-}
-
-.ticket-details-loading.hidden {
-  display: none !important;
-}
-
-.loading-spinner {
-  @apply w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-4;
-}
-
-.ticket-details-error {
-  @apply text-center py-8 text-red-600;
-}
-
-.ticket-details-error.hidden {
-  display: none !important;
-}
-
-.ticket-details-data {
-  @apply space-y-4;
-}
-
-.ticket-details-data.hidden {
-  display: none !important;
-}
-
-.ticket-field {
-  @apply space-y-1;
-}
-
-.ticket-field-label {
-  @apply text-xs font-medium text-muted-foreground uppercase tracking-wider;
-}
-
-.ticket-field-value {
-  @apply text-sm text-foreground;
-}
-
-.ticket-description {
-  @apply text-sm leading-relaxed max-w-none;
-}
-
-.ticket-comments {
-  @apply space-y-3 max-h-60 overflow-y-auto;
-}
-
-.ticket-comment {
-  @apply p-3 bg-muted/30 rounded-lg border border-border;
-}
-
-.ticket-comment-author {
-  @apply text-xs font-medium text-muted-foreground mb-1;
-}
-
-.ticket-comment-body {
-  @apply text-sm text-foreground;
-}
-
-.ticket-meta-grid {
-  @apply grid grid-cols-2 gap-4;
-}
-
-.ticket-tags {
-  @apply flex flex-wrap gap-1;
-}
-
-.ticket-tag {
-  @apply px-2 py-1 bg-primary/10 text-primary rounded text-xs;
-}
-
-.ticket-action-bar-bottom {
-  @apply flex justify-center mt-6 pt-4 border-t border-border;
-}
-
-.ticket-external-link {
-  @apply inline-flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm font-medium no-underline transition-colors w-full justify-center;
-}
-
-/* Responsive split screen */
-@media (max-width: 1200px) {
-  .ticket-details-panel {
-    @apply w-80;
-  }
-}
-
-@media (max-width: 768px) {
-  .split-screen-container {
-    @apply flex-col;
-  }
-
-  .ticket-details-panel {
-    @apply w-full max-h-96;
-  }
-
-  .main-session-area {
-    @apply order-2;
-  }
-}
-
-/* Floating Controls Toggle */
-#toggle-controls-btn {
-  @apply fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center text-2xl text-white border-0 cursor-pointer bg-gradient-to-br from-emerald-600 to-emerald-700 shadow-2xl z-50 transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl;
-}
-
-#toggle-controls-btn.hidden {
-  display: none !important;
-}
-
-/* Two Column Layout - Sidebar + Main */
 .two-column-layout {
-  @apply grid gap-4;
-  grid-template-columns: 1fr;
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
 }
 
-/* Desktop Layout - Two Columns */
-@media (min-width: 768px) {
-  .two-column-layout {
-    display: grid;
-    grid-template-columns: 320px 1fr;
-    grid-template-areas: 'sidebar main';
-    gap: 1.5rem;
-  }
-
-  .sidebar-column {
-    grid-area: sidebar;
-    min-width: 0; /* Prevent overflow */
-  }
-
-  .main-column {
-    grid-area: main;
-    min-width: 0; /* Prevent overflow */
-  }
-}
-
-/* Column Styling - Two Column */
 .sidebar-column,
 .main-column {
-  @apply min-h-0;
-}
-
-.sidebar-column {
-  @apply space-y-3;
+  min-width: 0;
+  display: grid;
+  gap: 18px;
 }
 
 .main-column {
-  @apply space-y-4;
+  align-content: start;
 }
 
-/* Facilitator Actions */
-.facilitator-actions {
-  @apply grid gap-3 mt-4;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+.column-drop-zone {
+  min-height: 10px;
+  border-radius: 14px;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
 }
 
-/* Facilitator controls collapsed state - works on all screen sizes */
-#facilitator-controls.collapsed {
-  display: none !important;
+.column-drop-zone.drag-over,
+[data-column].drag-over {
+  background: rgba(123, 240, 186, 0.06);
 }
 
-/* Responsive Design */
-@media (max-width: 767px) {
-  .voting-cards {
-    grid-template-columns: repeat(3, 1fr);
+.dashboard-card.dragging {
+  opacity: 0.55;
+}
+
+.dashboard-card.drag-over-top {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.dashboard-card.drag-over-bottom {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+#toggle-controls-btn {
+  position: fixed;
+  right: 22px;
+  bottom: 24px;
+  z-index: 55;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border: 1px solid rgba(123, 240, 186, 0.22);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(123, 240, 186, 0.92), rgba(68, 201, 140, 0.88));
+  color: #052317;
+  font-size: 1.2rem;
+  font-weight: 800;
+  box-shadow: 0 18px 35px rgba(49, 151, 102, 0.28);
+}
+
+@media (max-width: 1280px) {
+  .setup-section {
+    grid-template-columns: 1fr;
+    min-height: auto;
   }
 
-  .join-section {
-    @apply flex-col gap-3;
-  }
-
-  .two-column-layout {
-    @apply space-y-4;
+  .setup-actions {
     grid-template-columns: 1fr;
   }
 
-  .facilitator-actions {
-    grid-template-columns: 1fr 1fr;
+  .split-screen-container.split-active {
+    grid-template-columns: minmax(0, 1fr) 340px;
   }
 
-  /* Mobile: Reorder for better UX - main content first, then sidebar */
-  .main-column {
-    order: 1;
+  .voting-cards {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1080px) {
+  .two-column-layout {
+    grid-template-columns: 1fr;
   }
 
   .sidebar-column {
     order: 2;
+  }
+
+  .main-column {
+    order: 1;
+  }
+
+  .workspace-header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .workspace-copy {
+    text-align: left;
+  }
+
+  .split-screen-container.split-active {
+    grid-template-columns: 1fr;
+  }
+
+  .ticket-details-panel {
+    order: 3;
+  }
+}
+
+@media (max-width: 860px) {
+  .container {
+    width: min(100vw - 18px, 1520px);
+    padding-top: 12px;
+  }
+
+  .header,
+  .setup-copy,
+  .workspace-shell {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .setup-copy {
+    padding-top: 28px;
+    padding-bottom: 28px;
+  }
+
+  .two-input-grid,
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-actions-header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .setup-panel {
+    padding: 20px;
+  }
+
+  .finalize-controls {
+    align-items: stretch;
+  }
+
+  .finalize-controls input,
+  .finalize-controls .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  .setup-copy h2 {
+    max-width: none;
+    font-size: clamp(2.4rem, 14vw, 4rem);
+  }
+
+  .setup-actions {
+    padding: 14px;
+  }
+
+  .workspace-shell {
+    padding: 18px;
+  }
+
+  .dashboard-card-header,
+  .dashboard-card-content,
+  .countdown-content,
+  .vote-stage,
+  .results,
+  .modal-panel,
+  .ticket-details-content,
+  .ticket-details-header {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .button-group,
+  .chat-composer {
+    grid-template-columns: 1fr;
+  }
+
+  .connection-status {
+    order: 3;
+  }
+
+  .voting-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .card {
+    min-height: 94px;
+  }
+
+  .ticket-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-actions .btn,
+  .button-group .btn {
+    width: 100%;
+  }
+
+  #facilitator-controls.collapsed {
+    display: none !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .container {
+    width: calc(100vw - 12px);
+  }
+
+  .header,
+  .setup-copy,
+  .workspace-shell {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .setup-copy,
+  .setup-panel,
+  .workspace-shell,
+  .dashboard-card,
+  .countdown-timer,
+  .vote-stage,
+  .results,
+  .ticket-details-panel,
+  .modal-panel {
+    border-radius: 20px;
+  }
+
+  .hero-badge,
+  .history-tabs,
+  .btn,
+  .room-code,
+  .session-link {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .session-meta-item {
+    flex-direction: column;
+    align-items: start;
   }
 }
