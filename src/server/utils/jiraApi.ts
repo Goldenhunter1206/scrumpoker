@@ -1,4 +1,10 @@
-import { JiraConfig, JiraIssue, JiraBoard } from '@shared/types/index.js';
+import {
+  JiraConfig,
+  JiraIssue,
+  JiraBoard,
+  PlanningSprint,
+  ConfluencePageSearchResult,
+} from '@shared/types/index.js';
 
 interface JiraApiResponse<T> {
   success: boolean;
@@ -11,31 +17,28 @@ interface JiraRequestOptions {
   data?: any;
 }
 
+interface AtlassianRequestOptions {
+  method?: string;
+  data?: any;
+}
+
 const JIRA_STORYPOINT_FIELD = process.env.JIRA_STORYPOINT_FIELD || 'customfield_10016';
 const JIRA_SPRINT_FIELD = process.env.JIRA_SPRINT_FIELD || 'customfield_10020';
 
-// Helper to extract text from Atlassian Document Format (ADF)
 function extractTextFromADF(adfContent: any): string {
   if (!adfContent || !adfContent.content) return '';
 
   function extractFromNode(node: any): string {
     if (!node) return '';
-
-    // If it's a text node, return the text
     if (node.type === 'text') {
       return node.text || '';
     }
-
-    // If it has content, recursively extract from children
     if (node.content && Array.isArray(node.content)) {
       return node.content.map(extractFromNode).join('');
     }
-
-    // For other node types, try to extract meaningful content
     if (node.type === 'paragraph' || node.type === 'heading') {
       return node.content ? node.content.map(extractFromNode).join('') + '\n' : '';
     }
-
     return '';
   }
 
@@ -90,6 +93,66 @@ export async function makeJiraRequest<T>(
   }
 }
 
+async function makeAtlassianSiteRequest<T>(
+  config: JiraConfig & { email: string; token: string },
+  path: string,
+  options: AtlassianRequestOptions = {}
+): Promise<JiraApiResponse<T>> {
+  const { method = 'GET', data = null } = options;
+  const auth = Buffer.from(`${config.email}:${config.token}`).toString('base64');
+  const baseUrl = `https://${config.domain}${path.startsWith('/') ? path : `/${path}`}`;
+
+  try {
+    const fetchOptions: RequestInit = {
+      method,
+      headers: {
+        Authorization: `Basic ${auth}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Node.js Atlassian Client)',
+      },
+    };
+
+    if (data) {
+      fetchOptions.body = JSON.stringify(data);
+    }
+
+    const response = await fetch(baseUrl, fetchOptions);
+    const responseData = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.error('Atlassian API Error:', responseData);
+      return {
+        success: false,
+        error:
+          (responseData as any)?.message ||
+          (responseData as any)?.errorMessages?.[0] ||
+          response.statusText,
+      };
+    }
+
+    return { success: true, data: responseData as T };
+  } catch (error) {
+    console.error('Atlassian API Error:', (error as Error).message);
+    return {
+      success: false,
+      error: (error as Error).message,
+    };
+  }
+}
+
+function escapeConfluenceCql(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function buildConfluencePageUrl(domain: string, pageId: string, webuiPath?: string): string {
+  if (webuiPath) {
+    return `https://${domain}${webuiPath.startsWith('/') ? webuiPath : `/${webuiPath}`}`;
+  }
+
+  return `https://${domain}/wiki/pages/viewpage.action?pageId=${encodeURIComponent(pageId)}`;
+}
+
 export async function getJiraBoards(
   config: JiraConfig & { email: string; token: string },
   projectKey?: string
@@ -109,9 +172,9 @@ function extractSprintInfo(sprintField: any): {
 } {
   if (!sprintField) return {};
 
-  // Jira returns sprint as an array; pick the most recent active/future sprint
   const sprints = Array.isArray(sprintField) ? sprintField : [sprintField];
-  const preferred = sprints.find((s: any) => s.state === 'active') ||
+  const preferred =
+    sprints.find((s: any) => s.state === 'active') ||
     sprints.find((s: any) => s.state === 'future') ||
     sprints[sprints.length - 1];
 
@@ -163,13 +226,16 @@ async function fetchAllPaginatedIssues(
 
     for (let start = maxResults; start < total; start += maxResults) {
       remaining.push(
-        makeJiraRequest(config, `${base}?fields=${fields}&startAt=${start}&maxResults=${maxResults}`)
+        makeJiraRequest(
+          config,
+          `${base}?fields=${fields}&startAt=${start}&maxResults=${maxResults}`
+        )
       );
 
       if (remaining.length >= batchSize || start + maxResults >= total) {
         const batchResults = await Promise.all(remaining);
-        for (const r of batchResults) {
-          if (r.success) allIssues = allIssues.concat((r.data as any).issues || []);
+        for (const result of batchResults) {
+          if (result.success) allIssues = allIssues.concat((result.data as any).issues || []);
         }
         remaining.length = 0;
         if (start + maxResults < total) {
@@ -182,16 +248,47 @@ async function fetchAllPaginatedIssues(
   return allIssues;
 }
 
+function issueFields(): string {
+  return `key,summary,description,issuetype,priority,status,assignee,${JIRA_STORYPOINT_FIELD},${JIRA_SPRINT_FIELD}`;
+}
+
+export async function getJiraBacklogIssues(
+  config: JiraConfig & { email: string; token: string },
+  boardId: string
+): Promise<JiraApiResponse<{ issues: JiraIssue[] }>> {
+  try {
+    const backlogIssues = await fetchAllPaginatedIssues(
+      config,
+      `agile/1.0/board/${boardId}/backlog`,
+      issueFields()
+    );
+
+    if (backlogIssues === null) {
+      return { success: false, error: 'Failed to fetch backlog issues' };
+    }
+
+    return {
+      success: true,
+      data: {
+        issues: backlogIssues.map(transformIssue),
+      },
+    };
+  } catch (error) {
+    console.error('Error fetching Jira backlog issues:', error);
+    return {
+      success: false,
+      error: 'Failed to fetch backlog issues',
+    };
+  }
+}
+
 export async function getJiraBoardIssues(
   config: JiraConfig & { email: string; token: string },
   boardId: string
 ): Promise<JiraApiResponse<{ issues: JiraIssue[] }>> {
-  const fields = `key,summary,description,issuetype,priority,status,assignee,${JIRA_STORYPOINT_FIELD},${JIRA_SPRINT_FIELD}`;
-
   try {
-    // Fetch backlog and active/future sprint issues in parallel
     const [backlogIssues, sprintsResult] = await Promise.all([
-      fetchAllPaginatedIssues(config, `agile/1.0/board/${boardId}/backlog`, fields),
+      fetchAllPaginatedIssues(config, `agile/1.0/board/${boardId}/backlog`, issueFields()),
       makeJiraRequest<{ values: Array<{ id: number; name: string; state: string }> }>(
         config,
         `agile/1.0/board/${boardId}/sprint?state=active,future`
@@ -202,15 +299,13 @@ export async function getJiraBoardIssues(
       return { success: false, error: 'Failed to fetch backlog issues' };
     }
 
-    // Fetch sprint issues for all active/future sprints
     const sprints = sprintsResult.success ? (sprintsResult.data?.values ?? []) : [];
     const sprintIssueArrays = await Promise.all(
       sprints.map(sprint =>
-        fetchAllPaginatedIssues(config, `agile/1.0/sprint/${sprint.id}/issue`, fields)
+        fetchAllPaginatedIssues(config, `agile/1.0/sprint/${sprint.id}/issue`, issueFields())
       )
     );
 
-    // Merge all issues, deduplicating by key (sprint issues take precedence for sprint info)
     const issueMap = new Map<string, any>();
     for (const issue of backlogIssues) {
       issueMap.set(issue.key, issue);
@@ -218,13 +313,12 @@ export async function getJiraBoardIssues(
     for (const issueArray of sprintIssueArrays) {
       if (issueArray) {
         for (const issue of issueArray) {
-          issueMap.set(issue.key, issue); // overwrite with sprint version
+          issueMap.set(issue.key, issue);
         }
       }
     }
 
     const transformedIssues: JiraIssue[] = Array.from(issueMap.values()).map(transformIssue);
-
     return { success: true, data: { issues: transformedIssues } };
   } catch (error) {
     console.error('Error fetching Jira issues:', error);
@@ -235,19 +329,308 @@ export async function getJiraBoardIssues(
   }
 }
 
+export async function getJiraBoardSprints(
+  config: JiraConfig & { email: string; token: string },
+  boardId: string
+): Promise<JiraApiResponse<{ sprints: PlanningSprint[] }>> {
+  const result = await makeJiraRequest<{
+    values: Array<{
+      id: number;
+      name: string;
+      state: string;
+      startDate?: string;
+      endDate?: string;
+      goal?: string;
+    }>;
+  }>(config, `agile/1.0/board/${boardId}/sprint?state=active,future`);
+
+  if (!result.success) {
+    return { success: false, error: result.error };
+  }
+
+  return {
+    success: true,
+    data: {
+      sprints:
+        result.data?.values.map(sprint => ({
+          id: sprint.id,
+          name: sprint.name,
+          state: sprint.state,
+          startDate: sprint.startDate,
+          endDate: sprint.endDate,
+          goal: sprint.goal,
+        })) || [],
+    },
+  };
+}
+
+export async function searchConfluenceParentPages(
+  config: JiraConfig & { email: string; token: string },
+  query: string
+): Promise<JiraApiResponse<{ results: ConfluencePageSearchResult[] }>> {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) {
+    return { success: true, data: { results: [] } };
+  }
+
+  const cql = `type = page AND title ~ "${escapeConfluenceCql(trimmedQuery)}"`;
+  const result = await makeAtlassianSiteRequest<any>(
+    config,
+    `/wiki/rest/api/content/search?cql=${encodeURIComponent(cql)}&limit=10&expand=space`
+  );
+
+  if (!result.success) {
+    return { success: false, error: result.error };
+  }
+
+  const rawResults = Array.isArray(result.data?.results) ? result.data.results : [];
+  const mappedResults = rawResults
+    .map((item: any) => {
+      const id = String(item.id ?? item.content?.id ?? '');
+      const title = String(item.title ?? item.content?.title ?? '').trim();
+      if (!id || !title) {
+        return null;
+      }
+
+      const spaceName =
+        item.space?.name ||
+        item.content?.space?.name ||
+        item.space?.key ||
+        item.content?.space?.key ||
+        undefined;
+      const webuiPath = item._links?.webui || item.content?._links?.webui;
+
+      return {
+        id,
+        title,
+        spaceName,
+        url: buildConfluencePageUrl(config.domain, id, webuiPath),
+      } satisfies ConfluencePageSearchResult;
+    })
+    .filter(
+      (item: ConfluencePageSearchResult | null): item is ConfluencePageSearchResult => !!item
+    );
+
+  return {
+    success: true,
+    data: {
+      results: mappedResults,
+    },
+  };
+}
+
+async function getConfluenceParentPageContext(
+  config: JiraConfig & { email: string; token: string },
+  parentPageId: string
+): Promise<JiraApiResponse<{ pageId: string; title: string; spaceId: string }>> {
+  const result = await makeAtlassianSiteRequest<any>(config, `/wiki/api/v2/pages/${parentPageId}`);
+
+  if (!result.success) {
+    return { success: false, error: result.error };
+  }
+
+  const pageId = String(result.data?.id || parentPageId);
+  const title = String(result.data?.title || '');
+  const spaceId = String(result.data?.spaceId || '');
+
+  if (!spaceId) {
+    return {
+      success: false,
+      error: 'Failed to determine the Confluence space from the selected parent page',
+    };
+  }
+
+  return {
+    success: true,
+    data: {
+      pageId,
+      title,
+      spaceId,
+    },
+  };
+}
+
+async function resolveConfluenceRootSpace(
+  config: JiraConfig & { email: string; token: string }
+): Promise<JiraApiResponse<{ spaceId: string; spaceName?: string }>> {
+  const projectKey = String((config as any).projectKey || '').trim();
+  const candidateEndpoints = projectKey
+    ? [
+        `/wiki/api/v2/spaces?keys=${encodeURIComponent(projectKey)}&limit=1`,
+        '/wiki/api/v2/spaces?limit=1',
+      ]
+    : ['/wiki/api/v2/spaces?limit=1'];
+
+  for (const endpoint of candidateEndpoints) {
+    const result = await makeAtlassianSiteRequest<any>(config, endpoint);
+    if (!result.success) {
+      continue;
+    }
+
+    const spaces = Array.isArray(result.data?.results) ? result.data.results : [];
+    const firstSpace = spaces[0];
+    const spaceId = String(firstSpace?.id || '');
+
+    if (spaceId) {
+      return {
+        success: true,
+        data: {
+          spaceId,
+          spaceName: firstSpace?.name || firstSpace?.key,
+        },
+      };
+    }
+  }
+
+  return {
+    success: false,
+    error: projectKey
+      ? `Failed to find a Confluence space for project key "${projectKey}" or any accessible fallback space`
+      : 'Failed to find an accessible Confluence space for root-level page creation',
+  };
+}
+
+export async function createConfluencePage(
+  config: JiraConfig & { email: string; token: string },
+  parentPageId: string | undefined,
+  title: string,
+  storageBody: string
+): Promise<JiraApiResponse<{ pageId: string; title: string; url: string }>> {
+  const createPath = parentPageId ? '/wiki/api/v2/pages' : '/wiki/api/v2/pages?root-level=true';
+
+  const contextResult = parentPageId
+    ? await getConfluenceParentPageContext(config, parentPageId)
+    : await resolveConfluenceRootSpace(config);
+  if (!contextResult.success || !contextResult.data) {
+    return {
+      success: false,
+      error:
+        contextResult.error ||
+        (parentPageId
+          ? 'Failed to resolve the selected Confluence parent page'
+          : 'Failed to resolve a Confluence space for root-level page creation'),
+    };
+  }
+
+  const createResult = await makeAtlassianSiteRequest<any>(config, createPath, {
+    method: 'POST',
+    data: {
+      spaceId: contextResult.data.spaceId,
+      status: 'current',
+      title,
+      ...(parentPageId ? { parentId: parentPageId } : {}),
+      body: {
+        representation: 'storage',
+        value: storageBody,
+      },
+    },
+  });
+
+  if (!createResult.success) {
+    return { success: false, error: createResult.error };
+  }
+
+  const pageId = String(createResult.data?.id || '');
+  if (!pageId) {
+    return { success: false, error: 'Confluence page was created without an id' };
+  }
+
+  return {
+    success: true,
+    data: {
+      pageId,
+      title: String(createResult.data?.title || title),
+      url: buildConfluencePageUrl(config.domain, pageId, createResult.data?._links?.webui),
+    },
+  };
+}
+
+export function calculateWeekdayLength(startDate?: string, endDate?: string): number | null {
+  if (!startDate || !endDate) return null;
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return null;
+
+  const cursor = new Date(start);
+  cursor.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+
+  let weekdays = 0;
+  while (cursor <= end) {
+    const day = cursor.getDay();
+    if (day !== 0 && day !== 6) {
+      weekdays += 1;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return weekdays;
+}
+
 export async function updateJiraIssueStoryPoints(
   config: JiraConfig & { email: string; token: string },
   issueKey: string,
   storyPoints: number
 ): Promise<JiraApiResponse<any>> {
-  const endpoint = `issue/${issueKey}`;
-  const data = {
-    fields: {
-      [JIRA_STORYPOINT_FIELD]: storyPoints,
+  return await makeJiraRequest(config, `issue/${issueKey}`, {
+    method: 'PUT',
+    data: {
+      fields: {
+        [JIRA_STORYPOINT_FIELD]: storyPoints,
+      },
     },
+  });
+}
+
+export async function updateJiraSprintGoal(
+  config: JiraConfig & { email: string; token: string },
+  sprintId: number,
+  goal: string,
+  sprintName: string,
+  sprintState: string,
+  startDate?: string,
+  endDate?: string
+): Promise<JiraApiResponse<any>> {
+  const data: Record<string, string> = {
+    name: sprintName,
+    state: sprintState,
+    goal,
   };
 
-  return await makeJiraRequest(config, endpoint, { method: 'PUT', data });
+  if (startDate) {
+    data.startDate = startDate;
+  }
+
+  if (endDate) {
+    data.endDate = endDate;
+  }
+
+  return await makeJiraRequest(config, `agile/1.0/sprint/${sprintId}`, {
+    method: 'PUT',
+    data,
+  });
+}
+
+export async function moveIssueToSprint(
+  config: JiraConfig & { email: string; token: string },
+  issueKey: string,
+  sprintId: number,
+  sprintName?: string
+): Promise<JiraApiResponse<{ sprintName?: string }>> {
+  const moveResult = await makeJiraRequest(config, `agile/1.0/sprint/${sprintId}/issue`, {
+    method: 'POST',
+    data: { issues: [issueKey] },
+  });
+
+  if (!moveResult.success) {
+    return moveResult as JiraApiResponse<{ sprintName?: string }>;
+  }
+
+  return {
+    success: true,
+    data: { sprintName },
+  };
 }
 
 export async function moveIssueToCurrentSprint(
@@ -255,9 +638,14 @@ export async function moveIssueToCurrentSprint(
   issueKey: string,
   boardId: string
 ): Promise<JiraApiResponse<{ sprintName: string }>> {
-  // Fetch active and future sprints — future sprints may have dates that already cover today
   const sprintResult = await makeJiraRequest<{
-    values: Array<{ id: number; name: string; state: string; startDate?: string; endDate?: string }>;
+    values: Array<{
+      id: number;
+      name: string;
+      state: string;
+      startDate?: string;
+      endDate?: string;
+    }>;
   }>(config, `agile/1.0/board/${boardId}/sprint?state=active,future`);
 
   if (!sprintResult.success || !sprintResult.data?.values?.length) {
@@ -268,7 +656,6 @@ export async function moveIssueToCurrentSprint(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Primary: find a sprint whose date range covers today (regardless of Jira state)
   const dateMatchingSprint = sprints.find(s => {
     if (!s.startDate || !s.endDate) return false;
     const start = new Date(s.startDate);
@@ -278,25 +665,20 @@ export async function moveIssueToCurrentSprint(
     return today >= start && today <= end;
   });
 
-  // Fallback: first sprint marked active in Jira
   const chosenSprint = dateMatchingSprint ?? sprints.find(s => s.state === 'active');
-
   if (!chosenSprint) {
     return { success: false, error: 'No sprint found covering the current date' };
   }
 
-  const moveResult = await makeJiraRequest(config, `agile/1.0/sprint/${chosenSprint.id}/issue`, {
-    method: 'POST',
-    data: { issues: [issueKey] },
-  });
-
+  const moveResult = await moveIssueToSprint(config, issueKey, chosenSprint.id, chosenSprint.name);
   if (!moveResult.success) return moveResult as JiraApiResponse<{ sprintName: string }>;
+
   return { success: true, data: { sprintName: chosenSprint.name } };
 }
 
 export function roundToNearestFibonacci(value: number): number | null {
   const fibonacci = [0, 0.5, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
-  if (typeof value !== 'number' || isNaN(value)) return null;
+  if (typeof value !== 'number' || Number.isNaN(value)) return null;
 
   let closest = fibonacci[0];
   let minDiff = Math.abs(value - closest);
@@ -317,7 +699,6 @@ export async function getJiraIssueDetails(
   issueKey: string
 ): Promise<JiraApiResponse<any>> {
   try {
-    // Get detailed issue information including comments
     const issueResponse = await makeJiraRequest(
       config,
       `issue/${issueKey}?expand=renderedFields,comments,attachments,worklog`
@@ -328,8 +709,6 @@ export async function getJiraIssueDetails(
     }
 
     const issue = issueResponse.data as any;
-
-    // Format the response with the most useful information for split-screen view
     const detailedIssue = {
       key: issue.key,
       summary: issue.fields.summary,
@@ -352,17 +731,13 @@ export async function getJiraIssueDetails(
       },
       comments:
         issue.fields.comment?.comments?.slice(0, 10).map((comment: any) => {
-          // Extract text from Atlassian Document Format if needed
           let bodyText = '';
           if (comment.renderedBody) {
             bodyText = comment.renderedBody;
           } else if (typeof comment.body === 'string') {
             bodyText = comment.body;
           } else if (comment.body && comment.body.content) {
-            // Parse Atlassian Document Format
             bodyText = extractTextFromADF(comment.body);
-          } else {
-            bodyText = '';
           }
 
           return {

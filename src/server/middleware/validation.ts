@@ -130,6 +130,25 @@ const schemas = {
     'number.max': 'Estimate too large',
   }),
 
+  capacityDays: Joi.number().min(0).max(60).precision(1).required().messages({
+    'number.min': 'Capacity cannot be negative',
+    'number.max': 'Capacity value too large',
+  }),
+
+  planningStage: Joi.string().valid('goal', 'capacity').required(),
+
+  sprintGoalVote: Joi.string().valid('approve', 'reject').required(),
+
+  suggestionAction: Joi.string().valid('approve', 'reject').required(),
+
+  confluenceSearchQuery: Joi.string().min(2).max(120).trim().required(),
+
+  confluencePageId: Joi.string().pattern(/^\d+$/).required().messages({
+    'string.pattern.base': 'Confluence page id must be numeric',
+  }),
+
+  confluencePageTitle: Joi.string().min(1).max(255).trim().required(),
+
   // Moderation actions - specific allowed values
   moderationAction: Joi.string()
     .valid('make-viewer', 'make-participant', 'make-facilitator', 'remove')
@@ -147,6 +166,7 @@ export const socketValidation = {
   'create-session': Joi.object({
     sessionName: schemas.sessionName,
     facilitatorName: schemas.userName,
+    planningFlowEnabled: schemas.boolean.optional(),
   }),
 
   'join-session': Joi.object({
@@ -167,6 +187,90 @@ export const socketValidation = {
   'get-jira-issues': Joi.object({
     roomCode: schemas.roomCode,
     boardId: schemas.boardId,
+    boardName: Joi.string().max(200).optional(),
+  }),
+
+  'get-planning-sprints': Joi.object({
+    roomCode: schemas.roomCode,
+    boardId: schemas.boardId,
+  }),
+
+  'select-planning-sprint': Joi.object({
+    roomCode: schemas.roomCode,
+    sprintId: Joi.number().integer().positive().optional(),
+    sprintName: Joi.string().max(200).allow('').optional(),
+    sprintLengthDays: Joi.number().min(0).max(60).allow(null).optional(),
+  }),
+
+  'update-planning-goal': Joi.object({
+    roomCode: schemas.roomCode,
+    goalDraft: Joi.string().max(500).allow('').required(),
+  }),
+
+  'submit-goal-vote': Joi.object({
+    roomCode: schemas.roomCode,
+    vote: schemas.sprintGoalVote,
+  }),
+
+  'reveal-goal-votes': Joi.object({
+    roomCode: schemas.roomCode,
+  }),
+
+  'reset-goal-voting': Joi.object({
+    roomCode: schemas.roomCode,
+  }),
+
+  'finalize-goal': Joi.object({
+    roomCode: schemas.roomCode,
+  }),
+
+  'submit-capacity': Joi.object({
+    roomCode: schemas.roomCode,
+    capacityDays: schemas.capacityDays,
+  }),
+
+  'skip-planning-stage': Joi.object({
+    roomCode: schemas.roomCode,
+    stage: schemas.planningStage,
+  }),
+
+  'suggest-jira-issue': Joi.object({
+    roomCode: schemas.roomCode,
+    issue: Joi.object({
+      key: Joi.string().max(50).required(),
+      summary: Joi.string().max(500).required(),
+      description: Joi.string().max(5000).allow(''),
+      issueType: Joi.string().max(100).required(),
+      priority: Joi.string().max(100).required(),
+      status: Joi.string().max(100).required(),
+      assignee: Joi.string().max(100).required(),
+      currentStoryPoints: Joi.number().allow(null),
+      sprintId: Joi.number().optional(),
+      sprintName: Joi.string().max(200).optional(),
+      sprintState: Joi.string().valid('active', 'future', 'closed').optional(),
+    }).required(),
+  }),
+
+  'review-suggestion': Joi.object({
+    roomCode: schemas.roomCode,
+    suggestionId: Joi.string().max(100).required(),
+    action: schemas.suggestionAction,
+  }),
+
+  'select-approved-issue': Joi.object({
+    roomCode: schemas.roomCode,
+    suggestionId: Joi.string().max(100).required(),
+  }),
+
+  'search-confluence-parents': Joi.object({
+    roomCode: schemas.roomCode,
+    query: schemas.confluenceSearchQuery,
+  }),
+
+  'create-confluence-page': Joi.object({
+    roomCode: schemas.roomCode,
+    parentPageId: schemas.confluencePageId.optional(),
+    title: schemas.confluencePageTitle,
   }),
 
   'set-jira-issue': Joi.object({
@@ -189,6 +293,7 @@ export const socketValidation = {
   'finalize-estimation': Joi.object({
     roomCode: schemas.roomCode,
     finalEstimate: schemas.finalEstimate,
+    moveToSprint: schemas.boolean.optional(),
   }),
 
   'set-ticket': Joi.object({

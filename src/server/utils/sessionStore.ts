@@ -63,6 +63,9 @@ export class SessionStore {
           // Rebuild Map structures
           participants: new Map(obj.participants || []),
           votes: new Map(obj.votes || []),
+          jiraIssues: obj.jiraIssues || [],
+          attendance: obj.attendance || [],
+          planning: obj.planning || undefined,
           history: obj.history || [],
           aggregate: obj.aggregate || null,
           currentJiraIssue: obj.currentJiraIssue || null,

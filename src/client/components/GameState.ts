@@ -1,4 +1,36 @@
-import { GameState, Vote, ChatMessage } from '@shared/types/index.js';
+import { GameState, Vote, ChatMessage, PlanningState } from '@shared/types/index.js';
+
+function createInitialPlanningState(): PlanningState {
+  return {
+    enabled: false,
+    stage: 'setup',
+    selectedSprintState: undefined,
+    selectedSprintStartDate: undefined,
+    selectedSprintEndDate: undefined,
+    availableSprints: [],
+    sprintLengthDays: null,
+    goalDraft: '',
+    finalGoal: '',
+    goalVoteRevealed: false,
+    goalVotes: {},
+    goalSkipped: false,
+    capacityEntries: {},
+    capacitySkipped: false,
+    suggestionQueue: [],
+    approvedQueue: [],
+    summary: {
+      eligibleVoterCount: 0,
+      goalVotesSubmitted: 0,
+      goalApproveCount: 0,
+      goalRejectCount: 0,
+      capacitySubmittedCount: 0,
+      totalCapacityDays: 0,
+      averageCapacityDays: 0,
+      pendingSuggestionCount: 0,
+      approvedSuggestionCount: 0,
+    },
+  };
+}
 
 export class GameStateManager {
   private state: GameState;
@@ -11,8 +43,10 @@ export class GameStateManager {
       currentJiraIssue: null,
       jiraConfig: null,
       jiraIssues: [],
+      planning: createInitialPlanningState(),
       selectedIssue: null,
       participants: [],
+      attendance: [],
       isFacilitator: false,
       isViewer: false,
       myName: '',
@@ -90,8 +124,10 @@ export class GameStateManager {
       currentJiraIssue: null,
       jiraConfig: null,
       jiraIssues: [],
+      planning: createInitialPlanningState(),
       selectedIssue: null,
       participants: [],
+      attendance: [],
       isFacilitator: false,
       isViewer: false,
       myName: '',

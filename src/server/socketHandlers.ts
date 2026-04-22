@@ -6,16 +6,35 @@ import {
   VotingResults,
   JiraIssue,
   ChatMessage,
+  PlanningState,
+  PlanningSuggestion,
+  SprintGoalVote,
 } from '@shared/types/index.js';
 import {
   getJiraBoards,
   getJiraBoardIssues,
+  getJiraBacklogIssues,
+  getJiraBoardSprints,
+  searchConfluenceParentPages,
+  createConfluencePage,
   updateJiraIssueStoryPoints,
+  updateJiraSprintGoal,
   moveIssueToCurrentSprint,
+  moveIssueToSprint,
   roundToNearestFibonacci,
   getJiraIssueDetails,
+  calculateWeekdayLength,
 } from './utils/jiraApi.js';
-import { getSessionData, recordHistory } from './utils/sessionHelpers.js';
+import {
+  getSessionData,
+  recordHistory,
+  createEmptyPlanningState,
+  getEligiblePlanningParticipantNames,
+} from './utils/sessionHelpers.js';
+import {
+  buildSessionReport,
+  renderSessionReportConfluenceStorage,
+} from '@shared/utils/sessionReport.js';
 import {
   validateSocketEvent,
   sanitizeString,
@@ -23,7 +42,6 @@ import {
 } from './middleware/validation.js';
 import { invalidateParticipantTokens, invalidateRoomTokens } from './utils/sessionTokens.js';
 
-// Internal session interface (matches the one in index.ts)
 interface InternalSessionData {
   id: string;
   sessionName: string;
@@ -34,6 +52,9 @@ interface InternalSessionData {
   currentTicket: string;
   currentJiraIssue: JiraIssue | null;
   jiraConfig: any;
+  jiraIssues: JiraIssue[];
+  planning: PlanningState;
+  attendance: Array<{ name: string; firstJoinedAt: Date }>;
   participants: Map<string, any>;
   votes: Map<string, Vote>;
   votingRevealed: boolean;
@@ -48,12 +69,10 @@ interface InternalSessionData {
   aggregate: any;
   chatMessages: ChatMessage[];
   typingUsers: Map<string, NodeJS.Timeout>;
-  // Performance optimization: maintain socket-to-participant lookup
   socketToParticipant: Map<string, string>;
   participantToSocket: Map<string, string>;
 }
 
-// Create validation wrapper that has access to socket
 function createValidationWrapper(socket: Socket<ClientToServerEvents, ServerToClientEvents>) {
   return function withValidation<T>(eventName: string, handler: (data: T) => void | Promise<void>) {
     return async (data: any) => {
@@ -64,36 +83,29 @@ function createValidationWrapper(socket: Socket<ClientToServerEvents, ServerToCl
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Validation error';
         console.warn(`Validation failed for ${eventName}:`, errorMessage);
-        // Don't expose validation details to client for security
         socket.emit('error', { message: 'Invalid request data' });
       }
     };
   };
 }
 
-// Helper function to get participant by socket ID efficiently
 function getParticipantBySocketId(session: InternalSessionData, socketId: string): any | null {
   const participantName = session.socketToParticipant.get(socketId);
   return participantName ? session.participants.get(participantName) : null;
 }
 
-// Start discussion timer to broadcast duration every second
 function startDiscussionTimer(
   session: InternalSessionData,
   roomCode: string,
   io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>
 ) {
-  // Clear any existing discussion timer
   if (session.discussionTimer) {
     clearInterval(session.discussionTimer);
   }
 
   session.discussionStartTime = new Date();
-
-  // Start broadcasting discussion duration every second
   session.discussionTimer = setInterval(() => {
     if (!session.discussionStartTime) {
-      // Discussion ended, clear timer
       clearInterval(session.discussionTimer!);
       session.discussionTimer = null;
       return;
@@ -104,12 +116,11 @@ function startDiscussionTimer(
     );
 
     io.to(roomCode).emit('discussion-timer-tick', {
-      discussionDuration: discussionDuration,
+      discussionDuration,
     });
   }, 1000);
 }
 
-// Stop discussion timer
 function stopDiscussionTimer(
   session: InternalSessionData,
   roomCode: string,
@@ -119,7 +130,6 @@ function stopDiscussionTimer(
     clearInterval(session.discussionTimer);
     session.discussionTimer = null;
 
-    // Send final duration update
     if (session.discussionStartTime) {
       const finalDuration = Math.floor(
         (new Date().getTime() - session.discussionStartTime.getTime()) / 1000
@@ -129,7 +139,132 @@ function stopDiscussionTimer(
       });
     }
   }
-  // Don't reset discussionStartTime here - keep it until next ticket is set
+}
+
+function getEligibleEstimators(session: InternalSessionData): any[] {
+  return Array.from(session.participants.values()).filter((participant: any) => {
+    return !participant.isViewer && participant.socketId;
+  });
+}
+
+function ensurePlanningState(session: InternalSessionData) {
+  if (!session.planning) {
+    session.planning = createEmptyPlanningState(false);
+  }
+}
+
+function isPlanningEnabled(session: InternalSessionData): boolean {
+  ensurePlanningState(session);
+  return !!session.planning.enabled;
+}
+
+function clearEstimationRound(session: InternalSessionData) {
+  session.votes.clear();
+  session.votingRevealed = false;
+  session.participants.forEach(participant => {
+    participant.hasVoted = false;
+  });
+}
+
+function clearCountdown(session: InternalSessionData) {
+  if (session.countdownTimer) {
+    clearInterval(session.countdownTimer);
+    session.countdownTimer = null;
+  }
+  session.countdownActive = false;
+}
+
+function canInteractWithEstimation(session: InternalSessionData): boolean {
+  return !isPlanningEnabled(session) || session.planning.stage === 'estimation';
+}
+
+function cleanupPlanningEligibility(session: InternalSessionData, participantName: string) {
+  if (!isPlanningEnabled(session)) return;
+  delete session.planning.goalVotes[participantName];
+  delete session.planning.capacityEntries[participantName];
+}
+
+function isDuplicateSuggestion(session: InternalSessionData, issue: JiraIssue): boolean {
+  const activeIssue = session.currentJiraIssue?.key === issue.key;
+  const inPending = session.planning.suggestionQueue.some(item => item.issue.key === issue.key);
+  const inApproved = session.planning.approvedQueue.some(item => item.issue.key === issue.key);
+  const inHistory = session.history.some((entry: any) => entry.issueKey === issue.key);
+  return activeIssue || inPending || inApproved || inHistory;
+}
+
+function maybeAutoRevealGoalVotes(
+  session: InternalSessionData,
+  roomCode: string,
+  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>
+) {
+  if (!isPlanningEnabled(session) || session.planning.stage !== 'goal') return;
+  const eligible = getEligiblePlanningParticipantNames(session);
+  if (!eligible.length) return;
+
+  const allSubmitted = eligible.every(name => !!session.planning.goalVotes[name]);
+  if (!allSubmitted || session.planning.goalVoteRevealed) return;
+
+  session.planning.goalVoteRevealed = true;
+  io.to(roomCode).emit('planning-goal-revealed', {
+    sessionData: getSessionData(session),
+  });
+}
+
+function maybeAdvanceCapacity(
+  session: InternalSessionData,
+  roomCode: string,
+  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>
+) {
+  if (!isPlanningEnabled(session) || session.planning.stage !== 'capacity') return;
+  const eligible = getEligiblePlanningParticipantNames(session);
+  if (!eligible.length) {
+    session.planning.stage = 'estimation';
+    io.to(roomCode).emit('planning-stage-advanced', {
+      stage: session.planning.stage,
+      sessionData: getSessionData(session),
+    });
+    return;
+  }
+
+  const allSubmitted = eligible.every(
+    name => typeof session.planning.capacityEntries[name] === 'number'
+  );
+  if (!allSubmitted) return;
+
+  session.planning.stage = 'estimation';
+  io.to(roomCode).emit('planning-stage-advanced', {
+    stage: session.planning.stage,
+    sessionData: getSessionData(session),
+  });
+}
+
+function buildSuggestion(issue: JiraIssue, participantName: string): PlanningSuggestion {
+  return {
+    id: `${issue.key}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    issue,
+    suggestedBy: participantName,
+    status: 'pending',
+    createdAt: new Date(),
+  };
+}
+
+function startIssueEstimation(
+  session: InternalSessionData,
+  roomCode: string,
+  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>,
+  issue: JiraIssue
+) {
+  session.currentJiraIssue = issue;
+  session.currentTicket = `${issue.key}: ${issue.summary}`;
+  clearEstimationRound(session);
+  clearCountdown(session);
+  startDiscussionTimer(session, roomCode, io);
+}
+
+function buildSessionReportForPublish(session: InternalSessionData) {
+  return buildSessionReport(getSessionData(session), {
+    jiraBaseUrl: session.jiraConfig?.domain ? `https://${session.jiraConfig.domain}` : undefined,
+  });
 }
 
 export function setupSocketHandlers(
@@ -139,7 +274,6 @@ export function setupSocketHandlers(
 ) {
   const withValidation = createValidationWrapper(socket);
 
-  // Configure Jira integration
   socket.on(
     'configure-jira',
     withValidation(
@@ -149,16 +283,13 @@ export function setupSocketHandlers(
         if (!session) return;
 
         const facilitator = getParticipantBySocketId(session, socket.id);
-
         if (!facilitator?.isFacilitator) {
           socket.emit('error', { message: 'Only facilitator can configure Jira' });
           return;
         }
 
-        // Sanitize inputs
         const sanitizedDomain = sanitizeString(domain);
         const sanitizedEmail = sanitizeString(email);
-
         const config = { domain: sanitizedDomain, email: sanitizedEmail, token, hasToken: true };
         const boardsResult = await getJiraBoards(config, projectKey || undefined);
 
@@ -179,93 +310,544 @@ export function setupSocketHandlers(
           boards: boardsResult.data?.values || [],
           sessionData: getSessionData(session),
         });
-
-        console.log(`Jira configured for session ${roomCode}`);
       }
     )
   );
 
-  // Get Jira issues from board
-  socket.on('get-jira-issues', async ({ roomCode, boardId }) => {
-    try {
+  socket.on(
+    'get-jira-issues',
+    withValidation('get-jira-issues', async ({ roomCode, boardId, boardName }: any) => {
       const session = memoryStore.get(roomCode);
       if (!session || !session.jiraConfig) return;
 
       const facilitator = getParticipantBySocketId(session, socket.id);
-
       if (!facilitator?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can fetch Jira issues' });
         return;
       }
 
       session.jiraConfig.boardId = boardId;
-      const issuesResult = await getJiraBoardIssues(session.jiraConfig, boardId);
+      if (isPlanningEnabled(session)) {
+        session.planning.boardId = boardId;
+        session.planning.boardName = boardName || session.planning.boardName;
+      }
+
+      const issuesResult = isPlanningEnabled(session)
+        ? await getJiraBacklogIssues(session.jiraConfig, boardId)
+        : await getJiraBoardIssues(session.jiraConfig, boardId);
 
       if (!issuesResult.success) {
-        console.error('Failed to fetch Jira issues', issuesResult.error);
         socket.emit('jira-issues-failed', {
           message: `Failed to fetch issues: ${issuesResult.error}`,
         });
         return;
       }
 
-      socket.emit('jira-issues-loaded', { issues: issuesResult.data?.issues || [] });
-      console.log(
-        `Loaded ${issuesResult.data?.issues?.length || 0} issues from Jira board ${boardId}`
+      session.jiraIssues = issuesResult.data?.issues || [];
+      session.lastActivity = new Date();
+
+      io.to(roomCode).emit('jira-issues-loaded', {
+        issues: session.jiraIssues,
+        sessionData: getSessionData(session),
+      });
+    })
+  );
+
+  socket.on(
+    'get-planning-sprints',
+    withValidation('get-planning-sprints', async ({ roomCode, boardId }: any) => {
+      const session = memoryStore.get(roomCode);
+      if (!session || !session.jiraConfig) return;
+
+      const facilitator = getParticipantBySocketId(session, socket.id);
+      if (!facilitator?.isFacilitator || !isPlanningEnabled(session)) {
+        socket.emit('error', { message: 'Only facilitator can fetch planning sprints' });
+        return;
+      }
+
+      const result = await getJiraBoardSprints(session.jiraConfig, boardId);
+      if (!result.success) {
+        socket.emit('error', { message: result.error || 'Failed to fetch sprints' });
+        return;
+      }
+
+      session.planning.availableSprints = result.data?.sprints || [];
+      session.lastActivity = new Date();
+
+      io.to(roomCode).emit('planning-sprints-loaded', {
+        sprints: session.planning.availableSprints,
+        sessionData: getSessionData(session),
+      });
+    })
+  );
+
+  socket.on(
+    'select-planning-sprint',
+    withValidation(
+      'select-planning-sprint',
+      async ({ roomCode, sprintId, sprintName, sprintLengthDays }: any) => {
+        const session = memoryStore.get(roomCode);
+        if (!session || !isPlanningEnabled(session)) return;
+
+        const facilitator = getParticipantBySocketId(session, socket.id);
+        if (!facilitator?.isFacilitator) {
+          socket.emit('error', { message: 'Only facilitator can configure planning setup' });
+          return;
+        }
+
+        const selectedSprint = session.planning.availableSprints.find(
+          sprint => sprint.id === sprintId
+        );
+        session.planning.selectedSprintId = selectedSprint?.id;
+        session.planning.selectedSprintName = selectedSprint?.name || sprintName || undefined;
+        session.planning.selectedSprintState = selectedSprint?.state;
+        session.planning.selectedSprintStartDate = selectedSprint?.startDate;
+        session.planning.selectedSprintEndDate = selectedSprint?.endDate;
+
+        const derivedLength = calculateWeekdayLength(
+          selectedSprint?.startDate,
+          selectedSprint?.endDate
+        );
+        session.planning.sprintLengthDays =
+          derivedLength ?? (typeof sprintLengthDays === 'number' ? sprintLengthDays : null);
+        session.planning.stage = 'goal';
+        session.lastActivity = new Date();
+
+        io.to(roomCode).emit('planning-stage-advanced', {
+          stage: session.planning.stage,
+          sessionData: getSessionData(session),
+        });
+      }
+    )
+  );
+
+  socket.on(
+    'update-planning-goal',
+    withValidation('update-planning-goal', ({ roomCode, goalDraft }: any) => {
+      const session = memoryStore.get(roomCode);
+      if (!session || !isPlanningEnabled(session)) return;
+
+      const facilitator = getParticipantBySocketId(session, socket.id);
+      if (!facilitator?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can update the sprint goal' });
+        return;
+      }
+
+      session.planning.goalDraft = sanitizeString(goalDraft);
+      session.planning.goalVoteRevealed = false;
+      session.planning.goalVotes = {};
+      if (session.planning.stage === 'setup') {
+        session.planning.stage = 'goal';
+      }
+      session.lastActivity = new Date();
+
+      io.to(roomCode).emit('planning-goal-updated', {
+        sessionData: getSessionData(session),
+      });
+    })
+  );
+
+  socket.on(
+    'submit-goal-vote',
+    withValidation('submit-goal-vote', ({ roomCode, vote }: any) => {
+      const session = memoryStore.get(roomCode);
+      if (!session || !isPlanningEnabled(session)) return;
+
+      const participant = getParticipantBySocketId(session, socket.id);
+      if (!participant || participant.isViewer) {
+        socket.emit('error', { message: 'Only voting participants can vote on the sprint goal' });
+        return;
+      }
+
+      if (session.planning.stage !== 'goal') {
+        socket.emit('error', { message: 'Sprint goal voting is not active' });
+        return;
+      }
+
+      session.planning.goalVotes[participant.name] = vote as SprintGoalVote;
+      session.lastActivity = new Date();
+
+      io.to(roomCode).emit('planning-goal-vote-submitted', {
+        participantName: participant.name,
+        sessionData: getSessionData(session),
+      });
+
+      maybeAutoRevealGoalVotes(session, roomCode, io);
+    })
+  );
+
+  socket.on(
+    'reveal-goal-votes',
+    withValidation('reveal-goal-votes', ({ roomCode }: any) => {
+      const session = memoryStore.get(roomCode);
+      if (!session || !isPlanningEnabled(session)) return;
+
+      const facilitator = getParticipantBySocketId(session, socket.id);
+      if (!facilitator?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can reveal goal votes' });
+        return;
+      }
+
+      session.planning.goalVoteRevealed = true;
+      session.lastActivity = new Date();
+
+      io.to(roomCode).emit('planning-goal-revealed', {
+        sessionData: getSessionData(session),
+      });
+    })
+  );
+
+  socket.on(
+    'reset-goal-voting',
+    withValidation('reset-goal-voting', ({ roomCode }: any) => {
+      const session = memoryStore.get(roomCode);
+      if (!session || !isPlanningEnabled(session)) return;
+
+      const facilitator = getParticipantBySocketId(session, socket.id);
+      if (!facilitator?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can reset goal voting' });
+        return;
+      }
+
+      session.planning.goalVotes = {};
+      session.planning.goalVoteRevealed = false;
+      session.lastActivity = new Date();
+
+      io.to(roomCode).emit('planning-goal-updated', {
+        sessionData: getSessionData(session),
+      });
+    })
+  );
+
+  socket.on(
+    'finalize-goal',
+    withValidation('finalize-goal', async ({ roomCode }: any) => {
+      const session = memoryStore.get(roomCode);
+      if (!session || !isPlanningEnabled(session)) return;
+
+      const facilitator = getParticipantBySocketId(session, socket.id);
+      if (!facilitator?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can finalize the sprint goal' });
+        return;
+      }
+
+      if (!session.planning.goalDraft.trim()) {
+        socket.emit('error', { message: 'Enter a sprint goal before finalizing it' });
+        return;
+      }
+
+      if (session.planning.selectedSprintId && session.jiraConfig) {
+        if (!session.planning.selectedSprintName || !session.planning.selectedSprintState) {
+          socket.emit('error', {
+            message: 'Selected sprint is missing Jira metadata',
+          });
+          return;
+        }
+
+        const updateResult = await updateJiraSprintGoal(
+          session.jiraConfig,
+          session.planning.selectedSprintId,
+          session.planning.goalDraft,
+          session.planning.selectedSprintName,
+          session.planning.selectedSprintState,
+          session.planning.selectedSprintStartDate,
+          session.planning.selectedSprintEndDate
+        );
+
+        if (!updateResult.success) {
+          socket.emit('error', {
+            message: updateResult.error || 'Failed to update sprint goal in Jira',
+          });
+          return;
+        }
+      }
+
+      session.planning.finalGoal = session.planning.goalDraft;
+      session.planning.goalVoteRevealed = true;
+      session.planning.stage = 'capacity';
+      session.lastActivity = new Date();
+
+      io.to(roomCode).emit('planning-stage-advanced', {
+        stage: session.planning.stage,
+        sessionData: getSessionData(session),
+      });
+    })
+  );
+
+  socket.on(
+    'submit-capacity',
+    withValidation('submit-capacity', ({ roomCode, capacityDays }: any) => {
+      const session = memoryStore.get(roomCode);
+      if (!session || !isPlanningEnabled(session)) return;
+
+      const participant = getParticipantBySocketId(session, socket.id);
+      if (!participant || participant.isViewer) {
+        socket.emit('error', { message: 'Only voting participants can submit capacity' });
+        return;
+      }
+
+      if (session.planning.stage !== 'capacity') {
+        socket.emit('error', { message: 'Capacity planning is not active' });
+        return;
+      }
+
+      if (
+        session.planning.sprintLengthDays !== null &&
+        Number(capacityDays) > Number(session.planning.sprintLengthDays)
+      ) {
+        socket.emit('error', { message: 'Capacity cannot exceed the sprint length' });
+        return;
+      }
+
+      session.planning.capacityEntries[participant.name] = Number(capacityDays);
+      session.lastActivity = new Date();
+
+      io.to(roomCode).emit('planning-capacity-submitted', {
+        participantName: participant.name,
+        sessionData: getSessionData(session),
+      });
+
+      maybeAdvanceCapacity(session, roomCode, io);
+    })
+  );
+
+  socket.on(
+    'skip-planning-stage',
+    withValidation('skip-planning-stage', ({ roomCode, stage }: any) => {
+      const session = memoryStore.get(roomCode);
+      if (!session || !isPlanningEnabled(session)) return;
+
+      const facilitator = getParticipantBySocketId(session, socket.id);
+      if (!facilitator?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can skip planning stages' });
+        return;
+      }
+
+      if (stage === 'goal') {
+        session.planning.goalSkipped = true;
+        session.planning.stage = 'capacity';
+      } else {
+        session.planning.capacitySkipped = true;
+        session.planning.stage = 'estimation';
+      }
+      session.lastActivity = new Date();
+
+      io.to(roomCode).emit('planning-stage-advanced', {
+        stage: session.planning.stage,
+        sessionData: getSessionData(session),
+      });
+    })
+  );
+
+  socket.on(
+    'suggest-jira-issue',
+    withValidation('suggest-jira-issue', ({ roomCode, issue }: any) => {
+      const session = memoryStore.get(roomCode);
+      if (!session || !isPlanningEnabled(session)) return;
+
+      const participant = getParticipantBySocketId(session, socket.id);
+      if (!participant) return;
+
+      if (session.planning.stage !== 'estimation') {
+        socket.emit('error', { message: 'Issue suggestions open during the estimation stage' });
+        return;
+      }
+
+      if (issue.currentStoryPoints !== null && issue.currentStoryPoints !== undefined) {
+        socket.emit('error', { message: 'This Jira issue is already estimated' });
+        return;
+      }
+
+      if (isDuplicateSuggestion(session, issue)) {
+        socket.emit('error', { message: 'This Jira issue is already in the planning queue' });
+        return;
+      }
+
+      const suggestion = buildSuggestion(issue, participant.name);
+      session.planning.suggestionQueue.push(suggestion);
+      session.lastActivity = new Date();
+
+      io.to(roomCode).emit('planning-suggestion-added', {
+        suggestion,
+        sessionData: getSessionData(session),
+      });
+    })
+  );
+
+  socket.on(
+    'review-suggestion',
+    withValidation('review-suggestion', ({ roomCode, suggestionId, action }: any) => {
+      const session = memoryStore.get(roomCode);
+      if (!session || !isPlanningEnabled(session)) return;
+
+      const facilitator = getParticipantBySocketId(session, socket.id);
+      if (!facilitator?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can review suggestions' });
+        return;
+      }
+
+      const suggestionIndex = session.planning.suggestionQueue.findIndex(
+        suggestion => suggestion.id === suggestionId
       );
-    } catch (error) {
-      console.error('Failed to fetch Jira issues', error);
-      socket.emit('error', { message: 'Failed to fetch Jira issues' });
-    }
-  });
+      if (suggestionIndex === -1) {
+        socket.emit('error', { message: 'Suggestion not found' });
+        return;
+      }
 
-  // Get detailed Jira issue information for split-screen view
+      const [suggestion] = session.planning.suggestionQueue.splice(suggestionIndex, 1);
+      if (action === 'approve') {
+        session.planning.approvedQueue.push({
+          ...suggestion,
+          status: 'approved',
+        });
+      }
+      session.lastActivity = new Date();
+
+      io.to(roomCode).emit('planning-suggestion-reviewed', {
+        suggestionId,
+        action: action === 'approve' ? 'approved' : 'rejected',
+        sessionData: getSessionData(session),
+      });
+    })
+  );
+
+  socket.on(
+    'select-approved-issue',
+    withValidation('select-approved-issue', ({ roomCode, suggestionId }: any) => {
+      const session = memoryStore.get(roomCode);
+      if (!session || !isPlanningEnabled(session)) return;
+
+      const facilitator = getParticipantBySocketId(session, socket.id);
+      if (!facilitator?.isFacilitator) {
+        socket.emit('error', { message: 'Only facilitator can start an approved issue' });
+        return;
+      }
+
+      const suggestionIndex = session.planning.approvedQueue.findIndex(
+        suggestion => suggestion.id === suggestionId
+      );
+      if (suggestionIndex === -1) {
+        socket.emit('error', { message: 'Approved issue not found' });
+        return;
+      }
+
+      const [suggestion] = session.planning.approvedQueue.splice(suggestionIndex, 1);
+      startIssueEstimation(session, roomCode, io, suggestion.issue);
+      session.lastActivity = new Date();
+
+      io.to(roomCode).emit('planning-approved-issue-selected', {
+        suggestionId,
+        issue: suggestion.issue,
+        sessionData: getSessionData(session),
+      });
+    })
+  );
+
+  socket.on(
+    'search-confluence-parents',
+    withValidation('search-confluence-parents', async ({ roomCode, query }: any) => {
+      const session = memoryStore.get(roomCode);
+      if (!session || !session.jiraConfig) return;
+
+      const facilitator = getParticipantBySocketId(session, socket.id);
+      if (!facilitator?.isFacilitator) {
+        socket.emit('confluence-page-failed', {
+          message: 'Only the facilitator can search Confluence parent pages',
+        });
+        return;
+      }
+
+      const result = await searchConfluenceParentPages(session.jiraConfig, query);
+      if (!result.success) {
+        socket.emit('confluence-page-failed', {
+          message: result.error || 'Failed to search Confluence pages',
+        });
+        return;
+      }
+
+      session.lastActivity = new Date();
+      socket.emit('confluence-parent-search-results', {
+        query,
+        results: result.data?.results || [],
+      });
+    })
+  );
+
+  socket.on(
+    'create-confluence-page',
+    withValidation('create-confluence-page', async ({ roomCode, parentPageId, title }: any) => {
+      const session = memoryStore.get(roomCode);
+      if (!session || !session.jiraConfig) return;
+
+      const facilitator = getParticipantBySocketId(session, socket.id);
+      if (!facilitator?.isFacilitator) {
+        socket.emit('confluence-page-failed', {
+          message: 'Only the facilitator can publish the sprint report to Confluence',
+        });
+        return;
+      }
+
+      const report = buildSessionReportForPublish(session);
+      const storageBody = renderSessionReportConfluenceStorage(report);
+      const result = await createConfluencePage(
+        session.jiraConfig,
+        parentPageId,
+        title,
+        storageBody
+      );
+
+      if (!result.success || !result.data) {
+        socket.emit('confluence-page-failed', {
+          message: result.error || 'Failed to create the Confluence page',
+        });
+        return;
+      }
+
+      session.lastActivity = new Date();
+      socket.emit('confluence-page-created', {
+        pageId: result.data.pageId,
+        title: result.data.title,
+        url: result.data.url,
+      });
+    })
+  );
+
   socket.on('get-jira-issue-details', async data => {
-    console.log('🔥 SERVER: get-jira-issue-details event received!', data);
-
     const { roomCode, issueKey } = data || {};
-    console.log(`Received get-jira-issue-details request for ${issueKey} in room ${roomCode}`);
-
     try {
       const session = memoryStore.get(roomCode);
       if (!session) {
-        console.log('Session not found:', roomCode);
         socket.emit('jira-issue-details-failed', { message: 'Session not found' });
         return;
       }
 
       const participant = getParticipantBySocketId(session, socket.id);
       if (!participant) {
-        console.log('Participant not found for socket:', socket.id);
         socket.emit('jira-issue-details-failed', { message: 'Participant not found' });
         return;
       }
 
       if (!session.jiraConfig) {
-        console.log('Jira not configured for session:', roomCode);
         socket.emit('jira-issue-details-failed', {
           message: 'Jira not configured for this session',
         });
         return;
       }
 
-      const config = {
-        ...session.jiraConfig,
-        email: session.jiraConfig.email,
-        token: session.jiraConfig.token,
-      };
-
-      console.log('Making Jira API call for issue:', issueKey);
-      const result = await getJiraIssueDetails(config, issueKey);
-      console.log('Jira API result:', result.success ? 'Success' : 'Failed', result.error);
+      const result = await getJiraIssueDetails(
+        {
+          ...session.jiraConfig,
+          email: session.jiraConfig.email,
+          token: session.jiraConfig.token,
+        },
+        issueKey
+      );
 
       if (result.success) {
-        console.log('Sending jira-issue-details-loaded event');
         socket.emit('jira-issue-details-loaded', {
           issueDetails: result.data,
         });
       } else {
-        console.log('Sending jira-issue-details-failed event:', result.error);
         socket.emit('jira-issue-details-failed', {
           message: result.error || 'Failed to fetch issue details',
         });
@@ -276,185 +858,165 @@ export function setupSocketHandlers(
     }
   });
 
-  // Set Jira issue for voting
-  socket.on('set-jira-issue', ({ roomCode, issue }) => {
-    try {
+  socket.on(
+    'set-jira-issue',
+    withValidation('set-jira-issue', ({ roomCode, issue }: any) => {
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
       const facilitator = getParticipantBySocketId(session, socket.id);
-
       if (!facilitator?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can set Jira issues' });
         return;
       }
 
-      session.currentJiraIssue = issue;
-      session.currentTicket = `${issue.key}: ${issue.summary}`;
-      session.votes.clear();
-      session.votingRevealed = false;
-      session.lastActivity = new Date();
-
-      // Clear countdown if active
-      if (session.countdownTimer) {
-        clearInterval(session.countdownTimer);
-        session.countdownTimer = null;
-        session.countdownActive = false;
+      if (isPlanningEnabled(session)) {
+        socket.emit('error', { message: 'Use the planning approval queue to start Jira issues' });
+        return;
       }
 
-      // Start discussion timer for the new issue
-      startDiscussionTimer(session, roomCode, io);
+      startIssueEstimation(session, roomCode, io, issue);
+      session.lastActivity = new Date();
 
       io.to(roomCode).emit('jira-issue-set', {
         issue,
         sessionData: getSessionData(session),
       });
+    })
+  );
 
-      console.log(`Jira issue ${issue.key} set for voting in session ${roomCode}`);
-    } catch (error) {
-      console.error('Failed to set Jira issue', error);
-      socket.emit('error', { message: 'Failed to set Jira issue' });
-    }
-  });
+  socket.on(
+    'finalize-estimation',
+    withValidation(
+      'finalize-estimation',
+      async ({ roomCode, finalEstimate, moveToSprint }: any) => {
+        const session = memoryStore.get(roomCode);
+        if (!session || !session.currentJiraIssue || !session.jiraConfig) return;
 
-  // Finalize estimation and write back to Jira
-  socket.on('finalize-estimation', async ({ roomCode, finalEstimate, moveToSprint }) => {
-    try {
-      const session = memoryStore.get(roomCode);
-      if (!session || !session.currentJiraIssue || !session.jiraConfig) return;
-
-      const facilitator = getParticipantBySocketId(session, socket.id);
-
-      if (!facilitator?.isFacilitator) {
-        socket.emit('error', { message: 'Only facilitator can finalize estimations' });
-        return;
-      }
-
-      const roundedEstimate = roundToNearestFibonacci(finalEstimate);
-      if (roundedEstimate === null) {
-        socket.emit('jira-update-failed', { message: 'Invalid estimate value' });
-        return;
-      }
-
-      const updateResult = await updateJiraIssueStoryPoints(
-        session.jiraConfig,
-        session.currentJiraIssue.key,
-        roundedEstimate
-      );
-
-      if (!updateResult.success) {
-        socket.emit('jira-update-failed', {
-          message: `Failed to update Jira: ${updateResult.error}`,
-        });
-        return;
-      }
-
-      session.currentJiraIssue.currentStoryPoints = roundedEstimate;
-      session.lastActivity = new Date();
-
-      const updatedIssueKey = session.currentJiraIssue.key;
-
-      // Optionally move the issue to the current sprint
-      let movedToSprint = false;
-      let sprintName: string | undefined;
-      if (moveToSprint && session.jiraConfig.boardId) {
-        const sprintResult = await moveIssueToCurrentSprint(
-          session.jiraConfig,
-          updatedIssueKey,
-          session.jiraConfig.boardId
-        );
-        movedToSprint = sprintResult.success;
-        sprintName = sprintResult.data?.sprintName;
-        if (!sprintResult.success) {
-          console.error(`Failed to move issue to sprint: ${sprintResult.error}`);
+        const facilitator = getParticipantBySocketId(session, socket.id);
+        if (!facilitator?.isFacilitator) {
+          socket.emit('error', { message: 'Only facilitator can finalize estimations' });
+          return;
         }
+
+        const roundedEstimate = roundToNearestFibonacci(finalEstimate);
+        if (roundedEstimate === null) {
+          socket.emit('jira-update-failed', { message: 'Invalid estimate value' });
+          return;
+        }
+
+        const updateResult = await updateJiraIssueStoryPoints(
+          session.jiraConfig,
+          session.currentJiraIssue.key,
+          roundedEstimate
+        );
+        if (!updateResult.success) {
+          socket.emit('jira-update-failed', {
+            message: `Failed to update Jira: ${updateResult.error}`,
+          });
+          return;
+        }
+
+        session.currentJiraIssue.currentStoryPoints = roundedEstimate;
+        const updatedIssueKey = session.currentJiraIssue.key;
+        let movedToSprint = false;
+        let sprintName: string | undefined;
+
+        if (moveToSprint) {
+          if (isPlanningEnabled(session) && session.planning.selectedSprintId) {
+            const sprintResult = await moveIssueToSprint(
+              session.jiraConfig,
+              updatedIssueKey,
+              session.planning.selectedSprintId,
+              session.planning.selectedSprintName
+            );
+            movedToSprint = sprintResult.success;
+            sprintName = sprintResult.data?.sprintName;
+          } else if (session.jiraConfig.boardId) {
+            const sprintResult = await moveIssueToCurrentSprint(
+              session.jiraConfig,
+              updatedIssueKey,
+              session.jiraConfig.boardId
+            );
+            movedToSprint = sprintResult.success;
+            sprintName = sprintResult.data?.sprintName;
+          }
+        }
+
+        recordHistory(session, {
+          issueKey: updatedIssueKey,
+          summary: session.currentJiraIssue.summary,
+          storyPoints: roundedEstimate,
+          originalEstimate: finalEstimate,
+        });
+
+        session.jiraIssues = session.jiraIssues.map(issue =>
+          issue.key === updatedIssueKey ? { ...issue, currentStoryPoints: roundedEstimate } : issue
+        );
+        session.currentTicket = '';
+        session.currentJiraIssue = null;
+        clearEstimationRound(session);
+        session.lastActivity = new Date();
+
+        io.to(roomCode).emit('jira-updated', {
+          issueKey: updatedIssueKey,
+          storyPoints: roundedEstimate,
+          originalEstimate: finalEstimate,
+          movedToSprint,
+          sprintName,
+          sessionData: getSessionData(session),
+        });
       }
+    )
+  );
 
-      // Store completed estimation in session history
-      recordHistory(session, {
-        issueKey: updatedIssueKey,
-        summary: session.currentJiraIssue.summary,
-        storyPoints: roundedEstimate,
-        originalEstimate: finalEstimate,
-      });
-
-      // Clear current ticket and voting after successful Jira update
-      session.currentTicket = '';
-      session.currentJiraIssue = null;
-      session.votes.clear();
-      session.votingRevealed = false;
-
-      io.to(roomCode).emit('jira-updated', {
-        issueKey: updatedIssueKey,
-        storyPoints: roundedEstimate,
-        originalEstimate: finalEstimate,
-        movedToSprint,
-        sprintName,
-        sessionData: getSessionData(session),
-      });
-
-      console.log(`Updated Jira issue ${updatedIssueKey} with ${roundedEstimate} story points`);
-    } catch (error) {
-      console.error('Failed to update Jira issue', error);
-      socket.emit('error', { message: 'Failed to update Jira issue' });
-    }
-  });
-
-  // Set current ticket (manual entry)
-  socket.on('set-ticket', ({ roomCode, ticket }) => {
-    try {
+  socket.on(
+    'set-ticket',
+    withValidation('set-ticket', ({ roomCode, ticket }: any) => {
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
       const participant = getParticipantBySocketId(session, socket.id);
-
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can set tickets' });
         return;
       }
 
-      session.currentTicket = ticket;
-      session.currentJiraIssue = null;
-      session.votes.clear();
-      session.votingRevealed = false;
-      session.lastActivity = new Date();
-
-      if (session.countdownTimer) {
-        clearInterval(session.countdownTimer);
-        session.countdownTimer = null;
-        session.countdownActive = false;
+      if (isPlanningEnabled(session)) {
+        socket.emit('error', { message: 'Manual tickets are disabled in planning flow sessions' });
+        return;
       }
 
-      // Start discussion timer for the new ticket
+      session.currentTicket = ticket;
+      session.currentJiraIssue = null;
+      clearEstimationRound(session);
+      clearCountdown(session);
+      session.lastActivity = new Date();
       startDiscussionTimer(session, roomCode, io);
 
       io.to(roomCode).emit('ticket-set', {
         ticket,
         sessionData: getSessionData(session),
       });
+    })
+  );
 
-      console.log(`Ticket set in session ${roomCode}: ${ticket.substring(0, 50)}...`);
-    } catch (error) {
-      console.error('Failed to set ticket', error);
-      socket.emit('error', { message: 'Failed to set ticket' });
-    }
-  });
-
-  // Submit vote
-  socket.on('submit-vote', ({ roomCode, vote }) => {
-    try {
+  socket.on(
+    'submit-vote',
+    withValidation('submit-vote', ({ roomCode, vote }: any) => {
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
       const participant = getParticipantBySocketId(session, socket.id);
-
       if (!participant) return;
-
       if (participant.isViewer) {
         socket.emit('error', { message: 'Viewers cannot vote' });
         return;
       }
-
+      if (!canInteractWithEstimation(session)) {
+        socket.emit('error', { message: 'Estimation voting is not unlocked yet' });
+        return;
+      }
       if (session.votingRevealed) {
         socket.emit('error', { message: 'Voting is already complete for this round' });
         return;
@@ -469,28 +1031,15 @@ export function setupSocketHandlers(
         sessionData: getSessionData(session),
       });
 
-      console.log(`Vote submitted by ${participant.name} in session ${roomCode}`);
-
-      // Check if all eligible voters have voted
       if (session.countdownActive) {
-        const eligibleVoters = Array.from(session.participants.values()).filter(
-          p => !p.isViewer && p.socketId
-        );
-
+        const eligibleVoters = getEligibleEstimators(session);
         if (session.votes.size >= eligibleVoters.length && eligibleVoters.length > 0) {
-          if (session.countdownTimer) {
-            clearInterval(session.countdownTimer);
-            session.countdownTimer = null;
-          }
-          session.countdownActive = false;
+          clearCountdown(session);
           session.votingRevealed = true;
           session.lastActivity = new Date();
-
-          // Stop discussion timer when votes are automatically revealed
           stopDiscussionTimer(session, roomCode, io);
 
           const results = calculateVotingResults(session.votes);
-
           if (session.currentJiraIssue) {
             recordHistory(session, {
               issueKey: session.currentJiraIssue.key,
@@ -519,50 +1068,37 @@ export function setupSocketHandlers(
           io.to(roomCode).emit('countdown-finished', {
             sessionData: getSessionData(session),
           });
-
           io.to(roomCode).emit('votes-revealed', {
             sessionData: getSessionData(session),
             results,
           });
-
-          console.log(`Countdown finished early and votes auto-revealed in session ${roomCode}`);
         }
       }
-    } catch (error) {
-      console.error('Failed to submit vote', error);
-      socket.emit('error', { message: 'Failed to submit vote' });
-    }
-  });
+    })
+  );
 
-  // Reveal votes
-  socket.on('reveal-votes', ({ roomCode }) => {
-    try {
+  socket.on(
+    'reveal-votes',
+    withValidation('reveal-votes', ({ roomCode }: any) => {
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
       const participant = getParticipantBySocketId(session, socket.id);
-
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can reveal votes' });
         return;
       }
-
-      // If a countdown is running, stop it before revealing
-      if (session.countdownTimer) {
-        clearInterval(session.countdownTimer);
-        session.countdownTimer = null;
-        session.countdownActive = false;
+      if (!canInteractWithEstimation(session)) {
+        socket.emit('error', { message: 'Estimation voting is not unlocked yet' });
+        return;
       }
 
+      clearCountdown(session);
       session.votingRevealed = true;
       session.lastActivity = new Date();
-
-      // Stop discussion timer when votes are revealed
       stopDiscussionTimer(session, roomCode, io);
 
       const results = calculateVotingResults(session.votes);
-
-      // Record history
       if (session.currentJiraIssue) {
         recordHistory(session, {
           issueKey: session.currentJiraIssue.key,
@@ -592,98 +1128,71 @@ export function setupSocketHandlers(
         sessionData: getSessionData(session),
         results,
       });
+    })
+  );
 
-      console.log(`Votes revealed in session ${roomCode}`);
-    } catch (error) {
-      console.error('Failed to reveal votes', error);
-      socket.emit('error', { message: 'Failed to reveal votes' });
-    }
-  });
-
-  // Reset voting
-  socket.on('reset-voting', ({ roomCode }) => {
-    try {
+  socket.on(
+    'reset-voting',
+    withValidation('reset-voting', ({ roomCode }: any) => {
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
       const participant = getParticipantBySocketId(session, socket.id);
-
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can reset voting' });
         return;
       }
-
-      session.votes.clear();
-      session.votingRevealed = false;
-      session.lastActivity = new Date();
-
-      // Reset hasVoted for all participants
-      session.participants.forEach(p => (p.hasVoted = false));
-
-      if (session.countdownTimer) {
-        clearInterval(session.countdownTimer);
-        session.countdownTimer = null;
-        session.countdownActive = false;
+      if (!canInteractWithEstimation(session)) {
+        socket.emit('error', { message: 'Estimation voting is not unlocked yet' });
+        return;
       }
+
+      clearEstimationRound(session);
+      clearCountdown(session);
+      session.lastActivity = new Date();
 
       io.to(roomCode).emit('voting-reset', {
         sessionData: getSessionData(session),
       });
+    })
+  );
 
-      console.log(`Voting reset in session ${roomCode}`);
-    } catch (error) {
-      console.error('Failed to reset voting', error);
-      socket.emit('error', { message: 'Failed to reset voting' });
-    }
-  });
-
-  // Facilitator toggles their own viewer / participant role
-  socket.on('set-facilitator-viewer', ({ roomCode, isViewer }) => {
-    try {
+  socket.on(
+    'set-facilitator-viewer',
+    withValidation('set-facilitator-viewer', ({ roomCode, isViewer }: any) => {
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      // Find the facilitator by socket id
       const facilitatorEntry = getParticipantBySocketId(session, socket.id);
-      if (facilitatorEntry && !facilitatorEntry.isFacilitator) {
+      if (!facilitatorEntry?.isFacilitator) {
         socket.emit('error', { message: 'Only the facilitator can change their viewer status' });
         return;
       }
 
-      if (!facilitatorEntry) {
-        socket.emit('error', { message: 'Only the facilitator can change their viewer status' });
-        return;
-      }
-
-      // Update role
       facilitatorEntry.isViewer = isViewer;
+      if (isViewer) {
+        cleanupPlanningEligibility(session, facilitatorEntry.name);
+        session.votes.delete(facilitatorEntry.name);
+      }
       session.lastActivity = new Date();
+      maybeAutoRevealGoalVotes(session, roomCode, io);
+      maybeAdvanceCapacity(session, roomCode, io);
 
-      // Broadcast role change to everyone in the room
       io.to(roomCode).emit('participant-role-changed', {
         participantName: facilitatorEntry.name,
         newRole: isViewer ? 'viewer' : 'participant',
         sessionData: getSessionData(session),
       });
+    })
+  );
 
-      console.log(
-        `Facilitator ${facilitatorEntry.name} is now a ${isViewer ? 'viewer' : 'participant'} in session ${roomCode}`
-      );
-    } catch (error) {
-      console.error('Failed to change viewer status', error);
-      socket.emit('error', { message: 'Failed to change viewer status' });
-    }
-  });
-
-  // NEW: Facilitator moderates a participant (make viewer/participant or remove)
-  socket.on('moderate-participant', ({ roomCode, targetName, action }) => {
-    try {
+  socket.on(
+    'moderate-participant',
+    withValidation('moderate-participant', ({ roomCode, targetName, action }: any) => {
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
-      // Ensure that the requesting socket is the facilitator
       const facilitatorEntry = getParticipantBySocketId(session, socket.id);
-
       if (!facilitatorEntry?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can moderate participants' });
         return;
@@ -698,7 +1207,7 @@ export function setupSocketHandlers(
       switch (action) {
         case 'make-viewer':
           target.isViewer = true;
-          // Remove any existing vote so counts stay correct
+          cleanupPlanningEligibility(session, targetName);
           session.votes.delete(targetName);
           io.to(roomCode).emit('participant-role-changed', {
             participantName: targetName,
@@ -706,7 +1215,6 @@ export function setupSocketHandlers(
             sessionData: getSessionData(session),
           });
           break;
-
         case 'make-participant':
           target.isViewer = false;
           io.to(roomCode).emit('participant-role-changed', {
@@ -715,43 +1223,32 @@ export function setupSocketHandlers(
             sessionData: getSessionData(session),
           });
           break;
-
         case 'make-facilitator':
-          // Prevent self-promotion
           if (targetName === facilitatorEntry.name) {
             socket.emit('error', { message: 'You are already the facilitator' });
             return;
           }
-
-          // Transfer facilitator role
           facilitatorEntry.isFacilitator = false;
           target.isFacilitator = true;
-          target.isViewer = false; // New facilitator should be able to vote by default
-
-          // Update session facilitator info
+          target.isViewer = false;
           session.facilitator.name = targetName;
           session.facilitator.socketId = target.socketId || '';
-
           io.to(roomCode).emit('facilitator-changed', {
             oldFacilitatorName: facilitatorEntry.name,
             newFacilitatorName: targetName,
             sessionData: getSessionData(session),
           });
           break;
-
         case 'remove':
           session.participants.delete(targetName);
+          cleanupPlanningEligibility(session, targetName);
           session.votes.delete(targetName);
-
-          // Invalidate all session tokens for this participant
           invalidateParticipantTokens(targetName, roomCode);
-
           io.to(roomCode).emit('participant-removed', {
             participantName: targetName,
             sessionData: getSessionData(session),
           });
 
-          // Inform the removed participant if still connected and kick them from the room
           if (target.socketId) {
             const targetSocket = io.sockets.sockets.get(target.socketId);
             if (targetSocket) {
@@ -762,136 +1259,112 @@ export function setupSocketHandlers(
             }
           }
           break;
-
         default:
           socket.emit('error', { message: 'Unknown moderation action' });
           return;
       }
 
       session.lastActivity = new Date();
-    } catch (error) {
-      console.error('Failed to moderate participant', error);
-      socket.emit('error', { message: 'Failed to moderate participant' });
-    }
-  });
+      maybeAutoRevealGoalVotes(session, roomCode, io);
+      maybeAdvanceCapacity(session, roomCode, io);
+    })
+  );
 
-  // Start countdown
-  socket.on('start-countdown', ({ roomCode, duration }) => {
-    try {
+  socket.on(
+    'start-countdown',
+    withValidation('start-countdown', ({ roomCode, duration }: any) => {
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
       const participant = getParticipantBySocketId(session, socket.id);
-
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can start countdown' });
         return;
       }
-
+      if (!canInteractWithEstimation(session)) {
+        socket.emit('error', { message: 'Estimation voting is not unlocked yet' });
+        return;
+      }
       if (session.votingRevealed) {
         socket.emit('error', { message: 'Voting is already complete' });
         return;
       }
-
       if (session.countdownActive) {
         socket.emit('error', { message: 'Countdown is already active' });
         return;
       }
 
-      if (session.countdownTimer) {
-        clearInterval(session.countdownTimer);
-      }
-
+      clearCountdown(session);
       session.countdownActive = true;
       session.lastActivity = new Date();
       let secondsLeft = duration;
-
       io.to(roomCode).emit('countdown-started', { duration });
 
       session.countdownTimer = setInterval(() => {
         secondsLeft--;
-
         if (secondsLeft > 0) {
           io.to(roomCode).emit('countdown-tick', {
             secondsLeft,
             totalDuration: duration,
           });
-        } else {
-          clearInterval(session.countdownTimer!);
-          session.countdownTimer = null;
-          session.countdownActive = false;
-          session.votingRevealed = true;
-          session.lastActivity = new Date();
-
-          // Stop discussion timer when countdown expires and votes are automatically revealed
-          stopDiscussionTimer(session, roomCode, io);
-
-          const results = calculateVotingResults(session.votes);
-
-          // Record history
-          if (session.currentJiraIssue) {
-            recordHistory(session, {
-              issueKey: session.currentJiraIssue.key,
-              summary: session.currentJiraIssue.summary,
-              votes: Object.fromEntries(session.votes),
-              stats: {
-                consensus: results.consensus,
-                average: results.average,
-                min: results.min,
-                max: results.max,
-              },
-            });
-          } else if (session.currentTicket) {
-            recordHistory(session, {
-              ticket: session.currentTicket,
-              votes: Object.fromEntries(session.votes),
-              stats: {
-                consensus: results.consensus,
-                average: results.average,
-                min: results.min,
-                max: results.max,
-              },
-            });
-          }
-
-          io.to(roomCode).emit('countdown-finished', {
-            sessionData: getSessionData(session),
-          });
-
-          io.to(roomCode).emit('votes-revealed', {
-            sessionData: getSessionData(session),
-            results,
-          });
-
-          console.log(`Countdown finished and votes auto-revealed in session ${roomCode}`);
+          return;
         }
+
+        clearCountdown(session);
+        session.votingRevealed = true;
+        session.lastActivity = new Date();
+        stopDiscussionTimer(session, roomCode, io);
+
+        const results = calculateVotingResults(session.votes);
+        if (session.currentJiraIssue) {
+          recordHistory(session, {
+            issueKey: session.currentJiraIssue.key,
+            summary: session.currentJiraIssue.summary,
+            votes: Object.fromEntries(session.votes),
+            stats: {
+              consensus: results.consensus,
+              average: results.average,
+              min: results.min,
+              max: results.max,
+            },
+          });
+        } else if (session.currentTicket) {
+          recordHistory(session, {
+            ticket: session.currentTicket,
+            votes: Object.fromEntries(session.votes),
+            stats: {
+              consensus: results.consensus,
+              average: results.average,
+              min: results.min,
+              max: results.max,
+            },
+          });
+        }
+
+        io.to(roomCode).emit('countdown-finished', {
+          sessionData: getSessionData(session),
+        });
+        io.to(roomCode).emit('votes-revealed', {
+          sessionData: getSessionData(session),
+          results,
+        });
       }, 1000);
+    })
+  );
 
-      console.log(`Countdown started in session ${roomCode} for ${duration} seconds`);
-    } catch (error) {
-      console.error('Failed to start countdown', error);
-      socket.emit('error', { message: 'Failed to start countdown' });
-    }
-  });
-
-  // End session
-  socket.on('end-session', ({ roomCode }) => {
-    try {
+  socket.on(
+    'end-session',
+    withValidation('end-session', ({ roomCode }: any) => {
       const session = memoryStore.get(roomCode);
       if (!session) return;
 
       const participant = getParticipantBySocketId(session, socket.id);
-
       if (!participant?.isFacilitator) {
         socket.emit('error', { message: 'Only facilitator can end session' });
         return;
       }
 
-      if (session.countdownTimer) {
-        clearInterval(session.countdownTimer);
-      }
-
-      // Stop discussion timer when session ends
+      clearCountdown(session);
       stopDiscussionTimer(session, roomCode, io);
 
       io.to(roomCode).emit('session-ended', {
@@ -908,18 +1381,11 @@ export function setupSocketHandlers(
         });
       }
 
-      // Invalidate all session tokens for this room
       invalidateRoomTokens(roomCode);
-
       memoryStore.delete(roomCode);
-      console.log(`Session ${roomCode} ended by facilitator`);
-    } catch (error) {
-      console.error('Failed to end session', error);
-      socket.emit('error', { message: 'Failed to end session' });
-    }
-  });
+    })
+  );
 
-  // Chat message
   socket.on(
     'send-chat-message',
     socketEventRateLimiters.chatMessages(
@@ -929,12 +1395,9 @@ export function setupSocketHandlers(
         if (!session) return;
 
         const participant = getParticipantBySocketId(session, socket.id);
-
         if (!participant) return;
 
-        // Sanitize message content
         const sanitizedMessage = sanitizeString(message);
-
         const chatMessage: ChatMessage = {
           id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
           author: participant.name,
@@ -945,19 +1408,15 @@ export function setupSocketHandlers(
 
         session.chatMessages.push(chatMessage);
         session.lastActivity = new Date();
-
-        // Limit chat history to prevent memory issues
         if (session.chatMessages.length > 100) {
           session.chatMessages = session.chatMessages.slice(-100);
         }
 
-        // Broadcast to all participants in the session
         io.to(roomCode).emit('chatMessage', chatMessage);
       })
     )
   );
 
-  // Typing indicator
   socket.on('typing-indicator', ({ roomCode, userName, isTyping }) => {
     try {
       const session = memoryStore.get(roomCode);
@@ -966,7 +1425,6 @@ export function setupSocketHandlers(
       const participant = getParticipantBySocketId(session, socket.id);
       if (!participant || participant.name !== userName) return;
 
-      // Clear existing timeout for this user
       const existingTimeout = session.typingUsers.get(userName);
       if (existingTimeout) {
         clearTimeout(existingTimeout);
@@ -974,19 +1432,14 @@ export function setupSocketHandlers(
       }
 
       if (isTyping) {
-        // Set user as typing with auto-clear timeout
         const timeout = setTimeout(() => {
           session.typingUsers.delete(userName);
-          const typingUsersList = Array.from(session.typingUsers.keys());
-          io.to(roomCode).emit('typingUpdate', typingUsersList);
-        }, 5000); // Auto-clear after 5 seconds
-
+          io.to(roomCode).emit('typingUpdate', Array.from(session.typingUsers.keys()));
+        }, 5000);
         session.typingUsers.set(userName, timeout);
       }
 
-      // Broadcast current typing users
-      const typingUsersList = Array.from(session.typingUsers.keys());
-      io.to(roomCode).emit('typingUpdate', typingUsersList);
+      io.to(roomCode).emit('typingUpdate', Array.from(session.typingUsers.keys()));
     } catch (error) {
       console.error('Failed to update typing indicator', error);
       socket.emit('error', { message: 'Failed to update typing indicator' });
@@ -1018,12 +1471,10 @@ function calculateVotingResults(votes: Map<string, Vote>): VotingResults {
     consensus: '?' as Vote,
   };
 
-  // Count vote distribution
   votes.forEach(vote => {
     results.voteCounts[String(vote)] = (results.voteCounts[String(vote)] || 0) + 1;
   });
 
-  // Find consensus (most common vote, or "-" if tied)
   const maxCount = Math.max(...Object.values(results.voteCounts));
   const mostCommonVotes = Object.keys(results.voteCounts).filter(
     vote => results.voteCounts[vote] === maxCount
@@ -1031,18 +1482,19 @@ function calculateVotingResults(votes: Map<string, Vote>): VotingResults {
 
   if (mostCommonVotes.length === 1) {
     const consensusKey = mostCommonVotes[0];
-    results.consensus = isNaN(Number(consensusKey)) ? (consensusKey as Vote) : Number(consensusKey);
+    results.consensus = Number.isNaN(Number(consensusKey))
+      ? (consensusKey as Vote)
+      : Number(consensusKey);
   } else {
     results.consensus = '-' as Vote;
   }
 
-  // Select discussion candidates when voting is not unanimous
   if (minVal !== null && maxVal !== null && minVal !== maxVal) {
     const lowestVoters = Array.from(votes.entries())
-      .filter(([, v]) => v === minVal)
+      .filter(([, value]) => value === minVal)
       .map(([name]) => name);
     const highestVoters = Array.from(votes.entries())
-      .filter(([, v]) => v === maxVal)
+      .filter(([, value]) => value === maxVal)
       .map(([name]) => name);
 
     results.lowestVoter = pickRandom(lowestVoters);

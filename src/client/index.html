@@ -117,6 +117,11 @@
                 />
               </div>
 
+              <label class="checkbox-row" for="planning-flow-enabled">
+                <input type="checkbox" id="planning-flow-enabled" />
+                <span>Enable sprint planning flow</span>
+              </label>
+
               <button class="btn btn-lg" id="start-btn">Start Session</button>
             </div>
 
@@ -227,6 +232,32 @@
                       </div>
                     </div>
 
+                    <div
+                      id="planning-summary-card"
+                      class="dashboard-card hidden"
+                      data-card="planning-summary"
+                      draggable="true"
+                    >
+                      <div
+                        class="dashboard-card-header"
+                        onclick="app.toggleCard('planning-summary')"
+                      >
+                        <h3>
+                          <span class="section-icon">◌</span>
+                          Planning summary
+                        </h3>
+                        <div class="dashboard-card-actions">
+                          <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
+                          <span class="dashboard-card-toggle">⌄</span>
+                        </div>
+                      </div>
+                      <div class="dashboard-card-content">
+                        <div id="planning-summary-content" class="section-subtitle">
+                          Planning flow is not active.
+                        </div>
+                      </div>
+                    </div>
+
                     <div id="facilitator-controls" class="hidden">
                       <div class="dashboard-card" data-card="session-controls" draggable="true">
                         <div
@@ -260,6 +291,116 @@
                             <button class="btn btn-destructive btn-sm" id="end-session-btn">
                               End
                             </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        id="planning-workflow-card"
+                        class="dashboard-card collapsed hidden"
+                        data-card="planning-workflow"
+                        draggable="true"
+                      >
+                        <div
+                          class="dashboard-card-header"
+                          onclick="app.toggleCard('planning-workflow')"
+                        >
+                          <h3>
+                            <span class="section-icon">◌</span>
+                            Planning workflow
+                          </h3>
+                          <div class="dashboard-card-actions">
+                            <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
+                            <span class="dashboard-card-toggle">⌄</span>
+                          </div>
+                        </div>
+                        <div class="dashboard-card-content">
+                          <div id="planning-setup-panel" class="hidden planning-panel">
+                            <div class="section-subtitle">
+                              Select a sprint or set the sprint length before goal voting starts.
+                            </div>
+                            <div class="input-group">
+                              <label for="planning-sprint-select">Sprint</label>
+                              <select id="planning-sprint-select">
+                                <option value="">No Jira sprint selected</option>
+                              </select>
+                            </div>
+                            <div class="input-group">
+                              <label for="planning-sprint-length"
+                                >Sprint length (working days)</label
+                              >
+                              <input
+                                type="number"
+                                id="planning-sprint-length"
+                                min="0"
+                                max="60"
+                                step="0.5"
+                                placeholder="10"
+                              />
+                            </div>
+                            <div class="button-group">
+                              <button class="btn btn-sm" id="planning-save-setup-btn">
+                                Save Setup
+                              </button>
+                            </div>
+                          </div>
+
+                          <div id="planning-goal-controls" class="hidden planning-panel">
+                            <div class="input-group">
+                              <label for="planning-goal-input">Sprint goal draft</label>
+                              <textarea
+                                id="planning-goal-input"
+                                rows="3"
+                                placeholder="Ship the highest-value stories without carrying unresolved API risk."
+                              ></textarea>
+                            </div>
+                            <div class="button-group">
+                              <button class="btn btn-sm" id="planning-save-goal-btn">
+                                Save Draft
+                              </button>
+                              <button
+                                class="btn btn-secondary btn-sm"
+                                id="planning-reveal-goal-btn"
+                              >
+                                Reveal Votes
+                              </button>
+                              <button class="btn btn-outline btn-sm" id="planning-reset-goal-btn">
+                                Reset Vote
+                              </button>
+                              <button class="btn btn-sm" id="planning-finalize-goal-btn">
+                                Finalize Goal
+                              </button>
+                              <button class="btn btn-outline btn-sm" id="planning-skip-goal-btn">
+                                Skip Goal
+                              </button>
+                            </div>
+                          </div>
+
+                          <div id="planning-capacity-controls" class="hidden planning-panel">
+                            <div class="section-subtitle">
+                              Capacity advances automatically once all current voters submit.
+                            </div>
+                            <div class="button-group">
+                              <button
+                                class="btn btn-outline btn-sm"
+                                id="planning-skip-capacity-btn"
+                              >
+                                Skip Capacity
+                              </button>
+                            </div>
+                          </div>
+
+                          <div id="planning-queue-review" class="hidden planning-panel">
+                            <div class="planning-queue-columns">
+                              <div>
+                                <h4>Pending suggestions</h4>
+                                <div id="planning-pending-list" class="history-list"></div>
+                              </div>
+                              <div>
+                                <h4>Approved queue</h4>
+                                <div id="planning-approved-list" class="history-list"></div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -369,6 +510,7 @@
                       </div>
 
                       <div
+                        id="manual-ticket"
                         class="dashboard-card collapsed"
                         data-card="manual-ticket"
                         draggable="true"
@@ -523,6 +665,63 @@
 
                   <section class="main-column" data-column="main">
                     <div class="column-drop-zone" data-drop-zone="main"></div>
+
+                    <div
+                      id="planning-stage-card"
+                      class="dashboard-card hidden"
+                      data-card="planning-stage"
+                      draggable="true"
+                    >
+                      <div class="dashboard-card-header">
+                        <h3>
+                          <span class="section-icon">◌</span>
+                          <span id="planning-stage-title">Planning flow</span>
+                        </h3>
+                        <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
+                      </div>
+                      <div class="dashboard-card-content">
+                        <div id="planning-stage-status" class="section-subtitle">
+                          Planning flow is not active.
+                        </div>
+
+                        <div id="planning-goal-vote-panel" class="hidden planning-panel">
+                          <div id="planning-goal-display" class="ticket-description-panel"></div>
+                          <div id="planning-goal-results" class="section-subtitle hidden"></div>
+                          <div id="planning-goal-vote-actions" class="button-group">
+                            <button class="btn btn-sm" id="planning-goal-approve-btn">
+                              Approve
+                            </button>
+                            <button class="btn btn-secondary btn-sm" id="planning-goal-reject-btn">
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+
+                        <div id="planning-capacity-panel" class="hidden planning-panel">
+                          <div id="planning-capacity-status" class="section-subtitle"></div>
+                          <div class="finalize-controls">
+                            <label for="planning-capacity-input">Your available days</label>
+                            <input
+                              type="number"
+                              id="planning-capacity-input"
+                              min="0"
+                              max="60"
+                              step="0.5"
+                            />
+                            <button class="btn btn-sm" id="planning-submit-capacity-btn">
+                              Submit Capacity
+                            </button>
+                          </div>
+                        </div>
+
+                        <div id="planning-estimation-panel" class="hidden planning-panel">
+                          <div class="section-subtitle">
+                            Everyone can suggest backlog issues. The facilitator approves them
+                            before estimation starts.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
                     <div
                       id="current-ticket"
@@ -697,9 +896,55 @@
                 <p>Participants disconnect immediately once the session is ended.</p>
               </div>
 
-              <div id="end-session-downloads" class="modal-downloads">
-                <strong>Before you go</strong>
-                <p>Export the estimation trail or team statistics before closing the session.</p>
+              <div class="modal-downloads">
+                <strong>Sprint summary</strong>
+                <p id="end-session-report-title">Preparing session summary...</p>
+                <div id="end-session-report-meta" class="session-meta-list"></div>
+                <div class="modal-actions compact">
+                  <button class="btn btn-outline btn-sm" id="download-sprint-summary-btn">
+                    Download Sprint Summary
+                  </button>
+                </div>
+              </div>
+
+              <div id="end-session-confluence" class="modal-downloads hidden">
+                <strong>Confluence</strong>
+                <p>Publish the same summary into Confluence before you close the room.</p>
+                <div class="input-group">
+                  <label for="confluence-page-title">Page title</label>
+                  <input
+                    id="confluence-page-title"
+                    type="text"
+                    maxlength="255"
+                    placeholder="2026-04-22 Sprint 42"
+                  />
+                </div>
+                <div class="input-group confluence-search-group">
+                  <label for="confluence-parent-search">Parent page</label>
+                  <input
+                    id="confluence-parent-search"
+                    type="text"
+                    maxlength="120"
+                    placeholder="Search Confluence pages"
+                    autocomplete="off"
+                  />
+                  <div id="confluence-parent-results" class="confluence-search-results hidden"></div>
+                </div>
+                <p class="confluence-helper-text">
+                  Leave this blank to create the report as a root page.
+                </p>
+                <p id="confluence-selected-parent" class="confluence-selected-parent hidden"></p>
+                <p id="confluence-publish-status" class="modal-status hidden"></p>
+                <div class="modal-actions compact">
+                  <button class="btn btn-outline btn-sm" id="publish-confluence-btn">
+                    Create Confluence Page
+                  </button>
+                </div>
+              </div>
+
+              <div id="end-session-legacy-downloads" class="modal-downloads">
+                <strong>Other exports</strong>
+                <p>Keep the raw estimation trail and statistics as CSV if you need them.</p>
                 <div class="modal-actions compact">
                   <button class="btn btn-outline btn-sm" id="download-history-btn">
                     Download History

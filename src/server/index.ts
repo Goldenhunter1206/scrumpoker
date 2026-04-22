@@ -13,9 +13,15 @@ import {
   Participant,
   Vote,
   JiraIssue,
+  PlanningState,
 } from '@shared/types/index.js';
 import { SessionStore } from './utils/sessionStore.js';
-import { generateRoomCode, getSessionData } from './utils/sessionHelpers.js';
+import {
+  generateRoomCode,
+  getSessionData,
+  createEmptyPlanningState,
+  recordAttendance,
+} from './utils/sessionHelpers.js';
 import { setupSocketHandlers } from './socketHandlers.js';
 import { rateLimitConfig, socketEventRateLimiters } from './middleware/validation.js';
 import {
@@ -58,6 +64,9 @@ interface InternalSessionData {
   currentTicket: string;
   currentJiraIssue: JiraIssue | null;
   jiraConfig: any;
+  jiraIssues: JiraIssue[];
+  planning: PlanningState;
+  attendance: Array<{ name: string; firstJoinedAt: Date }>;
   participants: Map<string, Participant & { socketId?: string; disconnectedAt?: Date }>;
   votes: Map<string, Vote>;
   votingRevealed: boolean;
@@ -175,95 +184,91 @@ io.on('connection', socket => {
 
   socket.on(
     'create-session',
-    socketEventRateLimiters.sessionCreation(socket, ({ sessionName, facilitatorName }: any) => {
-      try {
-        // Basic validation
-        if (
-          !sessionName ||
-          !facilitatorName ||
-          sessionName.length > 100 ||
-          facilitatorName.length > 50 ||
-          typeof sessionName !== 'string' ||
-          typeof facilitatorName !== 'string'
-        ) {
-          socket.emit('error', { message: 'Invalid session data' });
-          return;
-        }
+    socketEventRateLimiters.sessionCreation(
+      socket,
+      ({ sessionName, facilitatorName, planningFlowEnabled = false }: any) => {
+        try {
+          if (
+            !sessionName ||
+            !facilitatorName ||
+            sessionName.length > 100 ||
+            facilitatorName.length > 50 ||
+            typeof sessionName !== 'string' ||
+            typeof facilitatorName !== 'string'
+          ) {
+            socket.emit('error', { message: 'Invalid session data' });
+            return;
+          }
 
-        // Check session limit
-        if (memoryStore.size >= MAX_SESSIONS) {
-          socket.emit('error', { message: 'Server capacity reached. Please try again later.' });
-          return;
-        }
+          if (memoryStore.size >= MAX_SESSIONS) {
+            socket.emit('error', { message: 'Server capacity reached. Please try again later.' });
+            return;
+          }
 
-        const roomCode = generateRoomCode();
+          const roomCode = generateRoomCode();
+          const sanitizedSessionName = sessionName.trim().substring(0, 100);
+          const sanitizedFacilitatorName = facilitatorName.trim().substring(0, 50);
 
-        // Sanitize inputs
-        const sanitizedSessionName = sessionName.trim().substring(0, 100);
-        const sanitizedFacilitatorName = facilitatorName.trim().substring(0, 50);
+          const session: InternalSessionData = {
+            id: roomCode,
+            sessionName: sanitizedSessionName,
+            facilitator: {
+              name: sanitizedFacilitatorName,
+              socketId: socket.id,
+            },
+            currentTicket: '',
+            currentJiraIssue: null,
+            jiraConfig: null,
+            jiraIssues: [],
+            planning: createEmptyPlanningState(Boolean(planningFlowEnabled)),
+            attendance: [],
+            participants: new Map(),
+            votes: new Map(),
+            votingRevealed: false,
+            totalVotes: 0,
+            countdownActive: false,
+            countdownTimer: null,
+            discussionStartTime: null,
+            discussionTimer: null,
+            createdAt: new Date(),
+            lastActivity: new Date(),
+            history: [],
+            aggregate: null,
+            chatMessages: [],
+            typingUsers: new Map(),
+            socketToParticipant: new Map(),
+            participantToSocket: new Map(),
+          };
 
-        const session: InternalSessionData = {
-          id: roomCode,
-          sessionName: sanitizedSessionName,
-          facilitator: {
+          session.participants.set(sanitizedFacilitatorName, {
             name: sanitizedFacilitatorName,
             socketId: socket.id,
-          },
-          currentTicket: '',
-          currentJiraIssue: null,
-          jiraConfig: null,
-          participants: new Map(),
-          votes: new Map(),
-          votingRevealed: false,
-          totalVotes: 0,
-          countdownActive: false,
-          countdownTimer: null,
-          discussionStartTime: null,
-          discussionTimer: null,
-          createdAt: new Date(),
-          lastActivity: new Date(),
-          history: [],
-          aggregate: null,
-          chatMessages: [],
-          typingUsers: new Map(),
-          // Initialize socket mappings
-          socketToParticipant: new Map(),
-          participantToSocket: new Map(),
-        };
+            isFacilitator: true,
+            isViewer: false,
+            joinedAt: new Date(),
+            hasVoted: false,
+          });
+          recordAttendance(session, sanitizedFacilitatorName, new Date());
 
-        // Add facilitator as first participant
-        session.participants.set(sanitizedFacilitatorName, {
-          name: sanitizedFacilitatorName,
-          socketId: socket.id,
-          isFacilitator: true,
-          isViewer: false,
-          joinedAt: new Date(),
-          hasVoted: false,
-        });
+          session.socketToParticipant.set(socket.id, sanitizedFacilitatorName);
+          session.participantToSocket.set(sanitizedFacilitatorName, socket.id);
 
-        // Initialize socket mappings for facilitator
-        session.socketToParticipant.set(socket.id, sanitizedFacilitatorName);
-        session.participantToSocket.set(sanitizedFacilitatorName, socket.id);
+          memoryStore.set(roomCode, session);
+          socket.join(roomCode);
 
-        memoryStore.set(roomCode, session);
-        socket.join(roomCode);
-
-        // Generate session token for the facilitator
-        const sessionToken = createSessionToken(sanitizedFacilitatorName, roomCode);
-
-        socket.emit('session-created', {
-          success: true,
-          roomCode,
-          sessionData: getSessionData(session),
-          sessionToken,
-        });
-
-        console.log(`Session created: ${roomCode} by ${sanitizedFacilitatorName}`);
-      } catch (error) {
-        console.error('Failed to create session', error);
-        socket.emit('error', { message: 'Failed to create session' });
+          const sessionToken = createSessionToken(sanitizedFacilitatorName, roomCode);
+          socket.emit('session-created', {
+            success: true,
+            roomCode,
+            sessionData: getSessionData(session),
+            sessionToken,
+          });
+        } catch (error) {
+          console.error('Failed to create session', error);
+          socket.emit('error', { message: 'Failed to create session' });
+        }
       }
-    })
+    )
   );
 
   socket.on(
@@ -323,6 +328,7 @@ io.on('connection', socket => {
             existing.socketId = socket.id;
             existing.isViewer = asViewer;
             delete existing.disconnectedAt;
+            recordAttendance(session, sanitizedParticipantName, existing.joinedAt);
 
             // Update socket mappings for reconnection
             session.socketToParticipant.set(socket.id, sanitizedParticipantName);
@@ -358,6 +364,11 @@ io.on('connection', socket => {
             joinedAt: new Date(),
             hasVoted: false,
           });
+          recordAttendance(
+            session,
+            sanitizedParticipantName,
+            session.participants.get(sanitizedParticipantName)?.joinedAt || new Date()
+          );
 
           // Add socket mappings for new participant
           session.socketToParticipant.set(socket.id, sanitizedParticipantName);

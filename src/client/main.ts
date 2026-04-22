@@ -37,11 +37,26 @@ import {
   Vote,
   JiraBoard,
   ChatMessage,
+  PlanningSprint,
+  PlanningSuggestion,
+  SprintGoalVote,
+  ConfluencePageSearchResult,
+  SessionReport,
 } from '@shared/types/index.js';
+import {
+  buildDefaultSessionReportTitle,
+  buildSessionReport,
+  buildSessionReportFilename,
+  renderSessionReportMarkdown,
+} from '@shared/utils/sessionReport.js';
 import { mutateDOM } from './utils/domBatcher.js';
 
 class ScrumPokerApp {
   private eventListenerIds: string[] = [];
+  private confluenceSearchTimeout: number | null = null;
+  private confluenceParentResults: ConfluencePageSearchResult[] = [];
+  private selectedConfluenceParent: ConfluencePageSearchResult | null = null;
+  private latestConfluenceSearchQuery = '';
 
   // Store ticket event handlers to allow proper cleanup
   private ticketHoverHandler: (event: Event) => void = event => {
@@ -102,6 +117,36 @@ class ScrumPokerApp {
     document
       .getElementById('connect-jira-btn')
       ?.addEventListener('click', () => this.configureJira());
+    document
+      .getElementById('planning-save-setup-btn')
+      ?.addEventListener('click', () => this.savePlanningSetup());
+    document
+      .getElementById('planning-save-goal-btn')
+      ?.addEventListener('click', () => this.savePlanningGoal());
+    document
+      .getElementById('planning-reveal-goal-btn')
+      ?.addEventListener('click', () => this.revealPlanningGoalVotes());
+    document
+      .getElementById('planning-reset-goal-btn')
+      ?.addEventListener('click', () => this.resetPlanningGoalVoting());
+    document
+      .getElementById('planning-finalize-goal-btn')
+      ?.addEventListener('click', () => this.finalizePlanningGoal());
+    document
+      .getElementById('planning-skip-goal-btn')
+      ?.addEventListener('click', () => this.skipPlanningStage('goal'));
+    document
+      .getElementById('planning-skip-capacity-btn')
+      ?.addEventListener('click', () => this.skipPlanningStage('capacity'));
+    document
+      .getElementById('planning-goal-approve-btn')
+      ?.addEventListener('click', () => this.submitGoalVote('approve'));
+    document
+      .getElementById('planning-goal-reject-btn')
+      ?.addEventListener('click', () => this.submitGoalVote('reject'));
+    document
+      .getElementById('planning-submit-capacity-btn')
+      ?.addEventListener('click', () => this.submitCapacity());
 
     // Re-enable Jira buttons when user modifies fields after a failed connection
     ['jira-domain', 'jira-email', 'jira-token', 'jira-project-key'].forEach(fieldId => {
@@ -202,6 +247,21 @@ class ScrumPokerApp {
     document
       .getElementById('download-statistics-btn')
       ?.addEventListener('click', () => this.exportStatistics());
+    document
+      .getElementById('download-sprint-summary-btn')
+      ?.addEventListener('click', () => this.downloadSprintSummary());
+    document
+      .getElementById('publish-confluence-btn')
+      ?.addEventListener('click', () => this.publishSprintSummaryToConfluence());
+    document
+      .getElementById('confluence-parent-search')
+      ?.addEventListener('input', event =>
+        this.handleConfluenceParentSearchInput((event.target as HTMLInputElement).value)
+      );
+    document.getElementById('confluence-page-title')?.addEventListener('input', event => {
+      (event.target as HTMLInputElement).dataset.userEdited = 'true';
+      this.updateConfluencePublishButtonState();
+    });
 
     // Chat functionality
     document.getElementById('chat-input')?.addEventListener('keypress', e => {
@@ -222,6 +282,11 @@ class ScrumPokerApp {
       const loadBtn = document.getElementById('load-issues-btn') as HTMLButtonElement;
       if (loadBtn) {
         loadBtn.disabled = !target.value;
+      }
+
+      const state = gameState.getState();
+      if (state.planning.enabled && target.value) {
+        socketManager.getPlanningSprints(state.roomCode, target.value);
       }
     });
 
@@ -323,6 +388,7 @@ class ScrumPokerApp {
       const searchInput = document.getElementById('jira-issues-search') as HTMLInputElement;
       if (searchInput) searchInput.value = '';
       this.displayJiraIssues();
+      this.updatePlanningUI();
     });
 
     // Handle Jira configuration failures
@@ -351,6 +417,7 @@ class ScrumPokerApp {
       const searchInput = document.getElementById('jira-issues-search') as HTMLInputElement;
       if (searchInput) searchInput.value = '';
       this.displayJiraIssues();
+      this.updatePlanningUI();
       const finalizeBtn = document.getElementById('finalize-btn') as HTMLButtonElement;
       if (finalizeBtn) finalizeBtn.disabled = false;
     });
@@ -375,6 +442,62 @@ class ScrumPokerApp {
 
     socketManager.on('votingReset', () => {
       this.resetVotingUI();
+    });
+
+    socketManager.on('planningSprintsLoaded', (sprints: PlanningSprint[]) => {
+      this.populatePlanningSprints(sprints);
+      this.updatePlanningUI();
+    });
+
+    socketManager.on('planningStageAdvanced', () => {
+      this.updatePlanningUI();
+      this.updateTicketDisplay();
+      this.updateVotingCards();
+    });
+
+    socketManager.on(
+      'confluenceParentSearchResults',
+      (data: { query: string; results: ConfluencePageSearchResult[] }) => {
+        this.handleConfluenceParentSearchResults(data.query, data.results);
+      }
+    );
+
+    socketManager.on('confluencePageCreated', (data: { title: string; url?: string }) => {
+      this.handleConfluencePageCreated(data.title, data.url);
+    });
+
+    socketManager.on('confluencePageFailed', (data: { message: string }) => {
+      this.setConfluencePublishPending(false);
+      this.setConfluencePublishStatus(data.message, 'error');
+      this.updateConfluencePublishButtonState();
+    });
+
+    socketManager.on('planningGoalUpdated', () => {
+      this.updatePlanningUI();
+    });
+
+    socketManager.on('planningGoalRevealed', () => {
+      this.updatePlanningUI();
+    });
+
+    socketManager.on('planningCapacitySubmitted', () => {
+      this.updatePlanningUI();
+    });
+
+    socketManager.on('planningSuggestionAdded', () => {
+      this.displayJiraIssues();
+      this.updatePlanningUI();
+    });
+
+    socketManager.on('planningSuggestionReviewed', () => {
+      this.displayJiraIssues();
+      this.updatePlanningUI();
+    });
+
+    socketManager.on('planningApprovedIssueSelected', () => {
+      this.updateTicketDisplay();
+      this.resetVotingUI();
+      this.updatePlanningUI();
     });
 
     socketManager.on('countdownStarted', (duration: number) => {
@@ -455,6 +578,9 @@ class ScrumPokerApp {
   private startSession(): void {
     const facilitatorName = getInputValue('facilitator-name');
     const sessionName = getInputValue('session-name');
+    const planningFlowEnabled = (
+      document.getElementById('planning-flow-enabled') as HTMLInputElement | null
+    )?.checked;
 
     if (!facilitatorName || !sessionName) {
       showNotification('Please enter both your name and session name', 'error');
@@ -464,7 +590,7 @@ class ScrumPokerApp {
     saveUserName(facilitatorName);
     disableButtons();
     gameState.updateState({ myName: facilitatorName });
-    socketManager.createSession(sessionName, facilitatorName);
+    socketManager.createSession(sessionName, facilitatorName, Boolean(planningFlowEnabled));
   }
 
   private joinSession(): void {
@@ -499,10 +625,13 @@ class ScrumPokerApp {
 
     gameState.updateState({
       participants: sessionData.participants,
+      attendance: sessionData.attendance || [],
       sessionName: sessionData.sessionName,
       votingRevealed: sessionData.votingRevealed,
       currentJiraIssue: sessionData.currentJiraIssue,
       jiraConfig: sessionData.jiraConfig,
+      jiraIssues: sessionData.jiraIssues || gameState.getState().jiraIssues,
+      planning: sessionData.planning,
       currentTicket: sessionData.currentTicket || '',
       history: sessionData.history || [],
       aggregate: sessionData.aggregate || null,
@@ -532,6 +661,7 @@ class ScrumPokerApp {
     const facilitatorControls = document.getElementById('facilitator-controls');
     const facilitatorCards = [
       document.querySelector('[data-card="session-controls"]'),
+      document.querySelector('[data-card="planning-workflow"]'),
       document.querySelector('[data-card="jira-integration"]'),
       document.querySelector('[data-card="manual-ticket"]'),
     ];
@@ -567,6 +697,7 @@ class ScrumPokerApp {
     this.updateParticipantsList();
     this.updateFacilitatorControls();
     this.updateVotingCards();
+    this.updatePlanningUI();
 
     if (isFacilitator) {
       this.updateToggleViewerButton();
@@ -579,6 +710,10 @@ class ScrumPokerApp {
     this.updateHistoryUI();
     this.updateStatsUI();
     this.updateChatUI();
+
+    if (this.isEndSessionModalOpen()) {
+      this.refreshEndSessionModal();
+    }
 
     // Update discussion timer if session has discussion in progress
     if (sessionData.discussionStartTime && sessionData.currentTicket) {
@@ -602,6 +737,11 @@ class ScrumPokerApp {
     console.log('🔄 AUTO-RECONNECT: Current jiraConfig:', state.jiraConfig);
     console.log('🔄 AUTO-RECONNECT: Is facilitator:', state.isFacilitator);
     console.log('🔄 AUTO-RECONNECT: Room code:', state.roomCode);
+
+    if (!state.roomCode) {
+      console.log('🔄 AUTO-RECONNECT: Room code missing, skipping');
+      return;
+    }
 
     // Only auto-reconnect if:
     // 1. No Jira is currently configured in the session
@@ -691,11 +831,16 @@ class ScrumPokerApp {
 
     const connectBtn = document.getElementById('connect-jira-btn') as HTMLButtonElement;
     const cancelBtn = document.getElementById('cancel-jira-btn') as HTMLButtonElement;
+    const state = gameState.getState();
+
+    if (!state.roomCode) {
+      showNotification('Session is not ready yet. Try again in a moment.', 'error');
+      return;
+    }
 
     if (connectBtn) connectBtn.disabled = true;
     if (cancelBtn) cancelBtn.disabled = true;
 
-    const state = gameState.getState();
     socketManager.configureJira(state.roomCode, cleanDomain, email, token, projectKey || undefined);
   }
 
@@ -712,6 +857,356 @@ class ScrumPokerApp {
       hideElement('jira-connected');
       showElement('jira-not-connected');
     }
+  }
+
+  private updatePlanningUI(): void {
+    const state = gameState.getState();
+    const planningEnabled = state.planning.enabled;
+
+    if (planningEnabled) {
+      showElement('planning-summary-card');
+      showElement('planning-stage-card');
+      if (state.isFacilitator) {
+        showElement('planning-workflow-card');
+      } else {
+        hideElement('planning-workflow-card');
+      }
+      hideElement('manual-ticket');
+    } else {
+      hideElement('planning-summary-card');
+      hideElement('planning-stage-card');
+      hideElement('planning-workflow-card');
+      if (state.isFacilitator) {
+        showElement('manual-ticket');
+      }
+      return;
+    }
+
+    this.renderPlanningSummary();
+    this.renderPlanningStagePanel();
+    this.renderPlanningWorkflowCard();
+  }
+
+  private renderPlanningSummary(): void {
+    const summaryEl = document.getElementById('planning-summary-content');
+    const state = gameState.getState();
+    if (!summaryEl) return;
+
+    const planning = state.planning;
+    const sprintLabel = planning.selectedSprintName || 'No Jira sprint selected';
+    const goalLabel = planning.finalGoal || planning.goalDraft || 'No sprint goal yet';
+    const sprintLength =
+      planning.sprintLengthDays !== null ? `${planning.sprintLengthDays} working days` : 'Unset';
+
+    summaryEl.innerHTML = `
+      <div class="session-meta-list">
+        <div class="session-meta-item"><span>Stage</span><strong>${planning.stage}</strong></div>
+        <div class="session-meta-item"><span>Board</span><strong>${planning.boardName || 'Unset'}</strong></div>
+        <div class="session-meta-item"><span>Sprint</span><strong>${sprintLabel}</strong></div>
+        <div class="session-meta-item"><span>Goal</span><strong>${goalLabel}</strong></div>
+        <div class="session-meta-item"><span>Sprint length</span><strong>${sprintLength}</strong></div>
+        <div class="session-meta-item"><span>Capacity</span><strong>${planning.summary.totalCapacityDays.toFixed(1)} days</strong></div>
+        <div class="session-meta-item"><span>Pending suggestions</span><strong>${planning.summary.pendingSuggestionCount}</strong></div>
+        <div class="session-meta-item"><span>Approved queue</span><strong>${planning.summary.approvedSuggestionCount}</strong></div>
+      </div>
+    `;
+  }
+
+  private renderPlanningStagePanel(): void {
+    const state = gameState.getState();
+    const planning = state.planning;
+
+    setElementText(
+      'planning-stage-title',
+      `Planning flow: ${planning.stage.charAt(0).toUpperCase()}${planning.stage.slice(1)}`
+    );
+
+    const stageStatus = document.getElementById('planning-stage-status');
+    const goalPanel = document.getElementById('planning-goal-vote-panel');
+    const capacityPanel = document.getElementById('planning-capacity-panel');
+    const estimationPanel = document.getElementById('planning-estimation-panel');
+    const goalDisplay = document.getElementById('planning-goal-display');
+    const goalResults = document.getElementById('planning-goal-results');
+    const goalActions = document.getElementById('planning-goal-vote-actions');
+    const capacityStatus = document.getElementById('planning-capacity-status');
+    const capacityInput = document.getElementById(
+      'planning-capacity-input'
+    ) as HTMLInputElement | null;
+
+    if (!stageStatus || !goalPanel || !capacityPanel || !estimationPanel) return;
+
+    hideElement('planning-goal-vote-panel');
+    hideElement('planning-capacity-panel');
+    hideElement('planning-estimation-panel');
+
+    if (planning.stage === 'setup') {
+      setTextContent(stageStatus, 'Facilitator setup is still in progress.');
+    }
+
+    if (planning.stage === 'goal') {
+      showElement('planning-goal-vote-panel');
+      setTextContent(
+        stageStatus,
+        planning.goalVoteRevealed
+          ? 'Sprint goal votes are revealed.'
+          : 'Voting participants can approve or reject the facilitator draft.'
+      );
+      if (goalDisplay) {
+        setTextContent(goalDisplay, planning.goalDraft || 'No sprint goal draft yet.');
+      }
+      if (goalResults) {
+        if (planning.goalVoteRevealed) {
+          setTextContent(
+            goalResults,
+            `${planning.summary.goalApproveCount} approve, ${planning.summary.goalRejectCount} reject`
+          );
+          goalResults.classList.remove('hidden');
+        } else {
+          goalResults.classList.add('hidden');
+        }
+      }
+      if (goalActions) {
+        const canVote = !state.isViewer;
+        (goalActions as HTMLElement).style.display = canVote ? 'flex' : 'none';
+      }
+    }
+
+    if (planning.stage === 'capacity') {
+      showElement('planning-capacity-panel');
+      const maxLabel =
+        planning.sprintLengthDays !== null
+          ? `Submit your available days out of ${planning.sprintLengthDays}.`
+          : 'Facilitator needs to set the sprint length before capacity can be submitted.';
+      setTextContent(stageStatus, maxLabel);
+      if (capacityStatus) {
+        setTextContent(
+          capacityStatus,
+          `${planning.summary.capacitySubmittedCount}/${planning.summary.eligibleVoterCount} submitted, total ${planning.summary.totalCapacityDays.toFixed(1)} days, average ${planning.summary.averageCapacityDays.toFixed(1)}`
+        );
+      }
+      if (capacityInput) {
+        capacityInput.max =
+          planning.sprintLengthDays !== null ? String(planning.sprintLengthDays) : '60';
+        const existing = planning.capacityEntries[state.myName];
+        capacityInput.value = typeof existing === 'number' ? String(existing) : '';
+      }
+    }
+
+    if (planning.stage === 'estimation') {
+      showElement('planning-estimation-panel');
+      setTextContent(
+        stageStatus,
+        'Suggest backlog issues from Jira. The facilitator will approve them into the estimation queue.'
+      );
+    }
+  }
+
+  private renderPlanningWorkflowCard(): void {
+    const state = gameState.getState();
+    const planning = state.planning;
+    if (!state.isFacilitator) return;
+
+    const showForStage = (id: string, visible: boolean) => {
+      if (visible) {
+        showElement(id);
+      } else {
+        hideElement(id);
+      }
+    };
+
+    showForStage('planning-setup-panel', planning.stage === 'setup');
+    showForStage('planning-goal-controls', planning.stage === 'goal');
+    showForStage('planning-capacity-controls', planning.stage === 'capacity');
+    showForStage('planning-queue-review', planning.stage === 'estimation');
+
+    const sprintLengthInput = document.getElementById(
+      'planning-sprint-length'
+    ) as HTMLInputElement | null;
+    const goalInput = document.getElementById('planning-goal-input') as HTMLTextAreaElement | null;
+    if (sprintLengthInput && planning.sprintLengthDays !== null) {
+      sprintLengthInput.value = String(planning.sprintLengthDays);
+    }
+    if (goalInput && goalInput.value !== planning.goalDraft) {
+      goalInput.value = planning.goalDraft || '';
+    }
+
+    this.populatePlanningSprints(planning.availableSprints);
+    this.renderPlanningQueueLists();
+  }
+
+  private renderPlanningQueueLists(): void {
+    const state = gameState.getState();
+    const pendingEl = document.getElementById('planning-pending-list');
+    const approvedEl = document.getElementById('planning-approved-list');
+    if (!pendingEl || !approvedEl) return;
+
+    pendingEl.innerHTML = '';
+    approvedEl.innerHTML = '';
+
+    const renderItem = (
+      suggestion: PlanningSuggestion,
+      container: HTMLElement,
+      mode: 'pending' | 'approved'
+    ) => {
+      const item = document.createElement('div');
+      item.className = 'planning-queue-item';
+      const meta = `${suggestion.issue.key} • suggested by ${suggestion.suggestedBy}`;
+      item.innerHTML = `
+        <div class="planning-queue-item-title">${suggestion.issue.summary}</div>
+        <div class="planning-queue-item-meta">${meta}</div>
+      `;
+
+      if (state.isFacilitator) {
+        const actions = document.createElement('div');
+        actions.className = 'button-group';
+        if (mode === 'pending') {
+          const approveBtn = document.createElement('button');
+          approveBtn.className = 'btn btn-sm';
+          approveBtn.textContent = 'Approve';
+          approveBtn.addEventListener('click', () =>
+            socketManager.reviewSuggestion(state.roomCode, suggestion.id, 'approve')
+          );
+          const rejectBtn = document.createElement('button');
+          rejectBtn.className = 'btn btn-outline btn-sm';
+          rejectBtn.textContent = 'Reject';
+          rejectBtn.addEventListener('click', () =>
+            socketManager.reviewSuggestion(state.roomCode, suggestion.id, 'reject')
+          );
+          actions.appendChild(approveBtn);
+          actions.appendChild(rejectBtn);
+        } else {
+          const startBtn = document.createElement('button');
+          startBtn.className = 'btn btn-sm';
+          startBtn.textContent = 'Start Estimation';
+          startBtn.addEventListener('click', () =>
+            socketManager.selectApprovedIssue(state.roomCode, suggestion.id)
+          );
+          actions.appendChild(startBtn);
+        }
+        item.appendChild(actions);
+      }
+
+      container.appendChild(item);
+    };
+
+    if (!state.planning.suggestionQueue.length) {
+      pendingEl.innerHTML = '<p class="empty-state">No pending suggestions.</p>';
+    } else {
+      state.planning.suggestionQueue.forEach(suggestion =>
+        renderItem(suggestion, pendingEl, 'pending')
+      );
+    }
+
+    if (!state.planning.approvedQueue.length) {
+      approvedEl.innerHTML = '<p class="empty-state">No approved issues yet.</p>';
+    } else {
+      state.planning.approvedQueue.forEach(suggestion =>
+        renderItem(suggestion, approvedEl, 'approved')
+      );
+    }
+  }
+
+  private populatePlanningSprints(sprints: PlanningSprint[]): void {
+    const select = document.getElementById('planning-sprint-select') as HTMLSelectElement | null;
+    if (!select) return;
+
+    const state = gameState.getState();
+    select.innerHTML = '<option value="">No Jira sprint selected</option>';
+    sprints.forEach(sprint => {
+      const option = document.createElement('option');
+      option.value = String(sprint.id);
+      option.textContent = `${sprint.name} (${sprint.state})`;
+      if (state.planning.selectedSprintId === sprint.id) {
+        option.selected = true;
+      }
+      select.appendChild(option);
+    });
+  }
+
+  private savePlanningSetup(): void {
+    const state = gameState.getState();
+    const sprintSelect = document.getElementById(
+      'planning-sprint-select'
+    ) as HTMLSelectElement | null;
+    const sprintLengthInput = document.getElementById(
+      'planning-sprint-length'
+    ) as HTMLInputElement | null;
+
+    if (!state.isFacilitator) return;
+
+    const selectedSprintId = sprintSelect?.value ? parseInt(sprintSelect.value, 10) : undefined;
+    const selectedSprint = state.planning.availableSprints.find(
+      sprint => sprint.id === selectedSprintId
+    );
+    const sprintLength = sprintLengthInput?.value ? parseFloat(sprintLengthInput.value) : null;
+
+    socketManager.selectPlanningSprint(
+      state.roomCode,
+      selectedSprint?.id,
+      selectedSprint?.name,
+      sprintLength
+    );
+  }
+
+  private savePlanningGoal(): void {
+    const state = gameState.getState();
+    const goalDraft = getInputValue('planning-goal-input');
+    socketManager.updatePlanningGoal(state.roomCode, goalDraft);
+  }
+
+  private submitGoalVote(vote: SprintGoalVote): void {
+    const state = gameState.getState();
+    if (state.isViewer) {
+      showNotification('Observers cannot vote on the sprint goal', 'error');
+      return;
+    }
+    socketManager.submitGoalVote(state.roomCode, vote);
+  }
+
+  private revealPlanningGoalVotes(): void {
+    const state = gameState.getState();
+    socketManager.revealGoalVotes(state.roomCode);
+  }
+
+  private resetPlanningGoalVoting(): void {
+    const state = gameState.getState();
+    socketManager.resetGoalVoting(state.roomCode);
+  }
+
+  private finalizePlanningGoal(): void {
+    const state = gameState.getState();
+    socketManager.finalizeGoal(state.roomCode);
+  }
+
+  private submitCapacity(): void {
+    const state = gameState.getState();
+    if (state.isViewer) {
+      showNotification('Observers cannot submit sprint capacity', 'error');
+      return;
+    }
+
+    const value = parseFloat(getInputValue('planning-capacity-input'));
+    if (Number.isNaN(value) || value < 0) {
+      showNotification('Enter a valid capacity value', 'error');
+      return;
+    }
+
+    socketManager.submitCapacity(state.roomCode, value);
+  }
+
+  private skipPlanningStage(stage: 'goal' | 'capacity'): void {
+    const state = gameState.getState();
+    socketManager.skipPlanningStage(state.roomCode, stage);
+  }
+
+  private isIssueQueued(issueKey: string): boolean {
+    const state = gameState.getState();
+    return (
+      state.planning.suggestionQueue.some(item => item.issue.key === issueKey) ||
+      state.planning.approvedQueue.some(item => item.issue.key === issueKey) ||
+      state.currentJiraIssue?.key === issueKey ||
+      state.history.some(entry => entry.issueKey === issueKey)
+    );
   }
 
   private populateJiraBoards(boards: JiraBoard[]): void {
@@ -736,12 +1231,16 @@ class ScrumPokerApp {
     const boardSelect = document.getElementById('jira-board-select') as HTMLSelectElement;
     const boardId = boardSelect.value;
     if (!boardId) return;
+    const boardName = boardSelect.options[boardSelect.selectedIndex]?.text || '';
 
     const loadBtn = document.getElementById('load-issues-btn') as HTMLButtonElement;
     if (loadBtn) loadBtn.disabled = true;
 
     const state = gameState.getState();
-    socketManager.getJiraIssues(state.roomCode, boardId);
+    socketManager.getJiraIssues(state.roomCode, boardId, boardName);
+    if (state.planning.enabled) {
+      socketManager.getPlanningSprints(state.roomCode, boardId);
+    }
   }
 
   private displayJiraIssues(searchTerm: string = ''): void {
@@ -862,8 +1361,9 @@ class ScrumPokerApp {
   private createJiraIssueElement(issue: JiraIssue, clickable: boolean): HTMLElement {
     const div = document.createElement('div');
     div.className = 'jira-issue';
+    const state = gameState.getState();
 
-    if (clickable) {
+    if (clickable && !state.planning.enabled) {
       div.addEventListener('click', () => this.selectJiraIssue(issue));
     } else {
       div.classList.add('jira-issue-passive');
@@ -918,6 +1418,22 @@ class ScrumPokerApp {
     div.appendChild(summaryDiv);
     div.appendChild(metaDiv);
 
+    if (clickable && state.planning.enabled) {
+      const actionBtn = createElement(
+        'button',
+        this.isIssueQueued(issue.key) ? 'Queued' : 'Suggest for Planning',
+        'btn btn-outline btn-sm'
+      ) as HTMLButtonElement;
+      actionBtn.type = 'button';
+      actionBtn.disabled = this.isIssueQueued(issue.key) || state.planning.stage !== 'estimation';
+      actionBtn.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.selectJiraIssue(issue);
+      });
+      div.appendChild(actionBtn);
+    }
+
     return div;
   }
 
@@ -936,6 +1452,15 @@ class ScrumPokerApp {
 
     gameState.updateState({ selectedIssue: issue });
     const state = gameState.getState();
+    if (state.planning.enabled) {
+      if (state.planning.stage !== 'estimation') {
+        showNotification('Issue suggestions open after goal and capacity planning', 'error');
+        return;
+      }
+      socketManager.suggestJiraIssue(state.roomCode, issue);
+      return;
+    }
+
     socketManager.setJiraIssue(state.roomCode, issue);
   }
 
@@ -947,6 +1472,11 @@ class ScrumPokerApp {
 
     if (!state.currentTicket) {
       showNotification('Please wait for a ticket to be set', 'error');
+      return;
+    }
+
+    if (state.planning.enabled && state.planning.stage !== 'estimation') {
+      showNotification('Estimation starts after the planning stages are complete', 'error');
       return;
     }
 
@@ -983,13 +1513,14 @@ class ScrumPokerApp {
 
   private updateVotingCards(): void {
     const state = gameState.getState();
+    const votingLocked = state.planning.enabled && state.planning.stage !== 'estimation';
 
     // Batch voting card updates
     mutateDOM(() => {
       const cards = document.querySelectorAll('.card');
 
       cards.forEach(card => {
-        if (state.isViewer || state.votingRevealed) {
+        if (state.isViewer || state.votingRevealed || votingLocked || !state.currentTicket) {
           card.classList.add('disabled');
           (card as HTMLElement).style.cursor = 'not-allowed';
         } else {
@@ -1410,6 +1941,7 @@ class ScrumPokerApp {
     if (!state.isFacilitator) return;
 
     const hasVotes = state.participants.some(p => p.hasVoted && !p.isViewer);
+    const planningLocked = state.planning.enabled && state.planning.stage !== 'estimation';
 
     // Batch button updates
     mutateDOM(() => {
@@ -1417,11 +1949,11 @@ class ScrumPokerApp {
       const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
       const countdownBtn = document.getElementById('countdown-btn') as HTMLButtonElement;
 
-      if (revealBtn) revealBtn.disabled = !hasVotes || state.votingRevealed;
-      if (resetBtn) resetBtn.disabled = !state.currentTicket;
+      if (revealBtn) revealBtn.disabled = planningLocked || !hasVotes || state.votingRevealed;
+      if (resetBtn) resetBtn.disabled = planningLocked || !state.currentTicket;
       if (countdownBtn)
         countdownBtn.disabled =
-          !state.currentTicket || state.votingRevealed || state.countdownActive;
+          planningLocked || !state.currentTicket || state.votingRevealed || state.countdownActive;
     });
   }
 
@@ -1577,7 +2109,11 @@ class ScrumPokerApp {
         'finalize-and-sprint-btn'
       ) as HTMLButtonElement | null;
       if (sprintBtn) {
-        sprintBtn.style.display = state.jiraConfig.boardId ? '' : 'none';
+        const hasPlanningSprint = state.planning.enabled && state.planning.selectedSprintName;
+        sprintBtn.style.display = state.jiraConfig.boardId || hasPlanningSprint ? '' : 'none';
+        sprintBtn.textContent = hasPlanningSprint
+          ? `Update & Add to ${state.planning.selectedSprintName}`
+          : 'Update & Move to Sprint';
         sprintBtn.disabled = false;
       }
     } else if (finalizeSection) {
@@ -1700,18 +2236,111 @@ class ScrumPokerApp {
       modal.style.display = 'flex';
     }
 
-    // Update download button visibility based on available data
-    this.updateEndSessionDownloadButtons();
+    this.resetConfluenceModalState();
+    this.refreshEndSessionModal();
   }
 
-  private updateEndSessionDownloadButtons(): void {
+  private isEndSessionModalOpen(): boolean {
+    const modal = document.getElementById('end-session-modal');
+    return !!modal && !modal.classList.contains('hidden');
+  }
+
+  private createCurrentSessionSnapshot(): SessionData {
+    const state = gameState.getState();
+    const facilitator =
+      state.participants.find(participant => participant.isFacilitator)?.name || state.myName;
+
+    return {
+      id: state.roomCode,
+      sessionName: state.sessionName,
+      facilitator,
+      currentTicket: state.currentTicket,
+      currentJiraIssue: state.currentJiraIssue,
+      jiraConfig: state.jiraConfig,
+      jiraIssues: state.jiraIssues,
+      planning: state.planning,
+      participants: state.participants,
+      attendance: state.attendance,
+      votingRevealed: state.votingRevealed,
+      totalVotes: state.participants.filter(participant => participant.hasVoted).length,
+      discussionStartTime: null,
+      history: state.history,
+      aggregate: state.aggregate,
+      chatMessages: state.chatMessages,
+    };
+  }
+
+  private getCurrentSessionReport(): SessionReport {
+    const state = gameState.getState();
+    return buildSessionReport(this.createCurrentSessionSnapshot(), {
+      jiraBaseUrl: state.jiraConfig?.domain ? `https://${state.jiraConfig.domain}` : undefined,
+    });
+  }
+
+  private refreshEndSessionModal(): void {
+    const report = this.getCurrentSessionReport();
+    const previewTitle = document.getElementById('end-session-report-title');
+    const previewMeta = document.getElementById('end-session-report-meta');
+    const summaryBtn = document.getElementById(
+      'download-sprint-summary-btn'
+    ) as HTMLButtonElement | null;
+    const goalText =
+      report.goal?.status === 'finalized' || report.goal?.status === 'draft'
+        ? report.goal.text
+        : report.goal?.status === 'skipped'
+          ? 'Skipped'
+          : 'No sprint goal recorded';
+
+    if (previewTitle) {
+      setTextContent(previewTitle, report.title);
+    }
+
+    if (previewMeta) {
+      previewMeta.innerHTML = '';
+      [
+        ['Attendees', String(report.attendees.length)],
+        ['Sprint goal', goalText || 'No sprint goal recorded'],
+        [
+          'Total capacity',
+          report.capacity?.skipped
+            ? 'Skipped'
+            : report.capacity
+              ? `${report.capacity.totalDays} days`
+              : 'Not available',
+        ],
+        ['Discussed tickets', String(report.tickets.length)],
+      ].forEach(([label, value]) => {
+        const row = document.createElement('div');
+        row.className = 'session-meta-item';
+
+        const labelEl = document.createElement('span');
+        labelEl.textContent = label;
+
+        const valueEl = document.createElement('strong');
+        valueEl.textContent = value;
+
+        row.appendChild(labelEl);
+        row.appendChild(valueEl);
+        previewMeta.appendChild(row);
+      });
+    }
+
+    if (summaryBtn) {
+      summaryBtn.disabled = report.attendees.length === 0 && report.tickets.length === 0;
+    }
+
+    this.updateLegacyEndSessionExports();
+    this.updateConfluenceSection();
+  }
+
+  private updateLegacyEndSessionExports(): void {
     const state = gameState.getState();
     const hasHistory = state.history && state.history.length > 0;
     const hasStats = state.aggregate && state.aggregate.totalRounds > 0;
 
     const historyBtn = document.getElementById('download-history-btn') as HTMLButtonElement;
     const statsBtn = document.getElementById('download-statistics-btn') as HTMLButtonElement;
-    const downloadsSection = document.getElementById('end-session-downloads');
+    const downloadsSection = document.getElementById('end-session-legacy-downloads');
 
     if (historyBtn) {
       historyBtn.disabled = !hasHistory;
@@ -1723,17 +2352,316 @@ class ScrumPokerApp {
       statsBtn.style.opacity = hasStats ? '1' : '0.5';
     }
 
-    // Hide entire downloads section if no data available
     if (downloadsSection) {
-      if (!hasHistory && !hasStats) {
-        downloadsSection.style.display = 'none';
-      } else {
-        downloadsSection.style.display = 'block';
-      }
+      downloadsSection.style.display = !hasHistory && !hasStats ? 'none' : 'block';
     }
   }
 
+  private updateConfluenceSection(): void {
+    const state = gameState.getState();
+    const section = document.getElementById('end-session-confluence');
+    const titleInput = document.getElementById('confluence-page-title') as HTMLInputElement | null;
+
+    if (!section) return;
+
+    const canPublish = state.isFacilitator && Boolean(state.jiraConfig?.hasToken);
+    if (!canPublish) {
+      section.classList.add('hidden');
+      this.updateConfluencePublishButtonState();
+      return;
+    }
+
+    section.classList.remove('hidden');
+
+    if (titleInput && titleInput.dataset.userEdited !== 'true') {
+      titleInput.value = buildDefaultSessionReportTitle(this.createCurrentSessionSnapshot());
+    }
+
+    this.renderSelectedConfluenceParent();
+    this.renderConfluenceParentResults();
+    this.updateConfluencePublishButtonState();
+  }
+
+  private clearConfluenceSearchTimeout(): void {
+    if (this.confluenceSearchTimeout !== null) {
+      window.clearTimeout(this.confluenceSearchTimeout);
+      this.confluenceSearchTimeout = null;
+    }
+  }
+
+  private resetConfluenceModalState(): void {
+    this.clearConfluenceSearchTimeout();
+    this.setConfluencePublishPending(false);
+    this.confluenceParentResults = [];
+    this.selectedConfluenceParent = null;
+    this.latestConfluenceSearchQuery = '';
+
+    const parentSearchInput = document.getElementById(
+      'confluence-parent-search'
+    ) as HTMLInputElement | null;
+    const titleInput = document.getElementById('confluence-page-title') as HTMLInputElement | null;
+    if (parentSearchInput) {
+      parentSearchInput.value = '';
+    }
+    if (titleInput) {
+      titleInput.value = '';
+      delete titleInput.dataset.userEdited;
+    }
+
+    this.renderConfluenceParentResults();
+    this.renderSelectedConfluenceParent();
+    this.setConfluencePublishStatus('');
+    this.updateConfluencePublishButtonState();
+  }
+
+  private renderConfluenceParentResults(): void {
+    const resultsEl = document.getElementById('confluence-parent-results');
+    if (!resultsEl) return;
+
+    resultsEl.innerHTML = '';
+
+    const searchInput = document.getElementById(
+      'confluence-parent-search'
+    ) as HTMLInputElement | null;
+    const query = searchInput?.value.trim() || '';
+
+    if (!query || query.length < 2) {
+      resultsEl.classList.add('hidden');
+      return;
+    }
+
+    if (this.selectedConfluenceParent && query === this.selectedConfluenceParent.title) {
+      resultsEl.classList.add('hidden');
+      return;
+    }
+
+    resultsEl.classList.remove('hidden');
+
+    if (this.confluenceParentResults.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'confluence-search-empty';
+      empty.textContent =
+        this.latestConfluenceSearchQuery === query
+          ? 'No matching Confluence pages found.'
+          : 'Searching...';
+      resultsEl.appendChild(empty);
+      return;
+    }
+
+    this.confluenceParentResults.forEach(result => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'confluence-search-result';
+      button.addEventListener('click', () => this.selectConfluenceParent(result));
+
+      const title = document.createElement('strong');
+      title.textContent = result.title;
+
+      const meta = document.createElement('span');
+      meta.textContent = result.spaceName || 'Confluence page';
+
+      button.appendChild(title);
+      button.appendChild(meta);
+      resultsEl.appendChild(button);
+    });
+  }
+
+  private renderSelectedConfluenceParent(): void {
+    const selectedEl = document.getElementById('confluence-selected-parent');
+    if (!selectedEl) return;
+
+    selectedEl.innerHTML = '';
+    if (!this.selectedConfluenceParent) {
+      const searchInput = document.getElementById(
+        'confluence-parent-search'
+      ) as HTMLInputElement | null;
+      const isRootPublish = !searchInput?.value.trim();
+      if (isRootPublish) {
+        const label = document.createElement('span');
+        label.textContent = 'No parent selected. The page will be created at the space root.';
+        selectedEl.appendChild(label);
+        selectedEl.classList.remove('hidden');
+        return;
+      }
+
+      selectedEl.classList.add('hidden');
+      return;
+    }
+
+    const label = document.createElement('span');
+    label.textContent = `Selected parent: ${this.selectedConfluenceParent.title}`;
+    selectedEl.appendChild(label);
+
+    if (this.selectedConfluenceParent.url) {
+      const separator = document.createTextNode(' ');
+      const link = createSafeLink(this.selectedConfluenceParent.url, 'Open', '_blank');
+      selectedEl.appendChild(separator);
+      selectedEl.appendChild(link);
+    }
+
+    selectedEl.classList.remove('hidden');
+  }
+
+  private selectConfluenceParent(result: ConfluencePageSearchResult): void {
+    this.selectedConfluenceParent = result;
+    const input = document.getElementById('confluence-parent-search') as HTMLInputElement | null;
+    if (input) {
+      input.value = result.title;
+    }
+    this.confluenceParentResults = [];
+    this.renderConfluenceParentResults();
+    this.renderSelectedConfluenceParent();
+    this.updateConfluencePublishButtonState();
+  }
+
+  private handleConfluenceParentSearchInput(query: string): void {
+    this.clearConfluenceSearchTimeout();
+
+    if (this.selectedConfluenceParent && query.trim() !== this.selectedConfluenceParent.title) {
+      this.selectedConfluenceParent = null;
+    }
+    this.renderSelectedConfluenceParent();
+
+    if (query.trim().length < 2) {
+      this.latestConfluenceSearchQuery = '';
+      this.confluenceParentResults = [];
+      this.renderConfluenceParentResults();
+      this.updateConfluencePublishButtonState();
+      return;
+    }
+
+    const state = gameState.getState();
+    this.confluenceSearchTimeout = window.setTimeout(() => {
+      this.latestConfluenceSearchQuery = query.trim();
+      socketManager.searchConfluenceParents(state.roomCode, query.trim());
+      this.renderConfluenceParentResults();
+    }, 250);
+
+    this.updateConfluencePublishButtonState();
+  }
+
+  private handleConfluenceParentSearchResults(
+    query: string,
+    results: ConfluencePageSearchResult[]
+  ): void {
+    const input = document.getElementById('confluence-parent-search') as HTMLInputElement | null;
+    if (!input || input.value.trim() !== query.trim()) {
+      return;
+    }
+
+    this.latestConfluenceSearchQuery = query.trim();
+    this.confluenceParentResults = results;
+    this.renderConfluenceParentResults();
+  }
+
+  private setConfluencePublishStatus(
+    message: string,
+    type: 'success' | 'error' | 'info' = 'info',
+    url?: string
+  ): void {
+    const statusEl = document.getElementById('confluence-publish-status');
+    if (!statusEl) return;
+
+    statusEl.innerHTML = '';
+    statusEl.classList.remove('hidden', 'status-success', 'status-error', 'status-info');
+
+    if (!message) {
+      statusEl.classList.add('hidden');
+      return;
+    }
+
+    statusEl.classList.add(`status-${type}`);
+    const text = document.createElement('span');
+    text.textContent = message;
+    statusEl.appendChild(text);
+
+    if (url) {
+      statusEl.appendChild(document.createTextNode(' '));
+      statusEl.appendChild(createSafeLink(url, 'Open page', '_blank'));
+    }
+  }
+
+  private updateConfluencePublishButtonState(): void {
+    const button = document.getElementById('publish-confluence-btn') as HTMLButtonElement | null;
+    const titleInput = document.getElementById('confluence-page-title') as HTMLInputElement | null;
+    const parentInput = document.getElementById(
+      'confluence-parent-search'
+    ) as HTMLInputElement | null;
+    if (!button) return;
+
+    if (button.dataset.pending === 'true') {
+      button.disabled = true;
+      return;
+    }
+
+    const parentQuery = parentInput?.value.trim() || '';
+    const canPublishToRoot = parentQuery.length === 0;
+    button.disabled =
+      !titleInput?.value.trim() || (!this.selectedConfluenceParent && !canPublishToRoot);
+  }
+
+  private setConfluencePublishPending(pending: boolean): void {
+    const button = document.getElementById('publish-confluence-btn') as HTMLButtonElement | null;
+    if (!button) return;
+
+    button.dataset.pending = pending ? 'true' : 'false';
+    button.textContent = pending ? 'Publishing...' : 'Create Confluence Page';
+    this.updateConfluencePublishButtonState();
+  }
+
+  private downloadSprintSummary(): void {
+    const report = this.getCurrentSessionReport();
+    const markdown = renderSessionReportMarkdown(report);
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = buildSessionReportFilename(report);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  private publishSprintSummaryToConfluence(): void {
+    const state = gameState.getState();
+    const titleInput = document.getElementById('confluence-page-title') as HTMLInputElement | null;
+    const parentInput = document.getElementById(
+      'confluence-parent-search'
+    ) as HTMLInputElement | null;
+    const title = titleInput?.value.trim() || '';
+    const parentQuery = parentInput?.value.trim() || '';
+
+    if (!state.roomCode || !title) {
+      showNotification('Enter a page title before publishing', 'error');
+      return;
+    }
+
+    if (!this.selectedConfluenceParent && parentQuery) {
+      showNotification(
+        'Select a parent search result or clear the field to publish at the root',
+        'error'
+      );
+      return;
+    }
+
+    this.setConfluencePublishPending(true);
+    this.setConfluencePublishStatus(
+      this.selectedConfluenceParent
+        ? 'Publishing sprint summary to Confluence...'
+        : 'Publishing sprint summary to Confluence at the space root...',
+      'info'
+    );
+    socketManager.createConfluencePage(state.roomCode, this.selectedConfluenceParent?.id, title);
+  }
+
+  private handleConfluencePageCreated(title: string, url?: string): void {
+    this.setConfluencePublishPending(false);
+    this.setConfluencePublishStatus(`Published "${title}" to Confluence.`, 'success', url);
+  }
+
   private closeEndSessionModal(): void {
+    this.clearConfluenceSearchTimeout();
     const modal = document.getElementById('end-session-modal');
     if (modal) {
       modal.classList.add('hidden');

@@ -5,6 +5,7 @@ import {
   JiraIssue,
   Vote,
   ChatMessage,
+  SprintGoalVote,
 } from '@shared/types/index.js';
 import { gameState } from './GameState.js';
 import { updateConnectionStatus, showNotification, enableButtons } from '../utils/ui.js';
@@ -164,8 +165,12 @@ export class SocketManager {
     });
 
     this.socket.on('jira-issues-loaded', data => {
-      gameState.updateState({ jiraIssues: data.issues });
+      gameState.updateState({
+        jiraIssues: data.issues,
+        planning: data.sessionData.planning,
+      });
       this.emit('jiraIssuesLoaded', data.issues);
+      this.emit('sessionUpdated', data.sessionData);
       showNotification(`Loaded ${data.issues.length} issues from Jira`, 'success');
     });
 
@@ -178,6 +183,7 @@ export class SocketManager {
         currentJiraIssue: data.issue,
         currentTicket: `${data.issue.key}: ${data.issue.summary}`,
         votingRevealed: false,
+        planning: data.sessionData.planning,
       });
       gameState.clearVote();
 
@@ -206,6 +212,7 @@ export class SocketManager {
         currentJiraIssue: null,
         votingRevealed: false,
         jiraIssues: updatedIssues,
+        planning: data.sessionData.planning,
       });
       gameState.clearVote();
 
@@ -222,6 +229,7 @@ export class SocketManager {
       gameState.updateState({
         currentTicket: data.ticket,
         votingRevealed: false,
+        planning: data.sessionData.planning,
       });
       gameState.clearVote();
 
@@ -245,7 +253,7 @@ export class SocketManager {
     });
 
     this.socket.on('voting-reset', data => {
-      gameState.updateState({ votingRevealed: false });
+      gameState.updateState({ votingRevealed: false, planning: data.sessionData.planning });
       gameState.clearVote();
 
       this.emit('sessionUpdated', data.sessionData);
@@ -311,6 +319,80 @@ export class SocketManager {
     this.socket.on('jira-issue-details-failed', data => {
       this.emit('jiraIssueDetailsFailed', data);
     });
+
+    this.socket.on('planning-sprints-loaded', data => {
+      gameState.updateState({ planning: data.sessionData.planning });
+      this.emit('planningSprintsLoaded', data.sprints);
+      this.emit('sessionUpdated', data.sessionData);
+    });
+
+    this.socket.on('planning-goal-updated', data => {
+      gameState.updateState({ planning: data.sessionData.planning });
+      this.emit('planningGoalUpdated', data.sessionData.planning);
+      this.emit('sessionUpdated', data.sessionData);
+    });
+
+    this.socket.on('planning-goal-vote-submitted', data => {
+      gameState.updateState({ planning: data.sessionData.planning });
+      this.emit('planningGoalVoteSubmitted', data);
+      this.emit('sessionUpdated', data.sessionData);
+    });
+
+    this.socket.on('planning-goal-revealed', data => {
+      gameState.updateState({ planning: data.sessionData.planning });
+      this.emit('planningGoalRevealed', data.sessionData.planning);
+      this.emit('sessionUpdated', data.sessionData);
+    });
+
+    this.socket.on('planning-capacity-submitted', data => {
+      gameState.updateState({ planning: data.sessionData.planning });
+      this.emit('planningCapacitySubmitted', data);
+      this.emit('sessionUpdated', data.sessionData);
+    });
+
+    this.socket.on('planning-stage-advanced', data => {
+      gameState.updateState({ planning: data.sessionData.planning });
+      this.emit('planningStageAdvanced', data.stage);
+      this.emit('sessionUpdated', data.sessionData);
+    });
+
+    this.socket.on('planning-suggestion-added', data => {
+      gameState.updateState({ planning: data.sessionData.planning });
+      this.emit('planningSuggestionAdded', data.suggestion);
+      this.emit('sessionUpdated', data.sessionData);
+    });
+
+    this.socket.on('planning-suggestion-reviewed', data => {
+      gameState.updateState({ planning: data.sessionData.planning });
+      this.emit('planningSuggestionReviewed', data);
+      this.emit('sessionUpdated', data.sessionData);
+    });
+
+    this.socket.on('planning-approved-issue-selected', data => {
+      gameState.updateState({
+        currentJiraIssue: data.issue,
+        currentTicket: `${data.issue.key}: ${data.issue.summary}`,
+        votingRevealed: false,
+        planning: data.sessionData.planning,
+      });
+      gameState.clearVote();
+      this.emit('planningApprovedIssueSelected', data);
+      this.emit('sessionUpdated', data.sessionData);
+    });
+
+    this.socket.on('confluence-parent-search-results', data => {
+      this.emit('confluenceParentSearchResults', data);
+    });
+
+    this.socket.on('confluence-page-created', data => {
+      showNotification(`Created Confluence page: ${data.title}`, 'success');
+      this.emit('confluencePageCreated', data);
+    });
+
+    this.socket.on('confluence-page-failed', data => {
+      showNotification(data.message, 'error');
+      this.emit('confluencePageFailed', data);
+    });
   }
 
   // Event system
@@ -339,8 +421,8 @@ export class SocketManager {
   }
 
   // Socket.IO methods
-  createSession(sessionName: string, facilitatorName: string): void {
-    this.socket?.emit('create-session', { sessionName, facilitatorName });
+  createSession(sessionName: string, facilitatorName: string, planningFlowEnabled = false): void {
+    this.socket?.emit('create-session', { sessionName, facilitatorName, planningFlowEnabled });
   }
 
   joinSession(roomCode: string, participantName: string, asViewer = false): void {
@@ -357,8 +439,74 @@ export class SocketManager {
     this.socket?.emit('configure-jira', { roomCode, domain, email, token, projectKey });
   }
 
-  getJiraIssues(roomCode: string, boardId: string): void {
-    this.socket?.emit('get-jira-issues', { roomCode, boardId });
+  getJiraIssues(roomCode: string, boardId: string, boardName?: string): void {
+    this.socket?.emit('get-jira-issues', { roomCode, boardId, boardName });
+  }
+
+  getPlanningSprints(roomCode: string, boardId: string): void {
+    this.socket?.emit('get-planning-sprints', { roomCode, boardId });
+  }
+
+  selectPlanningSprint(
+    roomCode: string,
+    sprintId?: number,
+    sprintName?: string,
+    sprintLengthDays?: number | null
+  ): void {
+    this.socket?.emit('select-planning-sprint', {
+      roomCode,
+      sprintId,
+      sprintName,
+      sprintLengthDays,
+    });
+  }
+
+  updatePlanningGoal(roomCode: string, goalDraft: string): void {
+    this.socket?.emit('update-planning-goal', { roomCode, goalDraft });
+  }
+
+  submitGoalVote(roomCode: string, vote: SprintGoalVote): void {
+    this.socket?.emit('submit-goal-vote', { roomCode, vote });
+  }
+
+  revealGoalVotes(roomCode: string): void {
+    this.socket?.emit('reveal-goal-votes', { roomCode });
+  }
+
+  resetGoalVoting(roomCode: string): void {
+    this.socket?.emit('reset-goal-voting', { roomCode });
+  }
+
+  finalizeGoal(roomCode: string): void {
+    this.socket?.emit('finalize-goal', { roomCode });
+  }
+
+  submitCapacity(roomCode: string, capacityDays: number): void {
+    this.socket?.emit('submit-capacity', { roomCode, capacityDays });
+  }
+
+  skipPlanningStage(roomCode: string, stage: 'goal' | 'capacity'): void {
+    this.socket?.emit('skip-planning-stage', { roomCode, stage });
+  }
+
+  suggestJiraIssue(roomCode: string, issue: JiraIssue): void {
+    this.socket?.emit('suggest-jira-issue', { roomCode, issue });
+  }
+
+  reviewSuggestion(roomCode: string, suggestionId: string, action: 'approve' | 'reject'): void {
+    this.socket?.emit('review-suggestion', { roomCode, suggestionId, action });
+  }
+
+  selectApprovedIssue(roomCode: string, suggestionId: string): void {
+    this.socket?.emit('select-approved-issue', { roomCode, suggestionId });
+  }
+
+  searchConfluenceParents(roomCode: string, query: string): void {
+    this.socket?.emit('search-confluence-parents', { roomCode, query });
+  }
+
+  createConfluencePage(roomCode: string, parentPageId: string | undefined, title: string): void {
+    this.socket?.emit('create-confluence-page', { roomCode, parentPageId, title });
   }
 
   getJiraIssueDetails(roomCode: string, issueKey: string): void {
