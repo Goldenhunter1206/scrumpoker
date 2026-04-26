@@ -22,6 +22,6 @@
     }
   },
   "include": ["src/client/**/*.ts", "src/client/**/*.tsx", "src/shared/**/*.ts", "src/shared/**/*.tsx"],
-  "exclude": ["src/client/main.ts", "src/client/components/GameState.ts", "src/client/components/SocketManager.ts", "src/client/utils"],
+  "exclude": ["src/client/utils"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
