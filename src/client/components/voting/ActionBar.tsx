@@ -26,7 +26,8 @@ export default function ActionBar({
           <button
             onClick={onReveal}
             disabled={!canReveal}
-            className="inline-flex items-center gap-2 h-10 px-4 bg-[#0052CC] text-white rounded-md text-sm font-medium hover:bg-[#0747A6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            aria-label="Reveal all votes"
+            className="inline-flex items-center gap-2 h-10 px-4 bg-[var(--sp-primary)] text-white rounded-md text-sm font-medium hover:bg-[var(--sp-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Eye className="w-4 h-4" />
             Reveal Votes
@@ -34,7 +35,8 @@ export default function ActionBar({
 
           <button
             onClick={onStartTimer}
-            className="inline-flex items-center gap-2 h-10 px-4 bg-white border border-[#DFE1E6] text-[#172B4D] rounded-md text-sm font-medium hover:bg-[#F4F5F7] transition-colors"
+            aria-label="Start voting timer"
+            className="inline-flex items-center gap-2 h-10 px-4 bg-[var(--sp-card)] border border-[var(--sp-border)] text-[var(--sp-fg)] rounded-md text-sm font-medium hover:bg-[var(--sp-surface)] transition-colors"
           >
             <Timer className="w-4 h-4" />
             Start Timer
@@ -42,7 +44,8 @@ export default function ActionBar({
 
           <button
             onClick={onSkip}
-            className="inline-flex items-center gap-2 h-10 px-4 bg-white border border-[#DFE1E6] text-[#172B4D] rounded-md text-sm font-medium hover:bg-[#F4F5F7] transition-colors"
+            aria-label="Skip to next issue"
+            className="inline-flex items-center gap-2 h-10 px-4 bg-[var(--sp-card)] border border-[var(--sp-border)] text-[var(--sp-fg)] rounded-md text-sm font-medium hover:bg-[var(--sp-surface)] transition-colors"
           >
             <SkipForward className="w-4 h-4" />
             Skip to Next
@@ -52,7 +55,8 @@ export default function ActionBar({
         <>
           <button
             onClick={onReset}
-            className="inline-flex items-center gap-2 h-10 px-4 bg-white border border-[#DFE1E6] text-[#172B4D] rounded-md text-sm font-medium hover:bg-[#F4F5F7] transition-colors"
+            aria-label="Reset voting round"
+            className="inline-flex items-center gap-2 h-10 px-4 bg-[var(--sp-card)] border border-[var(--sp-border)] text-[var(--sp-fg)] rounded-md text-sm font-medium hover:bg-[var(--sp-surface)] transition-colors"
           >
             <RotateCcw className="w-4 h-4" />
             Reset Voting
@@ -61,7 +65,8 @@ export default function ActionBar({
           {onUpdateJira && (
             <button
               onClick={onUpdateJira}
-              className="inline-flex items-center gap-2 h-10 px-4 bg-[#0052CC] text-white rounded-md text-sm font-medium hover:bg-[#0747A6] transition-colors"
+              aria-label="Update Jira with estimate"
+              className="inline-flex items-center gap-2 h-10 px-4 bg-[var(--sp-primary)] text-white rounded-md text-sm font-medium hover:bg-[var(--sp-primary-hover)] transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
               Update Jira

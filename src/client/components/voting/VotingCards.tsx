@@ -9,8 +9,8 @@ interface Props {
 
 export default function VotingCards({ options, selectedValue, onVote, disabled }: Props) {
   return (
-    <div className="bg-white rounded-xl border border-[#DFE1E6] shadow-sm p-6">
-      <h3 className="text-sm font-semibold text-[#172B4D] mb-4">Select your estimate</h3>
+    <div className="bg-[var(--sp-card)] rounded-xl border border-[var(--sp-border)] shadow-sm p-6">
+      <h3 className="text-sm font-semibold text-[var(--sp-fg)] mb-4">Select your estimate</h3>
       <div className="flex flex-wrap gap-3">
         {options.map((value) => (
           <button
@@ -20,8 +20,8 @@ export default function VotingCards({ options, selectedValue, onVote, disabled }
             className={cn(
               'w-14 h-20 rounded-lg border-2 font-bold text-lg transition-all duration-200',
               selectedValue === value
-                ? 'bg-[#0052CC] border-[#0052CC] text-white shadow-md scale-105'
-                : 'bg-white border-[#DFE1E6] text-[#172B4D] hover:border-[#0052CC] hover:shadow-sm',
+                ? 'bg-[var(--sp-primary)] border-[#0052CC] text-white shadow-md scale-105'
+                : 'bg-[var(--sp-card)] border-[var(--sp-border)] text-[var(--sp-fg)] hover:border-[#0052CC] hover:shadow-sm',
               disabled && 'opacity-40 cursor-not-allowed'
             )}
           >

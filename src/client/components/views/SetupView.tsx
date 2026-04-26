@@ -32,25 +32,25 @@ export default function SetupView() {
   return (
     <div className="max-w-2xl mx-auto pt-10">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-[#172B4D] mb-2">Scrum Poker</h1>
-        <p className="text-[#5E6C84]">Collaborative Story Point Estimation for Your Team</p>
+        <h1 className="text-3xl font-bold text-[var(--sp-fg)] mb-2">Scrum Poker</h1>
+        <p className="text-[var(--sp-muted)]">Collaborative Story Point Estimation for Your Team</p>
       </div>
 
       {!connected && (
-        <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-md text-sm text-orange-700 text-center">
+        <div className="mb-4 p-3 bg-[var(--sp-warn-bg)] border border-[var(--sp-warn)]/30 rounded-md text-sm text-[var(--sp-warn)] text-center">
           Connecting to server…
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-[#DFE1E6] shadow-sm overflow-hidden">
+      <div className="bg-[var(--sp-card)] rounded-xl border border-[var(--sp-border)] shadow-sm overflow-hidden">
         {/* Mode tabs */}
-        <div className="flex border-b border-[#DFE1E6]">
+        <div className="flex border-b border-[var(--sp-border)]">
           <button
             onClick={() => setMode('create')}
             className={`flex-1 py-3 text-sm font-medium transition-colors ${
               mode === 'create'
-                ? 'text-[#0052CC] border-b-2 border-[#0052CC]'
-                : 'text-[#5E6C84] hover:text-[#172B4D]'
+                ? 'text-[var(--sp-primary)] border-b-2 border-[#0052CC]'
+                : 'text-[var(--sp-muted)] hover:text-[var(--sp-fg)]'
             }`}
           >
             Create New Session
@@ -59,8 +59,8 @@ export default function SetupView() {
             onClick={() => setMode('join')}
             className={`flex-1 py-3 text-sm font-medium transition-colors ${
               mode === 'join'
-                ? 'text-[#0052CC] border-b-2 border-[#0052CC]'
-                : 'text-[#5E6C84] hover:text-[#172B4D]'
+                ? 'text-[var(--sp-primary)] border-b-2 border-[#0052CC]'
+                : 'text-[var(--sp-muted)] hover:text-[var(--sp-fg)]'
             }`}
           >
             Join Existing Session
@@ -71,7 +71,7 @@ export default function SetupView() {
           {mode === 'create' ? (
             <>
               <div>
-                <label className="block text-sm font-medium text-[#172B4D] mb-1">
+                <label className="block text-sm font-medium text-[var(--sp-fg)] mb-1">
                   Your Name (Facilitator)
                 </label>
                 <input
@@ -79,11 +79,11 @@ export default function SetupView() {
                   value={facilitatorName}
                   onChange={(e) => setFacilitatorName(e.target.value)}
                   placeholder="Enter your name"
-                  className="w-full h-10 px-3 border border-[#DFE1E6] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  className="w-full h-10 px-3 border border-[var(--sp-border)] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#172B4D] mb-1">
+                <label className="block text-sm font-medium text-[var(--sp-fg)] mb-1">
                   Session Name
                 </label>
                 <input
@@ -91,13 +91,13 @@ export default function SetupView() {
                   value={sessionName}
                   onChange={(e) => setSessionName(e.target.value)}
                   placeholder="Sprint 12 Planning"
-                  className="w-full h-10 px-3 border border-[#DFE1E6] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  className="w-full h-10 px-3 border border-[var(--sp-border)] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
                 />
               </div>
               <button
                 onClick={handleCreate}
                 disabled={!facilitatorName || !connected || isSubmitting}
-                className="w-full h-10 bg-[#0052CC] text-white rounded-md text-sm font-medium hover:bg-[#0747A6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full h-10 bg-[var(--sp-primary)] text-white rounded-md text-sm font-medium hover:bg-[var(--sp-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSubmitting ? 'Starting…' : 'Start Session'}
               </button>
@@ -105,32 +105,32 @@ export default function SetupView() {
           ) : (
             <>
               <div>
-                <label className="block text-sm font-medium text-[#172B4D] mb-1">Your Name</label>
+                <label className="block text-sm font-medium text-[var(--sp-fg)] mb-1">Your Name</label>
                 <input
                   type="text"
                   value={joinName}
                   onChange={(e) => setJoinName(e.target.value)}
                   placeholder="Enter your name"
-                  className="w-full h-10 px-3 border border-[#DFE1E6] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  className="w-full h-10 px-3 border border-[var(--sp-border)] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#172B4D] mb-1">Room Code</label>
+                <label className="block text-sm font-medium text-[var(--sp-fg)] mb-1">Room Code</label>
                 <input
                   type="text"
                   value={roomCode}
                   onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                   placeholder="Enter 6-digit room code"
                   maxLength={6}
-                  className="w-full h-10 px-3 border border-[#DFE1E6] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  className="w-full h-10 px-3 border border-[var(--sp-border)] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#172B4D] mb-1">Join as</label>
+                <label className="block text-sm font-medium text-[var(--sp-fg)] mb-1">Join as</label>
                 <select
                   value={joinRole}
                   onChange={(e) => setJoinRole(e.target.value as 'participant' | 'viewer')}
-                  className="w-full h-10 px-3 border border-[#DFE1E6] rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                  className="w-full h-10 px-3 border border-[var(--sp-border)] rounded-md text-sm bg-[var(--sp-card)] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
                 >
                   <option value="participant">Participant (can vote)</option>
                   <option value="viewer">Viewer (watch only)</option>
@@ -139,7 +139,7 @@ export default function SetupView() {
               <button
                 onClick={handleJoin}
                 disabled={!joinName || roomCode.length !== 6 || !connected || isSubmitting}
-                className="w-full h-10 bg-[#0052CC] text-white rounded-md text-sm font-medium hover:bg-[#0747A6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full h-10 bg-[var(--sp-primary)] text-white rounded-md text-sm font-medium hover:bg-[var(--sp-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSubmitting ? 'Joining…' : 'Join Session'}
               </button>

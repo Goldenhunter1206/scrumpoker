@@ -9,10 +9,10 @@ export default function SidebarSection({ title, children, defaultOpen = false }:
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="border-b border-[#DFE1E6]">
+    <div className="border-b border-[var(--sp-border)]">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-4 py-3 text-xs font-semibold text-[#5E6C84] uppercase tracking-wider hover:bg-[#F4F5F7] transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 text-xs font-semibold text-[var(--sp-muted)] uppercase tracking-wider hover:bg-[var(--sp-surface)] transition-colors"
       >
         <span>{title}</span>
         <svg

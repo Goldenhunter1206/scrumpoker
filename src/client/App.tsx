@@ -35,7 +35,7 @@ function AppInner() {
 
   return (
     <div
-      className="h-screen flex flex-col bg-[#F4F5F7] text-[#172B4D]"
+      className="h-screen flex flex-col bg-[var(--sp-surface)] text-[var(--sp-fg)]"
       style={{ fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif' }}
     >
       <ConnectionStatus connected={connected} />

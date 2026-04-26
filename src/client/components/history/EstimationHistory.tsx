@@ -37,13 +37,13 @@ export default function EstimationHistory() {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-[#DFE1E6] shadow-sm overflow-hidden">
-      <div className="px-6 py-4 border-b border-[#DFE1E6] flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-[#172B4D]">Estimation History</h3>
+    <div className="bg-[var(--sp-card)] rounded-xl border border-[var(--sp-border)] shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-[var(--sp-border)] flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-[var(--sp-fg)]">Estimation History</h3>
         {history.length > 0 && (
           <button
             onClick={handleExport}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#0052CC] bg-[#DEEBFF] rounded-md hover:bg-[#B3D4FF] transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[var(--sp-primary)] bg-[var(--sp-primary-bg)] rounded-md hover:bg-[var(--sp-primary)]/20 transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
             Export CSV
@@ -54,33 +54,33 @@ export default function EstimationHistory() {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-[#F4F5F7]">
-              <th className="px-4 py-3 text-left text-xs font-semibold text-[#5E6C84] uppercase tracking-wider">#</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-[#5E6C84] uppercase tracking-wider">Key</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-[#5E6C84] uppercase tracking-wider">Title</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-[#5E6C84] uppercase tracking-wider">Estimate</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-[#5E6C84] uppercase tracking-wider">Voters</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-[#5E6C84] uppercase tracking-wider">Time</th>
+            <tr className="bg-[var(--sp-surface)]">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--sp-muted)] uppercase tracking-wider">#</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--sp-muted)] uppercase tracking-wider">Key</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--sp-muted)] uppercase tracking-wider">Title</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--sp-muted)] uppercase tracking-wider">Estimate</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--sp-muted)] uppercase tracking-wider">Voters</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--sp-muted)] uppercase tracking-wider">Time</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#DFE1E6]">
             {history.map((item, idx) => (
-              <tr key={`${item.timestamp}-${idx}`} className="hover:bg-[#F4F5F7] transition-colors">
-                <td className="px-4 py-3 text-[#172B4D]">{idx + 1}</td>
-                <td className="px-4 py-3 font-mono text-[#0052CC] font-medium">{item.issueKey || item.ticket || '—'}</td>
-                <td className="px-4 py-3 text-[#172B4D] max-w-xs truncate">{item.summary || '—'}</td>
+              <tr key={`${item.timestamp}-${idx}`} className="hover:bg-[var(--sp-surface)] transition-colors">
+                <td className="px-4 py-3 text-[var(--sp-fg)]">{idx + 1}</td>
+                <td className="px-4 py-3 font-mono text-[var(--sp-primary)] font-medium">{item.issueKey || item.ticket || '—'}</td>
+                <td className="px-4 py-3 text-[var(--sp-fg)] max-w-xs truncate">{item.summary || '—'}</td>
                 <td className="px-4 py-3">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#E3FCEF] text-[#36B37E]">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[var(--sp-success-bg)] text-[var(--sp-success)]">
                     {item.storyPoints ?? item.originalEstimate ?? '—'}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-[#5E6C84]">{Object.keys(item.votes || {}).length}</td>
-                <td className="px-4 py-3 text-[#5E6C84]">{formatRelative(item.timestamp)}</td>
+                <td className="px-4 py-3 text-[var(--sp-muted)]">{Object.keys(item.votes || {}).length}</td>
+                <td className="px-4 py-3 text-[var(--sp-muted)]">{formatRelative(item.timestamp)}</td>
               </tr>
             ))}
             {history.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-sm text-[#5E6C84]">
+                <td colSpan={6} className="px-4 py-6 text-center text-sm text-[var(--sp-muted)]">
                   No estimations yet
                 </td>
               </tr>
