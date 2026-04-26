@@ -1,43 +1,54 @@
+import { useSessionState } from '../../context/SessionContext';
 import { Download } from 'lucide-react';
 
-interface HistoryItem {
-  id: string;
-  issueKey: string;
-  title: string;
-  estimate: string | number;
-  timestamp: string;
-  voters: number;
+function formatRelative(ts: Date | string): string {
+  const date = typeof ts === 'string' ? new Date(ts) : ts;
+  if (isNaN(date.getTime())) return '';
+  const diff = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (diff < 1) return 'just now';
+  if (diff < 60) return `${diff} min ago`;
+  const h = Math.floor(diff / 60);
+  return `${h}h ago`;
 }
 
 export default function EstimationHistory() {
-  // Placeholder data
-  const history: HistoryItem[] = [
-    {
-      id: '1',
-      issueKey: 'SF-221',
-      title: 'Add dark mode toggle to settings',
-      estimate: 5,
-      timestamp: '2 min ago',
-      voters: 7,
-    },
-    {
-      id: '2',
-      issueKey: 'SF-220',
-      title: 'Optimize image loading for gallery view',
-      estimate: 8,
-      timestamp: '8 min ago',
-      voters: 6,
-    },
-  ];
+  const { sessionData } = useSessionState();
+  const history = sessionData?.history || [];
+
+  const handleExport = () => {
+    if (!history.length) return;
+    const headers = ['#', 'Issue', 'Title', 'Estimate', 'Voters', 'Time'];
+    const rows = history.map((h, i) => [
+      String(i + 1),
+      h.issueKey || h.ticket || '',
+      h.summary || '',
+      String(h.storyPoints ?? h.originalEstimate ?? ''),
+      String(Object.keys(h.votes || {}).length || 0),
+      formatRelative(h.timestamp),
+    ]);
+    const csv = [headers.join(','), ...rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `estimations-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="bg-white rounded-xl border border-[#DFE1E6] shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-[#DFE1E6] flex items-center justify-between">
         <h3 className="text-sm font-semibold text-[#172B4D]">Estimation History</h3>
-        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#0052CC] bg-[#DEEBFF] rounded-md hover:bg-[#B3D4FF] transition-colors">
-          <Download className="w-3.5 h-3.5" />
-          Export CSV
-        </button>
+        {history.length > 0 && (
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#0052CC] bg-[#DEEBFF] rounded-md hover:bg-[#B3D4FF] transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export CSV
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -53,20 +64,27 @@ export default function EstimationHistory() {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#DFE1E6]">
-            {history.map((item) => (
-              <tr key={item.id} className="hover:bg-[#F4F5F7] transition-colors">
-                <td className="px-4 py-3 text-[#172B4D]">{item.id}</td>
-                <td className="px-4 py-3 font-mono text-[#0052CC] font-medium">{item.issueKey}</td>
-                <td className="px-4 py-3 text-[#172B4D] max-w-xs truncate">{item.title}</td>
+            {history.map((item, idx) => (
+              <tr key={`${item.timestamp}-${idx}`} className="hover:bg-[#F4F5F7] transition-colors">
+                <td className="px-4 py-3 text-[#172B4D]">{idx + 1}</td>
+                <td className="px-4 py-3 font-mono text-[#0052CC] font-medium">{item.issueKey || item.ticket || '—'}</td>
+                <td className="px-4 py-3 text-[#172B4D] max-w-xs truncate">{item.summary || '—'}</td>
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#E3FCEF] text-[#36B37E]">
-                    {item.estimate}
+                    {item.storyPoints ?? item.originalEstimate ?? '—'}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-[#5E6C84]">{item.voters}</td>
-                <td className="px-4 py-3 text-[#5E6C84]">{item.timestamp}</td>
+                <td className="px-4 py-3 text-[#5E6C84]">{Object.keys(item.votes || {}).length}</td>
+                <td className="px-4 py-3 text-[#5E6C84]">{formatRelative(item.timestamp)}</td>
               </tr>
             ))}
+            {history.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-sm text-[#5E6C84]">
+                  No estimations yet
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

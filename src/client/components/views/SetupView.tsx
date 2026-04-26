@@ -1,15 +1,33 @@
 import { useState } from 'react';
-interface Props {
-  onSessionCreated: (name: string) => void;
-}
+import { useSessionState, useSessionDispatch } from '../../context/SessionContext';
+import { useSocket } from '../../hooks/useSocket';
 
-export default function SetupView({ onSessionCreated }: Props) {
-  const [mode, setMode] = useState('create' as 'create' | 'join');
+export default function SetupView() {
+  const [mode, setMode] = useState<'create' | 'join'>('create');
   const [facilitatorName, setFacilitatorName] = useState('');
   const [sessionName, setSessionName] = useState('Sprint Planning Session');
   const [joinName, setJoinName] = useState('');
   const [roomCode, setRoomCode] = useState('');
-  const [joinRole, setJoinRole] = useState('participant' as 'participant' | 'viewer');
+  const [joinRole, setJoinRole] = useState<'participant' | 'viewer'>('participant');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { connected } = useSessionState();
+  const dispatch = useSessionDispatch();
+  const { createSession, joinSession } = useSocket();
+
+  const handleCreate = () => {
+    if (!facilitatorName || !connected) return;
+    setIsSubmitting(true);
+    dispatch({ type: 'SET_MY_NAME', payload: facilitatorName });
+    createSession(sessionName, facilitatorName);
+  };
+
+  const handleJoin = () => {
+    if (!joinName || roomCode.length !== 6 || !connected) return;
+    setIsSubmitting(true);
+    dispatch({ type: 'SET_MY_NAME', payload: joinName });
+    joinSession(roomCode, joinName, joinRole === 'viewer');
+  };
 
   return (
     <div className="max-w-2xl mx-auto pt-10">
@@ -17,6 +35,12 @@ export default function SetupView({ onSessionCreated }: Props) {
         <h1 className="text-3xl font-bold text-[#172B4D] mb-2">Scrum Poker</h1>
         <p className="text-[#5E6C84]">Collaborative Story Point Estimation for Your Team</p>
       </div>
+
+      {!connected && (
+        <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-md text-sm text-orange-700 text-center">
+          Connecting to server…
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-[#DFE1E6] shadow-sm overflow-hidden">
         {/* Mode tabs */}
@@ -71,11 +95,11 @@ export default function SetupView({ onSessionCreated }: Props) {
                 />
               </div>
               <button
-                onClick={() => facilitatorName && onSessionCreated(sessionName)}
-                disabled={!facilitatorName}
+                onClick={handleCreate}
+                disabled={!facilitatorName || !connected || isSubmitting}
                 className="w-full h-10 bg-[#0052CC] text-white rounded-md text-sm font-medium hover:bg-[#0747A6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Start Session
+                {isSubmitting ? 'Starting…' : 'Start Session'}
               </button>
             </>
           ) : (
@@ -113,11 +137,11 @@ export default function SetupView({ onSessionCreated }: Props) {
                 </select>
               </div>
               <button
-                onClick={() => {}}
-                disabled={!joinName || roomCode.length !== 6}
+                onClick={handleJoin}
+                disabled={!joinName || roomCode.length !== 6 || !connected || isSubmitting}
                 className="w-full h-10 bg-[#0052CC] text-white rounded-md text-sm font-medium hover:bg-[#0747A6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Join Session
+                {isSubmitting ? 'Joining…' : 'Join Session'}
               </button>
             </>
           )}

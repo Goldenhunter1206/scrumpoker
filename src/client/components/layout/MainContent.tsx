@@ -1,24 +1,15 @@
-import { AppView } from '../../App';
 import SetupView from '../views/SetupView';
 import SessionView from '../views/SessionView';
 
+export type AppView = 'setup' | 'session';
+
 interface Props {
   view: AppView;
-  onViewChange: (view: AppView) => void;
-  onSessionCreated: (name: string) => void;
 }
 
-export default function MainContent({ view, onViewChange, onSessionCreated }: Props) {
+export default function MainContent({ view }: Props) {
   if (view === 'setup') {
-    return (
-      <SetupView
-        onSessionCreated={(name) => {
-          onSessionCreated(name);
-          onViewChange('session');
-        }}
-      />
-    );
+    return <SetupView />;
   }
-
   return <SessionView />;
 }

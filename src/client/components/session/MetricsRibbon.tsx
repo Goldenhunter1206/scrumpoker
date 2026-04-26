@@ -1,7 +1,7 @@
 interface Props {
   average: number;
   agreement: number;
-  consensus: number;
+  consensus: number | string;
   totalVoters: number;
 }
 
