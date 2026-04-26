@@ -5,17 +5,17 @@ interface Props {
 export function ConnectionStatus({ connected }: Props) {
   return (
     <div
-      className={`
-        fixed top-5 right-5 px-4 py-2 rounded-full text-sm font-medium z-50
-        transition-all duration-300
-        ${
-          connected
-            ? 'bg-green-100 text-green-800 border border-[var(--sp-success)]/30'
-            : 'bg-[var(--sp-danger)]/15 text-[var(--sp-danger)] border border-[var(--sp-danger)]/30'
-        }
-      `}
+      className="fixed top-3 left-4 px-2.5 py-1 rounded-full text-[11px] font-medium z-50 flex items-center gap-1.5 shadow-sm border transition-all duration-300"
+      style={{
+        background: connected ? 'var(--sp-success-bg, #E3FCEF)' : 'var(--sp-danger-bg, #FFEBE6)',
+        borderColor: connected ? 'var(--sp-success, #36B37E)' : 'var(--sp-danger, #DE350B)',
+        color: connected ? 'var(--sp-success, #36B37E)' : 'var(--sp-danger, #DE350B)',
+      }}
     >
-      {connected ? '🟢 Connected' : '🟡 Connecting...'}
+      <span
+        className={`w-1.5 h-1.5 rounded-full inline-block ${connected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}
+      />
+      {connected ? 'Connected' : 'Connecting...'}
     </div>
   );
 }

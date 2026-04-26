@@ -53,12 +53,33 @@ function AppInner() {
         />
       )}
 
-      <div className="flex flex-1 overflow-hidden">
-        {hasSession && sidebarOpen && <Sidebar />}
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Desktop sidebar */}
+        {hasSession && sidebarOpen && (
+          <div className="hidden lg:block">
+            <Sidebar />
+          </div>
+        )}
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <MainContent view={hasSession ? 'session' : 'setup'} />
         </main>
+
+        {/* Mobile sidebar overlay + backdrop */}
+        {hasSession && sidebarOpen && (
+          <>
+            <div className="lg:hidden fixed inset-y-0 left-0 z-40">
+              <div className="h-full bg-[var(--sp-card)] border-r border-[var(--sp-border)] shadow-xl w-[280px]">
+                <Sidebar />
+              </div>
+            </div>
+            <div
+              className="lg:hidden fixed inset-0 z-30 bg-black/40 backdrop-blur-sm"
+              onClick={() => setSidebarOpen(false)}
+              aria-hidden="true"
+            />
+          </>
+        )}
       </div>
     </div>
   );

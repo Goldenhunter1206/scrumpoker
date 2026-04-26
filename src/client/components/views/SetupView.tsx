@@ -30,10 +30,10 @@ export default function SetupView() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto pt-10">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-[var(--sp-fg)] mb-2">Scrum Poker</h1>
-        <p className="text-[var(--sp-muted)]">Collaborative Story Point Estimation for Your Team</p>
+    <div className="max-w-2xl mx-auto px-4 pt-6 md:pt-10">
+      <div className="text-center mb-6 md:mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-[var(--sp-fg)] mb-2">Scrum Poker</h1>
+        <p className="text-sm md:text-base text-[var(--sp-muted)]">Collaborative Story Point Estimation for Your Team</p>
       </div>
 
       {!connected && (
