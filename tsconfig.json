@@ -10,6 +10,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
+    "jsx": "react-jsx",
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -20,6 +21,7 @@
       "@shared/*": ["src/shared/*"]
     }
   },
-  "include": ["src/client/**/*.ts", "src/shared/**/*.ts"],
+  "include": ["src/client/**/*.ts", "src/client/**/*.tsx", "src/shared/**/*.ts", "src/shared/**/*.tsx"],
+  "exclude": ["src/client/utils"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

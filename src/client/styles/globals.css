@@ -1,57 +1,121 @@
-@reference "./main.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   :root {
+    --sp-bg: #F4F5F7;
+    --sp-fg: #172B4D;
+    --sp-card: #FFFFFF;
+    --sp-surface: #F4F5F7;
+    --sp-border: #DFE1E6;
+    --sp-muted: #5E6C84;
+    --sp-primary: #0052CC;
+    --sp-primary-hover: #0747A6;
+    --sp-primary-bg: #DEEBFF;
+    --sp-danger: #DE350B;
+    --sp-danger-bg: #FFEBE6;
+    --sp-success: #36B37E;
+    --sp-success-bg: #E3FCEF;
+    --sp-warn: #FF991F;
+    --sp-warn-bg: #FFFAE6;
+    --sp-purple: #6554C0;
+    --sp-purple-bg: #EAE6FF;
+    --sp-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.04);
+
+    /* shadcn compat tokens */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 217 90% 40%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary-foreground: 222 47% 11%;
     --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted-foreground: 215 16% 47%;
     --accent: 210 40% 96%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 217 90% 40%;
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 94.1%;
-  }
-}
+    --sp-bg: #0B1120;
+    --sp-fg: #E2E8F0;
+    --sp-card: #111827;
+    --sp-surface: #161F32;
+    --sp-border: #1E293B;
+    --sp-muted: #94A3B8;
+    --sp-primary: #60A5FA;
+    --sp-primary-hover: #3B82F6;
+    --sp-primary-bg: #1E3A5F;
+    --sp-danger: #F87171;
+    --sp-success: #34D399;
+    --sp-success-bg: #064E3B;
+    --sp-warn: #FBBF24;
+    --sp-warn-bg: #451A03;
+    --sp-purple: #A78BFA;
+    --sp-purple-bg: #312E81;
+    --sp-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.25);
 
-@layer base {
-  * {
-    @apply border-border;
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 217 91% 60%;
   }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--sp-bg);
+    color: var(--sp-fg);
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--sp-card), 0 0 0 4px hsl(var(--ring));
+  }
+
+  /* Smooth page transitions */
+  .animate-fade-in {
+    animation: fadeIn 200ms ease-out;
+  }
+  .animate-slide-in-right {
+    animation: slideInRight 200ms ease-out;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(0.5rem); }
+    to { opacity: 1; transform: translateX(0); }
   }
 }
