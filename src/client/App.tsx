@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
 import TopNav from './components/layout/TopNav';
 import Sidebar from './components/layout/Sidebar';
 import MainContent from './components/layout/MainContent';
 import { ConnectionStatus } from './components/layout/ConnectionStatus';
+import { useState } from 'react';
 
 export type AppView = 'setup' | 'session';
 
 export default function App() {
   const [view, setView] = useState('setup' as AppView);
-  const [connected, setConnected] = useState(false);
+  const [connected] = useState(false);
   const [sessionName, setSessionName] = useState('');
 
   return (

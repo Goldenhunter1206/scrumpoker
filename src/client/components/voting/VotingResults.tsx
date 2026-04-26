@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface Vote {
   name: string;
   vote: string | number;

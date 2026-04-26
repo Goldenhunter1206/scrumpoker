@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
 import SidebarSection from './SidebarSection';
+import { useState } from 'react';
 
 export default function Sidebar() {
   const [autoReveal, setAutoReveal] = useState(true);

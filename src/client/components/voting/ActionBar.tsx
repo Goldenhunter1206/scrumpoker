@@ -1,4 +1,3 @@
-import React from 'react';
 import { Eye, Timer, SkipForward, RotateCcw, ExternalLink } from 'lucide-react';
 
 interface Props {

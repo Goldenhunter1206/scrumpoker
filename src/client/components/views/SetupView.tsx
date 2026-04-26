@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-
+import { useState } from 'react';
 interface Props {
   onSessionCreated: (name: string) => void;
 }

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Download } from 'lucide-react';
 
 interface HistoryItem {

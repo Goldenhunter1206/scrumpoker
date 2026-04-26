@@ -1,4 +1,3 @@
-import React from 'react';
 import MetricsRibbon from '../session/MetricsRibbon';
 import CurrentIssueCard from '../voting/CurrentIssueCard';
 import VotingCards from '../voting/VotingCards';

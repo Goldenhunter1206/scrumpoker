@@ -1,4 +1,3 @@
-import React from 'react';
 import { AppView } from '../../App';
 import SetupView from '../views/SetupView';
 import SessionView from '../views/SessionView';

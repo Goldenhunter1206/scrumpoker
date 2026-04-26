@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface Props {
   sessionName: string;
   isFacilitator: boolean;
@@ -7,7 +5,7 @@ interface Props {
   jiraConnected: boolean;
 }
 
-export default function TopNav({ sessionName, isFacilitator, elapsedTime, jiraConnected }: Props) {
+export default function TopNav({ isFacilitator, elapsedTime, jiraConnected }: Props) {
   return (
     <header className="h-14 bg-white border-b border-[#DFE1E6] flex items-center justify-between px-4 shrink-0">
       {/* Left: Logo + Role */}

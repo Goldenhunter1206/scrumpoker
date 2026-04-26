@@ -1,0 +1,87 @@
+@reference "tailwindcss";
+
+@layer base {
+  :root {
+    --background: #F4F5F7;
+    --foreground: #172B4D;
+    --card: #FFFFFF;
+    --card-foreground: #172B4D;
+    --popover: #FFFFFF;
+    --popover-foreground: #172B4D;
+    --primary: #0052CC;
+    --primary-foreground: #FFFFFF;
+    --secondary: #F4F5F7;
+    --secondary-foreground: #172B4D;
+    --muted: #F4F5F7;
+    --muted-foreground: #5E6C84;
+    --accent: #DEEBFF;
+    --accent-foreground: #0052CC;
+    --destructive: #DE350B;
+    --destructive-foreground: #FFFFFF;
+    --border: #DFE1E6;
+    --input: #DFE1E6;
+    --ring: #0052CC;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: #161A1D;
+    --foreground: #DEE4EA;
+    --card: #22272B;
+    --card-foreground: #DEE4EA;
+    --popover: #22272B;
+    --popover-foreground: #DEE4EA;
+    --primary: #4C9AFF;
+    --primary-foreground: #161A1D;
+    --secondary: #1D2125;
+    --secondary-foreground: #DEE4EA;
+    --muted: #1D2125;
+    --muted-foreground: #9FADBC;
+    --accent: #1D2125;
+    --accent-foreground: #4C9AFF;
+    --destructive: #FF5630;
+    --destructive-foreground: #FFFFFF;
+    --border: #454F59;
+    --input: #454F59;
+    --ring: #4C9AFF;
+  }
+}
+
+@layer base {
+  html {
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Smooth transitions */
+button, a, input, select, textarea {
+  transition: all 150ms ease;
+}
