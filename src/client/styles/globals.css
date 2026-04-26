@@ -100,9 +100,7 @@
   select:focus-visible,
   textarea:focus-visible {
     outline: none;
-    ring: 2px;
-    ring-color: hsl(var(--ring));
-    ring-offset: 2px;
+    box-shadow: 0 0 0 2px var(--sp-card), 0 0 0 4px hsl(var(--ring));
   }
 
   /* Smooth page transitions */

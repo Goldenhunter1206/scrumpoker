@@ -9,13 +9,21 @@ import type {
 } from '@shared/types/index.js';
 import { useSessionDispatch } from '../context/SessionContext';
 
+let sharedSocket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
+
+function getSharedSocket() {
+  if (!sharedSocket) {
+    sharedSocket = io();
+  }
+  return sharedSocket;
+}
+
 export function useSocket() {
   const dispatch = useSessionDispatch();
-  const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
+  const myNameRef = useRef<string>('');
 
   useEffect(() => {
-    const socket = io();
-    socketRef.current = socket;
+    const socket = getSharedSocket();
 
     socket.on('connect', () => {
       dispatch({ type: 'SET_CONNECTED', payload: true });
@@ -25,7 +33,6 @@ export function useSocket() {
       dispatch({ type: 'SET_CONNECTED', payload: false });
     });
 
-    // Session events
     socket.on('session-created', (data) => {
       if (data.success) {
         dispatch({ type: 'SET_SESSION_DATA', payload: data.sessionData });
@@ -43,8 +50,10 @@ export function useSocket() {
     });
 
     socket.on('join-success', (data) => {
+      // Look up "me" by myName (stored when joinSession is called)
       const myParticipant = data.sessionData.participants.find(
-        (p: { name: string; isFacilitator?: boolean; isViewer?: boolean }) => p.name === data.sessionData.facilitator
+        (p: { name: string; isFacilitator?: boolean; isViewer?: boolean }) =>
+          p.name === myNameRef.current
       );
       dispatch({ type: 'SET_SESSION_DATA', payload: data.sessionData });
       dispatch({
@@ -53,7 +62,7 @@ export function useSocket() {
       });
       dispatch({
         type: 'SET_IS_VIEWER',
-        payload: myParticipant ? myParticipant.isViewer || false : false,
+        payload: myParticipant ? !!myParticipant.isViewer : false,
       });
       if (data.yourVote !== null && data.yourVote !== undefined) {
         dispatch({ type: 'SET_MY_VOTE', payload: data.yourVote });
@@ -103,7 +112,6 @@ export function useSocket() {
       dispatch({ type: 'RESET' });
     });
 
-    // Jira events
     socket.on('jira-config-success', (data) => {
       dispatch({ type: 'SET_JIRA_CONFIG', payload: data.sessionData.jiraConfig });
       dispatch({ type: 'SET_JIRA_BOARDS', payload: data.boards });
@@ -245,20 +253,23 @@ export function useSocket() {
     });
 
     return () => {
-      socket.disconnect();
+      // Only remove listeners on unmount; do NOT disconnect the shared socket
+      socket.removeAllListeners();
     };
   }, [dispatch]);
 
   const createSession = useCallback(
     (sessionName: string, facilitatorName: string) => {
-      socketRef.current?.emit('create-session', { sessionName, facilitatorName });
+      myNameRef.current = facilitatorName;
+      getSharedSocket().emit('create-session', { sessionName, facilitatorName });
     },
     []
   );
 
   const joinSession = useCallback(
     (roomCode: string, participantName: string, asViewer = false) => {
-      socketRef.current?.emit('join-session', { roomCode, participantName, asViewer });
+      myNameRef.current = participantName;
+      getSharedSocket().emit('join-session', { roomCode, participantName, asViewer });
     },
     []
   );
@@ -266,91 +277,91 @@ export function useSocket() {
   const submitVote = useCallback(
     (roomCode: string, vote: Vote) => {
       dispatch({ type: 'SET_MY_VOTE', payload: vote });
-      socketRef.current?.emit('submit-vote', { roomCode, vote });
+      getSharedSocket().emit('submit-vote', { roomCode, vote });
     },
     [dispatch]
   );
 
   const revealVotes = useCallback(
     (roomCode: string) => {
-      socketRef.current?.emit('reveal-votes', { roomCode });
+      getSharedSocket().emit('reveal-votes', { roomCode });
     },
     []
   );
 
   const resetVoting = useCallback(
     (roomCode: string) => {
-      socketRef.current?.emit('reset-voting', { roomCode });
+      getSharedSocket().emit('reset-voting', { roomCode });
     },
     []
   );
 
   const startCountdown = useCallback(
     (roomCode: string, duration: number) => {
-      socketRef.current?.emit('start-countdown', { roomCode, duration });
+      getSharedSocket().emit('start-countdown', { roomCode, duration });
     },
     []
   );
 
   const setTicket = useCallback(
     (roomCode: string, ticket: string) => {
-      socketRef.current?.emit('set-ticket', { roomCode, ticket });
+      getSharedSocket().emit('set-ticket', { roomCode, ticket });
     },
     []
   );
 
   const configureJira = useCallback(
     (roomCode: string, domain: string, email: string, token: string, projectKey?: string) => {
-      socketRef.current?.emit('configure-jira', { roomCode, domain, email, token, projectKey });
+      getSharedSocket().emit('configure-jira', { roomCode, domain, email, token, projectKey });
     },
     []
   );
 
   const getJiraIssues = useCallback(
     (roomCode: string, boardId: string) => {
-      socketRef.current?.emit('get-jira-issues', { roomCode, boardId });
+      getSharedSocket().emit('get-jira-issues', { roomCode, boardId });
     },
     []
   );
 
   const setJiraIssue = useCallback(
     (roomCode: string, issue: JiraIssue) => {
-      socketRef.current?.emit('set-jira-issue', { roomCode, issue });
+      getSharedSocket().emit('set-jira-issue', { roomCode, issue });
     },
     []
   );
 
   const finalizeEstimation = useCallback(
     (roomCode: string, finalEstimate: number, moveToSprint = false) => {
-      socketRef.current?.emit('finalize-estimation', { roomCode, finalEstimate, moveToSprint });
+      getSharedSocket().emit('finalize-estimation', { roomCode, finalEstimate, moveToSprint });
     },
     []
   );
 
   const endSession = useCallback(
     (roomCode: string) => {
-      socketRef.current?.emit('end-session', { roomCode });
+      getSharedSocket().emit('end-session', { roomCode });
     },
     []
   );
 
   const moderateParticipant = useCallback(
     (roomCode: string, targetName: string, action: string) => {
-      socketRef.current?.emit('moderate-participant', { roomCode, targetName, action });
+      getSharedSocket().emit('moderate-participant', { roomCode, targetName, action });
     },
     []
   );
 
   const sendChatMessage = useCallback(
     (roomCode: string, message: string) => {
-      socketRef.current?.emit('send-chat-message', { roomCode, message });
+      getSharedSocket().emit('send-chat-message', { roomCode, message });
     },
     []
   );
 
   const sendTypingIndicator = useCallback(
     (roomCode: string, userName: string, isTyping: boolean) => {
-      socketRef.current?.emit('typing-indicator', { roomCode, userName, isTyping });
+      getSharedSocket().emit('typing-indicator', { roomCode, userName, isTyping });
     },
     []
   );
@@ -371,6 +382,6 @@ export function useSocket() {
     moderateParticipant,
     sendChatMessage,
     sendTypingIndicator,
-    socket: socketRef.current,
+    socket: getSharedSocket(),
   };
 }

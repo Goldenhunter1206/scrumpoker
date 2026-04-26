@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSessionState, useSessionDispatch } from '../../context/SessionContext';
 import { useSocket } from '../../hooks/useSocket';
 
@@ -10,21 +10,38 @@ export default function SetupView() {
   const [roomCode, setRoomCode] = useState('');
   const [joinRole, setJoinRole] = useState<'participant' | 'viewer'>('participant');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const { connected } = useSessionState();
+  const { connected, notification } = useSessionState();
   const dispatch = useSessionDispatch();
   const { createSession, joinSession } = useSocket();
 
+  // Auto-reset isSubmitting when an error notification arrives
+  useEffect(() => {
+    if (notification?.type === 'error' && isSubmitting) {
+      setIsSubmitting(false);
+    }
+  }, [notification, isSubmitting]);
+
+  // Safety reset after 5 seconds no matter what
+  useEffect(() => {
+    if (!isSubmitting) return;
+    const id = setTimeout(() => setIsSubmitting(false), 5000);
+    return () => clearTimeout(id);
+  }, [isSubmitting]);
+
   const handleCreate = () => {
-    if (!facilitatorName || !connected) return;
+    if (!facilitatorName || !connected || isSubmitting) return;
     setIsSubmitting(true);
+    setError(null);
     dispatch({ type: 'SET_MY_NAME', payload: facilitatorName });
     createSession(sessionName, facilitatorName);
   };
 
   const handleJoin = () => {
-    if (!joinName || roomCode.length !== 6 || !connected) return;
+    if (!joinName || roomCode.length !== 6 || !connected || isSubmitting) return;
     setIsSubmitting(true);
+    setError(null);
     dispatch({ type: 'SET_MY_NAME', payload: joinName });
     joinSession(roomCode, joinName, joinRole === 'viewer');
   };
@@ -42,11 +59,17 @@ export default function SetupView() {
         </div>
       )}
 
+      {error && (
+        <div className="mb-4 p-3 bg-[var(--sp-danger-bg)] border border-[var(--sp-danger)]/30 rounded-md text-sm text-[var(--sp-danger)] text-center">
+          {error}
+        </div>
+      )}
+
       <div className="bg-[var(--sp-card)] rounded-xl border border-[var(--sp-border)] shadow-sm overflow-hidden">
         {/* Mode tabs */}
         <div className="flex border-b border-[var(--sp-border)]">
           <button
-            onClick={() => setMode('create')}
+            onClick={() => { setMode('create'); setError(null); }}
             className={`flex-1 py-3 text-sm font-medium transition-colors ${
               mode === 'create'
                 ? 'text-[var(--sp-primary)] border-b-2 border-[#0052CC]'
@@ -56,7 +79,7 @@ export default function SetupView() {
             Create New Session
           </button>
           <button
-            onClick={() => setMode('join')}
+            onClick={() => { setMode('join'); setError(null); }}
             className={`flex-1 py-3 text-sm font-medium transition-colors ${
               mode === 'join'
                 ? 'text-[var(--sp-primary)] border-b-2 border-[#0052CC]'
@@ -79,7 +102,7 @@ export default function SetupView() {
                   value={facilitatorName}
                   onChange={(e) => setFacilitatorName(e.target.value)}
                   placeholder="Enter your name"
-                  className="w-full h-10 px-3 border border-[var(--sp-border)] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  className="w-full h-10 px-3 border border-[var(--sp-border)] rounded-md text-sm bg-[var(--sp-card)] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
                 />
               </div>
               <div>
@@ -91,7 +114,7 @@ export default function SetupView() {
                   value={sessionName}
                   onChange={(e) => setSessionName(e.target.value)}
                   placeholder="Sprint 12 Planning"
-                  className="w-full h-10 px-3 border border-[var(--sp-border)] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  className="w-full h-10 px-3 border border-[var(--sp-border)] rounded-md text-sm bg-[var(--sp-card)] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
                 />
               </div>
               <button
@@ -111,7 +134,7 @@ export default function SetupView() {
                   value={joinName}
                   onChange={(e) => setJoinName(e.target.value)}
                   placeholder="Enter your name"
-                  className="w-full h-10 px-3 border border-[var(--sp-border)] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  className="w-full h-10 px-3 border border-[var(--sp-border)] rounded-md text-sm bg-[var(--sp-card)] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
                 />
               </div>
               <div>
@@ -122,7 +145,7 @@ export default function SetupView() {
                   onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                   placeholder="Enter 6-digit room code"
                   maxLength={6}
-                  className="w-full h-10 px-3 border border-[var(--sp-border)] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  className="w-full h-10 px-3 border border-[var(--sp-border)] rounded-md text-sm bg-[var(--sp-card)] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
                 />
               </div>
               <div>

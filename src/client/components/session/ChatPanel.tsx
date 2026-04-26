@@ -8,6 +8,7 @@ export default function ChatPanel() {
   const { sendChatMessage, sendTypingIndicator } = useSocket();
   const [msg, setMsg] = useState('');
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roomCode = sessionData?.id || '';
 
   useEffect(() => {
@@ -18,6 +19,7 @@ export default function ChatPanel() {
     if (!msg.trim() || !roomCode) return;
     sendChatMessage(roomCode, msg.trim());
     setMsg('');
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     sendTypingIndicator(roomCode, myName, false);
   };
 
@@ -30,9 +32,20 @@ export default function ChatPanel() {
 
   const handleChange = (v: string) => {
     setMsg(v);
-    if (roomCode) {
-      sendTypingIndicator(roomCode, myName, v.length > 0);
+    if (!roomCode || !myName) return;
+
+    // Debounced typing indicator: only emit once per burst, then clear after 2s of inactivity
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    } else if (v.length > 0) {
+      // First keystroke of a burst
+      sendTypingIndicator(roomCode, myName, true);
     }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      sendTypingIndicator(roomCode, myName, false);
+      typingTimeoutRef.current = null;
+    }, 2000);
   };
 
   const typing = typingUsers.filter((u) => u !== myName);
